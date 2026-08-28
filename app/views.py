@@ -93,7 +93,12 @@ def registro(request):
                 user.save()
 
                 # crear y guardar el objeto Usuario asociado al usuario
-                usuario = Usuario(user=user, tipo_usu=form.cleaned_data['tipo_usu'], foto_perfil=request.FILES['foto_perfil'], foto_fondo=request.FILES['foto_fondo'])
+                usuario = Usuario(
+                    user=user,
+                    tipo_usu=form.cleaned_data['tipo_usu'],
+                    foto_perfil=request.FILES.get('foto_perfil'),
+                    foto_fondo=request.FILES.get('foto_fondo'),
+                )
                 usuario.save()
                 return redirect('inicio')
     else:
