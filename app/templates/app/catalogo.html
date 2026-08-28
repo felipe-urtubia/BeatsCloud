@@ -60,7 +60,9 @@
         {% for track in tracks %}
           <tr>
             <td>
-              <img src="{{ track.foto.url }}" alt="{{ track.nombre_track }}" class="img-thumbnail" style="max-width: 100px;">
+              {% if track.foto %}
+                <img src="{{ track.foto.url }}" alt="{{ track.nombre_track }}" class="img-thumbnail" style="max-width: 100px;">
+              {% endif %}
               <audio src="{{ track.track.url }}" controls controlsList="nodownload"></audio>
             </td>
             <td>{{ track.nombre_track }}</td>

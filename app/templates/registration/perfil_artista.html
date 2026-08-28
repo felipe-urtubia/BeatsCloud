@@ -9,8 +9,8 @@
 <div class="container-fluid">
     <div class="row">
         <div class="profile-header">
-            <img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">
-            <img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">
+            {% if user.usuario.foto_fondo %}<img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">{% endif %}
+            {% if user.usuario.foto_perfil %}<img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">{% endif %}
         </div>
       
     </div>
@@ -45,7 +45,7 @@
               <tr>
                 <td>{{ compra.fecha_compra }}</td>
                 <td>
-                  <img src="{{ compra.track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">
+                  {% if compra.track.foto %}<img src="{{ compra.track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">{% endif %}
                   {{ compra.track.nombre_track }}
                 </td>
                 <td>
@@ -67,7 +67,7 @@
       <li>
         <div class="track-info">
           <h4>{{ track.nombre_track }}</h4>
-          <img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">
+          {% if track.foto %}<img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">{% endif %}
           <audio controls controlsList="nodownload">
             <source src="{{ track.track.url }}" type="audio/mp3">
             Tu navegador no soporta el elemento de audio.

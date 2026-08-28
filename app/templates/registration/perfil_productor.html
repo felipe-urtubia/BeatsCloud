@@ -9,8 +9,8 @@
 <div class="container-fluid">
   <div class="row">
     <div class="profile-header">
-      <img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">
-      <img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">
+      {% if user.usuario.foto_fondo %}<img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">{% endif %}
+      {% if user.usuario.foto_perfil %}<img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">{% endif %}
     </div>
   </div>
 </div>
@@ -76,7 +76,7 @@
         <tbody>
           {% for track in tracks %}
           <tr>
-            <td><img src="{{ track.foto.url }}" style="max-height: 100px;"></td>
+            <td>{% if track.foto %}<img src="{{ track.foto.url }}" style="max-height: 100px;">{% endif %}</td>
             <td>{{ track.nombre_track }}</td>
             <td>{{ track.precio }}</td>
             <td>

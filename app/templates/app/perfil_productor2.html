@@ -9,8 +9,8 @@
 <div class="container-fluid">
   <div class="row">
     <div class="profile-header">
-      <img class="profile-background" src="{{ perfil.foto_fondo.url }}">
-      <img class="profile-picture" src="{{ perfil.foto_perfil.url }}">
+      {% if perfil.foto_fondo %}<img class="profile-background" src="{{ perfil.foto_fondo.url }}">{% endif %}
+      {% if perfil.foto_perfil %}<img class="profile-picture" src="{{ perfil.foto_perfil.url }}">{% endif %}
     </div>
   </div>
 </div>
@@ -58,7 +58,7 @@
         <tbody>
           {% for cancion in canciones %}
             <tr>
-              <td><img src="{{ cancion.foto.url }}" style="max-height: 100px;"></td>
+              <td>{% if cancion.foto %}<img src="{{ cancion.foto.url }}" style="max-height: 100px;">{% endif %}</td>
               <td>{{ cancion.nombre_track }}</td>
               <td>{{ cancion.precio }}</td>
               <td>
