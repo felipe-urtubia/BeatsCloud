@@ -19,11 +19,13 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.views import LoginView
+from app.views import logout as app_logout
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('app.urls')),
+    path('accounts/logout/', app_logout, name='accounts_logout'),
     path('accounts/',include('django.contrib.auth.urls')),
 ]
 
