@@ -14,7 +14,9 @@
     <div class="track-info">
       <h3 class="track-name">Cancion: {{ track.nombre_track }}</h3>
       <div class="user-info" >
-        <img src="{{ track.usuario.foto_perfil.url }}" alt="Foto de perfil" class="user-photo" style = "width: 40px; height: 40px; border-radius: 50%;">
+        {% if track.usuario.foto_perfil %}
+          <img src="{{ track.usuario.foto_perfil.url }}" alt="Foto de perfil" class="user-photo" style = "width: 40px; height: 40px; border-radius: 50%;">
+        {% endif %}
         <a href="{% url 'perfil_productor1' track.usuario.user.username %}" class="user-name" style = "display: inline-block; vertical-align: middle; color: orange;">{{ track.usuario.user.username | capfirst }}</a>
         <hr>
       </div>
@@ -43,7 +45,9 @@
   </div>
   <div class="col-md-6">
     <div class="track-image">
-      <img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 300px; max-height: 300px;">
+      {% if track.foto %}
+        <img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 300px; max-height: 300px;">
+      {% endif %}
       <div class="audio-player">
         <audio id="audio-player" controls controlsList="nodownload">
           <source src="{{ track.track.url }}" type="audio/mp3" >
