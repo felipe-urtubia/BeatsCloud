@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+<head>
+  <!-- Otros elementos del encabezado -->
+  <link rel="stylesheet" href="{% static 'css/detalle.css' %}">
+</head>
+
+{% block contenido %}
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="track-info">
+      <h3 class="track-name">Cancion: {{ track.nombre_track }}</h3>
+      <div class="user-info" >
+        <img src="{{ track.usuario.foto_perfil.url }}" alt="Foto de perfil" class="user-photo" style = "width: 40px; height: 40px; border-radius: 50%;">
+        <a href="{% url 'perfil_productor1' track.usuario.user.username %}" class="user-name" style = "display: inline-block; vertical-align: middle; color: orange;">{{ track.usuario.user.username | capfirst }}</a>
+        <hr>
+      </div>
+      <h3 style="margin-top: 40px"> Genero: </h3>
+      <h6 class="genre">{{ track.genero.descripcion }}</h6>
+      <hr>
+      <div class="comments">
+        <h2 style= "margin-top: 40px" >Comentarios:</h2>
+        <ul>
+            {% for comentario in comentarios %}
+              <li>
+                <div class="comment">
+                  <div class="user-info">
+                    <a class="username" href="{% url 'perfil2' comentario.usuario.username %}" style = "color: orange;">{{ comentario.usuario.username }}</a>
+                    <p class="comment-content" style = "font-size: 20px">{{ comentario.contenido }}</p>
+                  </div>
+                </div>
+                <hr>
+              </li>
+            {% empty %}
+              <li>No hay comentarios.</li>
+            {% endfor %}
+          </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="track-image">
+      <img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 300px; max-height: 300px;">
+      <div class="audio-player">
+        <audio id="audio-player" controls controlsList="nodownload">
+          <source src="{{ track.track.url }}" type="audio/mp3" >
+          Your browser does not support the audio element.
+        </audio>
+        <div class="buttons">
+            <p class="price">
+                <span style="color: black; font-size: 20px">Precio: </span>
+                <span style="color: orange; font-size: 20px">${{ track.precio }}</span>
+            </p>
+            <a href="#" class="btn btn-warning">Descarga</a>
+            <form method="post" action="{% url 'agregar_al_carrito' track.id_track %}">
+              {% csrf_token %}
+              <input type="hidden" name="track_id" value="{{ track.id_track }}">
+              <button type="submit" class="btn btn-warning" style="margin-top:20px;">Agregar al carrito</button>
+            </form>
+              <form method="post" action="{% url 'dar_like' track.id_track %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning" style="margin-top:20px">Me gusta</button>
+              </form>
+            </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Formulario para agregar un comentario -->
+<form method="post" action="{% url 'agregar_comentario' track.id_track %}" class="mt-4">
+  {% csrf_token %}
+  <div class="form-group">
+    <textarea name="contenido" class="form-control" rows="3" placeholder="Escribe tu comentario"></textarea>
+  </div>
+  <button type="submit" class="btn btn-warning">Enviar</button>
+</form>
+
+{% endblock %}

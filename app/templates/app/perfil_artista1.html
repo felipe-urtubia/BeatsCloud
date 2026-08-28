@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% load static %}
+{% block contenido %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="profile-header">
+            <img class="profile-background" src="{{ perfil.foto_fondo.url }}">
+            <img class="profile-picture" src="{{ perfil.foto_perfil.url }}">
+        </div>
+    </div>
+</div>
+
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="profile-info">
+                <h2 class="username">{{ perfil.user.username | capfirst }}</h2>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="social-media">
+                <a href="{{ perfil.youtube }}"><img src="{% static 'app/img/youtube.png' %}" alt="YouTube" class="social-icon" style="width:80px; height:80px;"></a>
+                <a href="{{ perfil.spotify }}"><img src="{% static 'app/img/spotify.png' %}" alt="Spotify" class="social-icon" style="width:80px; height:80px;"></a>
+                <a href="{{ perfil.instagram }}"><img src="{% static 'app/img/instagram.png' %}" alt="Instagram" class="social-icon" style="width:80px; height:80px;"></a>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <p class="desc" style="word-wrap: break-word; white-space: pre-wrap;">{{ perfil.descripcion }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block titulo %} Inicio {% endblock %}
+
+
+
+{% block contenido %}
+<br>
+
+
+<div class=>
+  <div class=>
+    <h5>¡Bienvenidos a BeatsCloud!</h5><br>
+    <p>"¡Bienvenido a Beatscloud dedicada a conectar productores musicales con artistas en busca de apoyo para sus proyectos musicales! 
+      En nuestra página web, creamos un espacio de encuentro donde los talentosos productores pueden promocionar sus servicios y los artistas 
+      pueden encontrar el acompañamiento ideal para dar vida a sus creaciones musicales.
+      
+    </p>
+  </div>
+</div>
+
+<br>
+<br>
+
+<div class="container">
+  <div class="row">
+    <div class="col-sm-6">
+      <div class="card">
+        <img class="card-img-top" src="https://play-lh.googleusercontent.com/3wReLLObI6rQP0QEut9h_9qR2AVBpZ7iBptTmnDH-Z3gpwTOtK-ZddV2oo6-ZUX4yhQ" alt="Card image cap" style="width: 100%; height: 500px;">
+        <div class="card-body">
+          <h5 class="card-title">Catálogo</h5>
+          <p class="card-text">Entra a nuestro catálogo y descubre toda la música que tenemos para ti.</p>
+          <a href="{% url 'catalogo'%}" class="btn btn-warning btn-block">Catálogo</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6">
+      <div class="card">
+        <img class="card-img-top" src="https://i.pinimg.com/564x/8d/bb/ff/8dbbffb62b8412208748b3198c24d150.jpg" alt="Card image cap" style="width: 100%; height: 500px;">
+        <div class="card-body">
+          <h5 class="card-title">Usuarios</h5>
+          <p class="card-text">Descubre las personas que estan aqui y compartan sus gustos musicales.</p>
+          <a href="{% url 'catalogo_usuarios'%}" class="btn btn-warning btn-block">Usuarios</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<br>
+
+
+
+{% endblock %}    

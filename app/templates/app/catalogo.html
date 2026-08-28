@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block styles %}
+{% endblock %}
+
+
+{% block contenido %}
+<!-- Buscador -->
+<form method="GET">
+    <div class="form-row" >
+      <div class="form-group col-md-4">
+  
+        <label for="q">Buscar:</label>
+        <input type="text" class="form-control" name="q" id="q" value="{{ query }}">
+      </div>
+      <div class="form-group col-md-4">
+        <label for="genero">Género:</label>
+        <select class="form-control" name="genero" id="genero">
+          <option value="">Todos</option>
+          {% for genero in generos %}
+          <option value="{{ genero.descripcion }}" {% if genero.descripcion == genero_selected %}selected{% endif %}>{{ genero.descripcion }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group col-md-4">
+        <label for="precio">Precio:</label>
+        <select class="form-control" name="precio" id="precio">
+            <option value="">Todos</option>
+            <option value="0-5000" {% if precio_selected == '0-5000' %}selected{% endif %}>$0 - $5000</option>
+            <option value="5000-10000" {% if precio_selected == '5000-10000' %}selected{% endif %}>$5000 - $10000</option>
+            <option value="10000-20000" {% if precio_selected == '10000-20000' %}selected{% endif %}>$10000 - $20000</option>
+            <option value="20000-100000" {% if precio_selected == '20000 - 100000' %}selected{% endif %}>Más de $20000</option>
+        </select>
+      </div>
+      
+    
+    
+  </div>
+  <button type="submit" class="btn btn-warning btn btn-warning float-right" >Buscar</button><br><br>
+    <p style = "border-top: 1px solid #CCCCCC;">
+  </form>
+ 
+  <!-- Catálogo de canciones -->
+  {% if tracks %}
+
+    <h2>Canciones</h2>
+    <br>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Portada</th>
+          <th>Nombre</th>
+          <th>Precio</th>
+          <th>Artista</th>
+          <th>Género</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+  
+      <tbody>
+        {% for track in tracks %}
+          <tr>
+            <td>
+              <img src="{{ track.foto.url }}" alt="{{ track.nombre_track }}" class="img-thumbnail" style="max-width: 100px;">
+              <audio src="{{ track.track.url }}" controls controlsList="nodownload"></audio>
+            </td>
+            <td>{{ track.nombre_track }}</td>
+            <td>${{ track.precio }}</td>
+            <td><a href="{% url 'perfil_productor1' track.usuario.user.username %}" class="artista-link" style="color: orange; text-transform: capitalize;">{{ track.usuario.user.username }}</a></td>
+            <td>{{ track.genero.descripcion }}</td>
+            <td>
+              {% url 'detalle' track_id=track.id_track as detalle_url %}
+                <a href="{{ detalle_url }}" class="btn btn-warning">Detalle</a>
+              </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No se encontraron canciones con los criterios de búsqueda especificados.</p>
+  {% endif %}
+  
+
+
+{% endblock %}

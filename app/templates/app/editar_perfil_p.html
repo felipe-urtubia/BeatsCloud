@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="mb-0">Editar perfil</h3>
+        </div>
+        <div class="card-body">
+          <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+              <label for="descripcion">Descripción</label>
+              <textarea class="form-control" id="descripcion" name="descripcion" rows="3">{{ usuario.descripcion }}</textarea>
+            </div>
+            <div class="form-group">
+              <label for="foto_perfil">Foto de perfil</label>
+              <input type="file" class="form-control-file" id="foto_perfil" name="foto_perfil">
+            </div>
+            <div class="form-group">
+              <label for="foto_fondo">Foto de fondo</label>
+              <input type="file" class="form-control-file" id="foto_fondo" name="foto_fondo">
+            </div>
+            <div class="form-group">
+              <label for="spotify">Spotify</label>
+              <input type="text" class="form-control" id="spotify" name="spotify" value="{{ usuario.spotify }}">
+            </div>
+            <div class="form-group">
+              <label for="youtube">Youtube</label>
+              <input type="text" class="form-control" id="youtube" name="youtube" value="{{ usuario.youtube }}">
+            </div>
+            <div class="form-group">
+              <label for="instagram">Instagram</label>
+              <input type="text" class="form-control" id="instagram" name="instagram" value="{{ usuario.instagram }}">
+            </div>
+            
+            <button type="submit" class="btn btn-warning text-dark">Guardar cambios</button>
+            <a href="{% url 'perfil' %}" class="btn btn-secondary">Cancelar</a>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
