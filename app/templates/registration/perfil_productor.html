@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %} Perfil {% endblock %}
+{% block stylesheet %}
+<link rel="stylesheet" href="{% static 'app/css/perfil_productor.css' %}">
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="profile-header">
+      <img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">
+      <img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">
+    </div>
+  </div>
+</div>
+
+<div class="container mt-3">
+  <div class="row">
+    <div class="col-md-3 text-center">
+      <h2 class="username">{{ user.username | capfirst }}</h2>
+      <p class="desc" style="word-wrap: break-word;">{{ user.usuario.descripcion }}</p>
+      <div class="d-flex justify-content-center" id="redes">
+        <a href="{{ user.usuario.youtube }}"><img src="{% static 'app/img/youtube.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
+        <a href="{{ user.usuario.spotify }}"><img src="{% static 'app/img/spotify.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
+        <a href="{{ user.usuario.instagram }}"><img src="{% static 'app/img/instagram.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
+      </div>
+      <a href="{% url 'editar_p' %}" class="btn btn-warning text-dark" style="margin-top:20px; margin-bottom: 20px;" id="boton">Editar perfil</a>
+      <div class="suscripcion-section">
+        <h4>Suscripción</h4>
+        {% if suscripcion %}
+        <p>Detalle: {{ suscripcion.detalle }}</p>
+        <p>Precio: {{ suscripcion.precio }}</p>
+        {% else %}
+        <p>No tienes una suscripción ingresada</p>
+        {% endif %}
+        <a href="{% url 'ingresar_suscripcion' %}" class="btn btn-warning text-dark">Ingresar suscripción</a>
+      </div>
+    </div>
+    <div class="col-md-9">
+      <h3>Historial de compras</h3>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Producto</th>
+            <th>Precio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for venta in ventas %}
+          <tr>
+            <td>{{ venta.fecha_venta }}</td>
+            <td>{{ venta.track.nombre_track }}</td>
+            <td>{{ venta.precio }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3">No se encontraron compras</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'upload_file' %}" class="btn btn-warning text-dark" style="margin-bottom:20px">Sube tus Proyectos</a>
+      <h3>Proyectos</h3>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Foto</th>
+            <th>Nombre</th>
+            <th>Precio</th>
+            <th>Reproducir</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for track in tracks %}
+          <tr>
+            <td><img src="{{ track.foto.url }}" style="max-height: 100px;"></td>
+            <td>{{ track.nombre_track }}</td>
+            <td>{{ track.precio }}</td>
+            <td>
+              <audio controls controlsList="nodownload">
+                <source src="{{ track.track.url }}" type="{{ track.track.content_type }}">
+                Tu navegador no soporta la reproducción de audio.
+              </audio>
+            </td>
+            <td>
+              <a href="{% url 'eliminar_track' track.id_track %}" class="btn btn-danger">Eliminar</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5">No se encontraron proyectos</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <h3>Historial de ventas</h3>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Comprador</th>
+            <th>Producto</th>
+            <th>Precio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for venta in ventas %}
+          <tr>
+            <td>{{ venta.fecha_venta }}</td>
+            <td>{{ venta.comprador.username }}</td>
+            <td>{{ venta.track.nombre_track }}</td>
+            <td>{{ venta.precio }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4">No se encontraron ventas</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

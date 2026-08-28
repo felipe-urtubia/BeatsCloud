@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block contenido %}
+
+<h1>Carrito de Compra</h1>
+
+{% if ventas %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nombre Track</th>
+        <th>Precio</th>
+        <th>IVA</th>
+        <th>Precio Total</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for venta in ventas %}
+        <tr>
+          <td>{{ venta.detalle }}</td>
+          <td>${{ venta.precio }}</td>
+          <td>${{ venta.iva }}</td>
+          <td>${{ venta.precio_total }}</td>
+          <td>
+            <audio controls controlsList="nodownload">
+              <source src="{{ venta.track.track.url }}" type="audio/mp3">
+              Your browser does not support the audio element.
+            </audio>
+          </td>
+          <td>
+            <form method="post" action="{% url 'eliminar_del_carrito' venta.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <td colspan="3">Total:</td>
+        <td>${{ precio_total_con_iva }}</td>
+        <td>
+            <form id="webpay-form" method="post" action="{% url 'pago' %}">
+              {% csrf_token %}
+              <input type="hidden" name="buy_order" value="{{ buy_order }}">
+              <input type="hidden" name="session_id" value="{{ session_id }}">
+              <input type="hidden" name="amount" value="{{ precio_total_con_iva }}">
+              <input type="hidden" name="return_url" value="{{ return_url }}">
+              <button type="submit" class="btn btn-primary">Pagar con Webpay</button>
+            </form>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+{% else %}
+  <p>No hay productos en el carrito.</p>
+{% endif %}
+
+{% endblock %}

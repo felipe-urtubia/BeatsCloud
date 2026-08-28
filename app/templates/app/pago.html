@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block contenido %}
+
+<form id="webpay-payment-form" method="post" action="{{ url_webpay }}">
+  {% csrf_token %}
+  <input type="hidden" name="token_ws" value="{{ token_ws }}">
+  <input type="hidden" name="url_return" value="{{ return_url }}">
+  <input type="hidden" name="TBK_ORDEN_COMPRA" value="{{ buy_order }}">
+  <input type="hidden" name="TBK_ID_SESION" value="{{ session_id }}">
+  <input type="hidden" name="TBK_MONTO" value="{{ amount }}">
+  <input type="hidden" name="TBK_URL_EXITO" value="{{ return_url }}">
+  <input type="hidden" name="TBK_URL_FRACASO" value="{{ return_url }}">
+  <input type="hidden" name="TBK_TIPO_TRANSACCION" value="TR_NORMAL">
+  <button type="submit" class="btn btn-primary" style="background-color: green; color: white; display: block; margin: 0 auto;">Pagar</button></form>
+
+{% endblock %}

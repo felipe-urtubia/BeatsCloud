@@ -1,0 +1,124 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+
+<head>
+  <title> {% block titulo %}  {% endblock %}</title>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS v5.2.1 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    
+    {% block stylesheet %}
+    <link rel = "stylesheet" href = "{% static 'app/css/inicio.css' %}">
+    <link rel = "stylesheet" href = "{% static 'app/css/perfil_artista.css' %}">
+   
+    <link rel = "stylesheet" href = "{% static 'app/css/detalle.css'%}">
+    {% endblock %}
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="{% url 'inicio' %}">BeatsCloud</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item active">
+          <a class="nav-link" href="{% url 'inicio'%}">Inicio <span class="sr-only">(actual)</span></a>
+        </li>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'sobre_nosotros'%}">Sobre nosotros</a>
+      </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link" href="{% url 'carrito'%}">Carrito</a>
+          </div>
+        </li> 
+      </ul>
+
+      {% if user.is_authenticated %}
+      <ul class="navbar-nav ml-auto">
+        <li class="nav-item">
+          
+          <a class="nav-link" href="{% if usuario.tipo_usu == Usuario.ARTISTA %}{% url 'perfil' %}{% else %}{% url 'perfil'  %}{% endif %}"> 
+            | Tu Perfil : {{ user.username | capfirst  }} | </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'logout' %}">| Cerrar sesión |</a>
+        </li>
+      </ul>
+      {% else %}
+      <ul class="navbar-nav ml-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'login' %}">Acceder</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'registro' %}">Registrar</a>
+        </li>
+      </ul>
+      {% endif %}
+    
+    </div>
+  </nav>
+  
+
+  <div class="wrapper">
+    <div class="content">
+      <div class="container">
+        <div class="row">
+            <div class="col-12">
+                {% block contenido %}  {% endblock %}    
+            </div>
+        </div>
+    </div>
+    </div>
+
+
+    <footer class="bg-warning text-dark py-3">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-6">
+            <h5>BeatsCloud</h5>
+            <p>Ponte en contacto con nosotros desde nuestras redes sociales, comparte tú experiencias, estaremos atento a tus sugerencias, de parte del equipo les deseamos un gran día.</p>
+          </div>
+          <div class="col-md-6">
+            <h5>Contacto</h5>
+            <p>Correo electrónico: beatscloud@gmail.com </p>
+            <p>Teléfono: +56952008767</p>
+            <p>Instagram: @beatscloud_oficial</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+  
+  
+    
+
+    
+  
+    
+  <!-- Bootstrap JavaScript Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"
+    integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous">
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/js/bootstrap.min.js"
+    integrity="sha384-7VPbUDkoPSGFnVtYi0QogXtr74QeVeeIs99Qfg5YCF+TidwNdjvaKZX19NZ/e6oz" crossorigin="anonymous">
+  </script>
+  
+
+  <!-- Archivos JS de Bootstrap -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,120 @@
+#cointener1 { 
+    background-image: url("../BeatCloud/img/Background_reg.jpg");
+    display: flex;
+}
+#icono{
+    display: flex;
+    align-items: left;
+    justify-content: left;
+    position:absolute;
+    top:-8px;
+    left:40px;
+    margin:auto;
+}
+#tituloo {
+    text-align: center;
+    margin-bottom: 100px;
+    margin-top: 0px;
+    padding: 0%;
+    border: 0px;
+    position:absolute;
+    width:100%;
+    top: -10px;
+    right:10px;
+    left:10px;
+    background-color: rgba(0, 0, 0, 0.568);
+    color:aliceblue;
+    font-family: Arial;
+}
+
+#formulario {
+    align-items: center;
+    justify-content: center;
+    position:absolute;
+    max-width: 600px;
+    padding-top: 30px;
+    padding-left: 30px;
+    padding-right: 30px;
+    position:absolute;
+    top:70px;
+    right:10px;
+    left:10px;
+    text-align: center;
+    background-color: rgba(12, 9, 9, 0.651);
+    color:aliceblue;
+    margin:auto;
+    margin-top: 50px;
+    border-color: black;
+    font-family: Arial;
+    border-radius:28px ;
+}
+
+#btn_reg {
+    margin-top: 10px;
+    margin-bottom: 20px;
+    -webkit-border-radius: 28;
+    background-color: rgb(233, 210, 7);
+    -moz-border-radius: 28;
+    border-radius: 28px;
+    text-shadow: 3px 2px 1px #000000;
+    font-family: Arial;
+    color: #f3f3f3;
+    font-size: 20px;
+    padding: 10px;
+    text-decoration: none;
+}
+
+#nombre{
+    margin-top: 10px;
+    margin-bottom: 20px; 
+    padding-left: 50px;
+    margin-right: 15px;
+}
+
+
+#nombre_artistico {
+    margin-top: 10px;
+    margin-bottom: 20px; 
+    padding-left: 50px;
+}
+#email {
+    margin-top: 10px;
+    margin-bottom: 20px; 
+    padding-left: 50px; 
+    margin-left: 69px;  
+}
+
+#tipo {
+    text-align: left;
+    margin-top: 10px;
+    margin-bottom: 20px; 
+    
+    
+}
+#tipo1 {
+    text-align: left;
+    margin-top: 10px;
+    margin-bottom: 20px; 
+
+    margin-left: 67px;
+
+}
+#password {
+    margin-top: 10px;
+    margin-bottom: 20px; 
+    padding-left: 50px;
+    margin-left: 43px;
+
+}
+#r_password {
+    margin-top: 10px;
+    margin-bottom: 20px; 
+    padding-left: 50px;
+    margin-right: 11px;
+    margin-left:4px;
+}
+#tipo_p {
+    text-align: left;
+    position: absolute;
+    margin-left:100px ;
+}

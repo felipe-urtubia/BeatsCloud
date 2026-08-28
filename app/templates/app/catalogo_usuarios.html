@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block contenido %}
+<style>
+    .card {
+        min-height: 350px; /* Ajusta la altura deseada para todas las tarjetas */
+    }
+    .foto-perfil {
+        width: 280px; /* Ajusta el tamaño deseado para la foto de perfil */
+        height: 280px; /* Ajusta el tamaño deseado para la foto de perfil */
+        object-fit: cover;
+    }
+    .btn-orange {
+        background-color: orange;
+        color: black;
+    }
+</style>
+
+
+<div class="container">
+    <div class="row">
+        {% for usuario in usuarios %}
+        <div class="col-md-4 d-flex align-items-center justify-content-center">
+            <div class="card mb-3">
+                <img src="{{ usuario.foto_perfil.url }}" class="card-img-top rounded-circle foto-perfil" alt="Foto de perfil">
+                <div class="card-body text-center">
+                    <h5 class="card-title">{{ usuario.user.username }}</h5>
+                    <a href="{% url 'perfil2' usuario.user.username %}" class="btn btn-orange">Ver perfil</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+{% endblock %}

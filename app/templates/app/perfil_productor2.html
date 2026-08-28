@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %} Perfil {% endblock %}
+{% block styles %}
+<link rel="stylesheet" type="text/css" href="{% static 'app/css/perfil_productor.css' %}">
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="profile-header">
+      <img class="profile-background" src="{{ perfil.foto_fondo.url }}">
+      <img class="profile-picture" src="{{ perfil.foto_perfil.url }}">
+    </div>
+  </div>
+</div>
+
+<div class="container mt-3">
+  <div class="row">
+    <div class="col-md-3 text-center">
+      <h2 class="username">{{ perfil.user.username | capfirst }}</h2>
+      <p class="desc" style="word-wrap: break-word;">{{ perfil.descripcion }}</p>
+      <div class="d-flex justify-content-center" id="redes">
+        <a href="{{ perfil.youtube }}"><img src="{% static 'app/img/youtube.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
+        <a href="{{ perfil.spotify }}"><img src="{% static 'app/img/spotify.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
+        <a href="{{ perfil.instagram }}"><img src="{% static 'app/img/instagram.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
+      </div>
+      <div class="suscripcion-section">
+        <h4>Suscripción</h4>
+        {% if suscripcion %}
+          <p>Detalle: {{ suscripcion.detalle }}</p>
+          <p>Precio: ${{ suscripcion.precio }}</p>
+          {% if pago_exitoso %}
+            <button class="btn btn-warning text-dark" disabled>Suscripción exitosa</button>
+          {% elif user_has_paid %}
+            <button class="btn btn-warning text-dark" disabled>Ya te has suscrito</button>
+          {% else %}
+            <a href="{% url 'realizar_pago' suscripcion.id_sus %}" class="btn btn-warning text-dark">Suscribirse</a>
+          {% endif %}
+        {% else %}
+          <p>No tienes una suscripción ingresada</p>
+          <a href="{% url 'realizar_pago' suscripcion.id_sus %}" class="btn btn-warning text-dark">Suscribirse</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-md-9">
+      <h3>Proyectos</h3>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Foto</th>
+            <th>Nombre</th>
+            <th>Precio</th>
+            <th>Reproducir</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cancion in canciones %}
+            <tr>
+              <td><img src="{{ cancion.foto.url }}" style="max-height: 100px;"></td>
+              <td>{{ cancion.nombre_track }}</td>
+              <td>{{ cancion.precio }}</td>
+              <td>
+                <audio controls controlsList="nodownload">
+                  <source src="{{ cancion.track.url }}" type="{{ cancion.track.content_type }}">
+                  Tu navegador no soporta la reproducción de audio.
+                </audio>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4">No se encontraron proyectos</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

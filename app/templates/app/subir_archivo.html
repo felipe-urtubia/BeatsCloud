@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block stylesheet %}
+
+{% endblock %}
+{% block contenido %}
+  <div class="container">
+    <h1 class="text-center">Subir Track</h1>
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="{{ form.nombre_track.id_for_label }}" style="width: 100%;" >Nombre del Track:</label>
+        {{ form.nombre_track }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.precio.id_for_label }}" style="width: 100%;">Precio:</label>
+        {{ form.precio }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.track.id_for_label }}" style="width: 100%;" >Archivo MP3:</label>
+        {{ form.track }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.foto.id_for_label }}" style="width: 100%;">Foto:</label>
+        {{ form.foto }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.genero.id_for_label }}" style="width: 100%;">Género Musical:</label>
+        {{ form.genero }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.descripcion.id_for_label}}"  style="width: 100%;" >Descripción</label>
+        {{ form.descripcion }}
+      </div>
+      <div class="form-group">
+      <button type="submit" class="btn btn-warning" style = "margin-bottom: 30px;">Subir</button>
+    </form>
+  </div>
+{% endblock %}
+
+{% block css %}
+  <style>
+    .form-control {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    button[type=submit] {
+      background-color: yellow;
+      color: black;
+    }
+  </style>
+{% endblock %}

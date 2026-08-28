@@ -1,0 +1,27 @@
+/* Estilos para el reproductor de audio */
+.audio-player {
+    margin-top: 20px;
+  }
+  
+  /* Estilos para la lista de comentarios */
+  ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  li {
+    margin-bottom: 10px;
+  }
+  
+  /* Estilos para el formulario de comentarios */
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  /* Estilos adicionales según tus preferencias */
+  .user-photo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+
+  }

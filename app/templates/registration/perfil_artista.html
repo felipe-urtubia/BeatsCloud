@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %} Perfil {% endblock %}
+{% block stylesheet %}
+<link rel = "stylesheet" href = "{% static 'app/css/perfil_artista.css' %}">
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="profile-header">
+            <img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">
+            <img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">
+        </div>
+      
+    </div>
+  </div>
+  
+  <div class="container mt-3">
+    <div class="row">
+      <div class="col-md-3 text-center">
+        
+        <h2 class = "username">{{ user.username | capfirst}}</h2>
+        <p class = "desc" style="word-wrap: break-word;">{{ user.usuario.descripcion }}</p>
+        <div class="d-flex justify-content-center" id = "redes">
+            <a href="{{ user.usuario.youtube}}"><img src="{% static 'app/img/youtube.png' %}"  style="width: 50px; height: 50px; margin-right: 20px;"></img></a>
+            <a href="{{ user.usuario.spotify  }}"><img src="{% static 'app/img/spotify.png' %}"  style="width: 50px; height: 50px; margin-right: 20px;"></img></a>
+            <a href="{{ user.usuario.instagram }}"><img src="{% static 'app/img/instagram.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></img></a>
+
+        </div>
+        <a href="{% url 'editar' %}"  class="btn btn-warning text-dark" style="margin-top:20px">Editar perfil</a>
+      </div>
+      <div class="col-md-9">
+        <h3>Historial de compras</h3>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Producto</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for compra in historial_compras %}
+              <tr>
+                <td>{{ compra.fecha_compra }}</td>
+                <td>
+                  <img src="{{ compra.track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">
+                  {{ compra.track.nombre_track }}
+                </td>
+                <td>
+                  <a href="{{ compra.track.track.url }}" class="btn btn-primary" download>Descargar</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4">No se encontraron compras</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>Tracks gustados:</h3>
+{% if tracks_gustados %}
+  <ul>
+    {% for track in tracks_gustados %}
+      <li>
+        <div class="track-info">
+          <h4>{{ track.nombre_track }}</h4>
+          <img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">
+          <audio controls controlsList="nodownload">
+            <source src="{{ track.track.url }}" type="audio/mp3">
+            Tu navegador no soporta el elemento de audio.
+          </audio>
+          <div class="d-flex align-items-center">
+            <p class="mr-3">
+              <span style="color: black; font-size: 20px">Precio: </span>
+              <span style="color: orange; font-size: 20px">${{ track.precio }}</span>
+            </p>
+            <form method="post" action="{% url 'agregar_al_carrito' track.id_track %}">
+              {% csrf_token %}
+              <input type="hidden" name="track_id" value="{{ track.id_track }}">
+              <button type="submit" class="btn btn-warning">Agregar al carrito</button>
+            </form>
+        </div>
+        <hr>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No hay tracks gustados.</p>
+{% endif %}
+        
+      </div>
+    </div>
+  </div>
+
+{% endblock %}

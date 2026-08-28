@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titulo %} Pago {% endblock %}
+
+{% block contenido %}
+  <div class="container mt-3">
+    <div class="row">
+      <div class="col-md-6 offset-md-3 text-center">
+        <h3>Suscripción</h3>
+        <p>Detalle: {{ suscripcion.detalle }}</p>
+        <p>Precio: ${{ suscripcion.precio }}</p>
+
+        <h3>Pago con Webpay</h3>
+        <form action="{{ url_webpay }}" method="POST">
+          <input type="hidden" name="token_ws" value="{{ token_ws }}">
+          <button type="submit" class="btn btn-warning text-dark" >Realizar pago</button>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}

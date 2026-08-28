@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+  <div class="card mx-auto" style="width: 400px; margin-top:40px">
+    <div class="card-body">
+      <h2 class="card-title">Recuperación de Contraseña Exitosa</h2>
+      <p class="card-text">Tu contraseña ha sido actualizada exitosamente.</p>
+      <a href="{% url 'login' %}"  class="btn btn-warning text-dark">Iniciar sesión</a>
+    </div>
+  </div>
+{% endblock %}
