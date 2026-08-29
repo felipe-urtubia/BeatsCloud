@@ -21,9 +21,35 @@
       <h2 class="username">{{ perfil.user.username | capfirst }}</h2>
       <p class="desc" style="word-wrap: break-word;">{{ perfil.descripcion }}</p>
       <div class="d-flex justify-content-center" id="redes">
-        <a href="{{ perfil.youtube }}"><img src="{% static 'app/img/youtube.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
-        <a href="{{ perfil.spotify }}"><img src="{% static 'app/img/spotify.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
-        <a href="{{ perfil.instagram }}"><img src="{% static 'app/img/instagram.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
+        {% if perfil.youtube and perfil.youtube != "None" %}
+          <a href="{{ perfil.youtube }}" target="_blank" rel="noopener noreferrer" title="Abrir YouTube">
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px;">
+          </a>
+        {% else %}
+          <a href="#" onclick="event.preventDefault(); alert('Este usuario aún no ha agregado su enlace de YouTube.');" title="YouTube no configurado">
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+          </a>
+        {% endif %}
+
+        {% if perfil.spotify and perfil.spotify != "None" %}
+          <a href="{{ perfil.spotify }}" target="_blank" rel="noopener noreferrer" title="Abrir Spotify">
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px;">
+          </a>
+        {% else %}
+          <a href="#" onclick="event.preventDefault(); alert('Este usuario aún no ha agregado su enlace de Spotify.');" title="Spotify no configurado">
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+          </a>
+        {% endif %}
+
+        {% if perfil.instagram and perfil.instagram != "None" %}
+          <a href="{{ perfil.instagram }}" target="_blank" rel="noopener noreferrer" title="Abrir Instagram">
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px;">
+          </a>
+        {% else %}
+          <a href="#" onclick="event.preventDefault(); alert('Este usuario aún no ha agregado su enlace de Instagram.');" title="Instagram no configurado">
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+          </a>
+        {% endif %}
       </div>
       <div class="suscripcion-section">
         <h4>Suscripción</h4>

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Cuenta activada{% endblock %}
+{% block contenido %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 70vh">
+  <div class="card border-0 shadow-lg" style="max-width: 520px; width: 100%;">
+    <div class="card-body text-center p-4">
+      <h2>¡Cuenta activada! ✅</h2>
+      <p class="mt-3">Tu correo fue confirmado correctamente. Ya puedes iniciar sesión.</p>
+      <a href="{% url 'login' %}" class="btn btn-warning">Iniciar sesión</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

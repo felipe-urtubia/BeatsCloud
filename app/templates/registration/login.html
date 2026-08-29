@@ -14,6 +14,11 @@
       <hr>
       <form method="POST" class="box">
         {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            Usuario o contraseña incorrectos, o la cuenta aún no ha sido activada por correo.
+          </div>
+        {% endif %}
         <div class="form-group">
           <label for="username">Usuario</label>
           <input type="text" name="username" id="username" class="form-control" placeholder="Ingrese su nombre de usuario">

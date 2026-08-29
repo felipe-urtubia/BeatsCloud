@@ -9,12 +9,19 @@ class RegistroUsuarioForm(UserCreationForm):
         (Usuario.PRODUCTOR, 'Productor'),
     )
     tipo_usu = forms.ChoiceField(choices=TIPO_USUARIO_CHOICES)
+    email = forms.EmailField(required=True)
     foto_perfil = forms.ImageField(required=False)
     foto_fondo = forms.ImageField(required=False)
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password1', 'password2', 'first_name', 'last_name', 'tipo_usu','foto_perfil', 'foto_fondo']
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('Ya existe una cuenta registrada con este correo electrónico.')
+        return email
 
     def validate_password_for_user(self, user, **kwargs):
         return

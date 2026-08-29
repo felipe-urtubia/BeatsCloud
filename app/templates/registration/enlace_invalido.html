@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Enlace inválido{% endblock %}
+{% block contenido %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 70vh">
+  <div class="card border-0 shadow-lg" style="max-width: 520px; width: 100%;">
+    <div class="card-body text-center p-4">
+      <h2>Enlace inválido</h2>
+      <p class="mt-3">El enlace de activación no es válido, venció o ya fue utilizado.</p>
+      <a href="{% url 'registro' %}" class="btn btn-warning">Volver al registro</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
