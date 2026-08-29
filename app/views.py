@@ -1,4 +1,7 @@
 from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import EmailMultiAlternatives
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
@@ -31,6 +34,7 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 import stripe
 from django.conf import settings
+from django.template.loader import render_to_string
 from transbank import webpay
 from transbank.common import options
 from django.db import transaction
@@ -88,22 +92,83 @@ def registro(request):
     if request.method == 'POST':
         form = RegistroUsuarioForm(request.POST, request.FILES)
         if form.is_valid():
-                user = form.save(commit=False)
-                user.set_password(form.cleaned_data['password1'])
-                user.save()
+            try:
+                with transaction.atomic():
+                    user = form.save(commit=False)
+                    # UserCreationForm ya deja la contraseña correctamente hasheada.
+                    # La cuenta permanece inactiva hasta confirmar el correo.
+                    user.email = form.cleaned_data['email'].strip().lower()
+                    user.is_active = False
+                    user.save()
 
-                # crear y guardar el objeto Usuario asociado al usuario
-                usuario = Usuario(
-                    user=user,
-                    tipo_usu=form.cleaned_data['tipo_usu'],
-                    foto_perfil=request.FILES.get('foto_perfil'),
-                    foto_fondo=request.FILES.get('foto_fondo'),
+                    Usuario.objects.create(
+                        user=user,
+                        tipo_usu=form.cleaned_data['tipo_usu'],
+                        foto_perfil=request.FILES.get('foto_perfil'),
+                        foto_fondo=request.FILES.get('foto_fondo'),
+                    )
+
+                    uid = urlsafe_base64_encode(force_bytes(user.pk))
+                    token = default_token_generator.make_token(user)
+                    activation_url = request.build_absolute_uri(
+                        reverse('activar_cuenta', kwargs={'uidb64': uid, 'token': token})
+                    )
+
+                    # Correo profesional HTML + versión de texto para compatibilidad.
+                    email_context = {
+                        'usuario': user,
+                        'activation_url': activation_url,
+                    }
+
+                    html_content = render_to_string(
+                        'emails/confirmar_cuenta.html',
+                        email_context,
+                    )
+
+                    text_content = (
+                        f'Hola {user.first_name or user.username},\n\n'
+                        '¡Bienvenido a BeatCloud!\n\n'
+                        'Gracias por crear tu cuenta. Para confirmar tu correo y activar '
+                        'tu cuenta, abre el siguiente enlace:\n\n'
+                        f'{activation_url}\n\n'
+                        'Si tú no creaste esta cuenta, puedes ignorar este mensaje.\n\n'
+                        'Equipo BeatCloud'
+                    )
+
+                    email = EmailMultiAlternatives(
+                        subject='Confirma tu cuenta | BeatCloud',
+                        body=text_content,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[user.email],
+                    )
+                    email.attach_alternative(html_content, 'text/html')
+                    email.send(fail_silently=False)
+
+                return render(request, 'registration/revisar_correo.html', {'email': user.email})
+            except Exception:
+                form.add_error(
+                    'email',
+                    'No pudimos enviar el correo de confirmación. Revisa la configuración SMTP e inténtalo nuevamente.'
                 )
-                usuario.save()
-                return redirect('inicio')
     else:
         form = RegistroUsuarioForm()
     return render(request, 'registration/registro.html', {'form': form})
+
+
+def activar_cuenta(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+        return render(request, 'registration/cuenta_activada.html')
+
+    return render(request, 'registration/enlace_invalido.html', status=400)
 
 
 def perfil(request):
@@ -322,29 +387,187 @@ def carrito(request):
     return render(request, 'app/carrito.html', context)
 @login_required
 def exito(request):
+    """
+    Flujo existente conservado para compatibilidad con el pago de suscripción.
+    El pago del carrito usa exito_carrito(), que valida la respuesta de Transbank.
+    """
     if request.method == 'GET':
-        # Obtener el usuario comprador y las ventas del carrito
         usuario_comprador = Usuario.objects.get(user=request.user)
         ventas = Venta.objects.filter(usuario_id=usuario_comprador.id)
-        # Realizar las operaciones necesarias con las ventas
+
         with transaction.atomic():
             for venta in ventas:
-                # Verificar si el producto ya existe en el historial de compras del comprador
-                historial_compra, created = HistorialCompra.objects.get_or_create(usuario=usuario_comprador, track=venta.track)
+                historial_compra, created = HistorialCompra.objects.get_or_create(
+                    usuario=usuario_comprador,
+                    track=venta.track
+                )
                 if created:
                     historial_compra.save()
 
-                # Registrar la venta en el historial de ventas con el comprador
-                historial_venta = HistorialVenta.objects.create(
+                HistorialVenta.objects.create(
                     comprador=usuario_comprador.user,
                     precio=venta.track.precio,
                     track=venta.track
                 )
 
-                # Eliminar la venta del carrito
                 venta.delete()
 
         return render(request, 'app/exito.html')
+
+    return redirect('perfil')
+
+
+@csrf_exempt
+def exito_carrito(request):
+    """
+    Retorno exclusivo de Webpay Plus para compras del carrito.
+
+    Transbank devuelve token_ws al return_url. Aquí se confirma la transacción
+    mediante commit() y SOLO si está autorizada se registra la compra.
+    """
+    token_ws = request.POST.get('token_ws') or request.GET.get('token_ws')
+
+    # Cuando el usuario cancela/abandona Webpay, Transbank puede retornar
+    # parámetros TBK_* en vez de token_ws.
+    if not token_ws:
+        print(
+            "PAGO CARRITO CANCELADO O SIN TOKEN:",
+            dict(request.POST) if request.method == 'POST' else dict(request.GET)
+        )
+        return redirect('cancelado')
+
+    test_commerce_code = "***REMOVED***"
+    test_api_key = "***REMOVED***"
+
+    try:
+        tx = Transaction(
+            options=WebpayOptions(
+                commerce_code=test_commerce_code,
+                api_key=test_api_key,
+                integration_type="TEST",
+            )
+        )
+
+        response = tx.commit(token_ws)
+
+        # El SDK puede entregar un dict u objeto dependiendo de la versión.
+        def tbk_value(name, default=None):
+            if isinstance(response, dict):
+                return response.get(name, default)
+            return getattr(response, name, default)
+
+        response_code = tbk_value('response_code')
+        status = tbk_value('status')
+        buy_order = str(tbk_value('buy_order', ''))
+        session_id = str(tbk_value('session_id', ''))
+        amount = tbk_value('amount')
+
+        print(
+            "RESPUESTA TRANSBANK CARRITO:",
+            {
+                "response_code": response_code,
+                "status": status,
+                "buy_order": buy_order,
+                "session_id": session_id,
+                "amount": amount,
+            }
+        )
+
+        # Webpay Plus considera aprobada una operación con response_code 0
+        # y estado AUTHORIZED.
+        try:
+            response_code_ok = int(response_code) == 0
+        except (TypeError, ValueError):
+            response_code_ok = False
+
+        if not response_code_ok or str(status).upper() != 'AUTHORIZED':
+            print("PAGO CARRITO RECHAZADO POR TRANSBANK")
+            return redirect('cancelado')
+
+        # Verificar que la respuesta corresponde a una transacción creada
+        # previamente por BeatCloud.
+        webpay_transaction = WebpayTransaction.objects.filter(
+            buy_order=buy_order
+        ).first()
+
+        if webpay_transaction is None:
+            print("PAGO CARRITO: buy_order no encontrado:", buy_order)
+            return redirect('cancelado')
+
+        try:
+            expected_amount = int(round(float(webpay_transaction.amount)))
+            paid_amount = int(round(float(amount)))
+        except (TypeError, ValueError):
+            print("PAGO CARRITO: monto inválido en la respuesta")
+            return redirect('cancelado')
+
+        if expected_amount != paid_amount:
+            print(
+                "PAGO CARRITO: monto no coincide.",
+                "Esperado:", expected_amount,
+                "Pagado:", paid_amount
+            )
+            return redirect('cancelado')
+
+        if session_id and str(webpay_transaction.session_id) != session_id:
+            print("PAGO CARRITO: session_id no coincide")
+            return redirect('cancelado')
+
+        usuario_comprador = Usuario.objects.get(
+            user=webpay_transaction.user
+        )
+        ventas = Venta.objects.filter(
+            usuario_id=usuario_comprador.id
+        )
+
+        if not ventas.exists():
+            print("PAGO CARRITO: no hay productos pendientes en el carrito")
+            return redirect('cancelado')
+
+        # Validación adicional: el carrito actual debe coincidir con el monto
+        # que efectivamente fue pagado.
+        total_actual = int(round(sum(
+            float(venta.precio) + float(venta.iva)
+            for venta in ventas
+        )))
+
+        if total_actual != paid_amount:
+            print(
+                "PAGO CARRITO: el total actual del carrito cambió.",
+                "Carrito:", total_actual,
+                "Pagado:", paid_amount
+            )
+            return redirect('cancelado')
+
+        # Registrar la compra únicamente después del commit exitoso.
+        with transaction.atomic():
+            for venta in ventas:
+                HistorialCompra.objects.get_or_create(
+                    usuario=usuario_comprador,
+                    track=venta.track
+                )
+
+                HistorialVenta.objects.create(
+                    comprador=usuario_comprador.user,
+                    precio=venta.track.precio,
+                    track=venta.track
+                )
+
+                venta.delete()
+
+        return render(
+            request,
+            'app/exito.html',
+            {
+                'transbank_response': response,
+                'monto_pagado': paid_amount,
+                'buy_order': buy_order,
+            }
+        )
+
+    except Exception as e:
+        print("ERROR COMMIT TRANSBANK CARRITO:", repr(e))
+        return redirect('cancelado')
 
 
 @csrf_exempt
@@ -357,7 +580,7 @@ def pago(request):
     ventas = Venta.objects.filter(usuario_id=usuario.id)
     precio_total = sum(venta.precio for venta in ventas)
     iva_total = sum(venta.iva for venta in ventas)
-    precio_total_con_iva = precio_total + iva_total
+    precio_total_con_iva = int(round(float(precio_total + iva_total)))
 
     if request.method == 'POST':
         try:
@@ -372,13 +595,24 @@ def pago(request):
             # Obtener los datos necesarios de la transacción
             buy_order = transaction.buy_order
             session_id = transaction.session_id
-            return_url = request.build_absolute_uri(reverse('exito'))
+            return_url = request.build_absolute_uri(reverse('exito_carrito'))
             final_url = request.build_absolute_uri(reverse('cancelado'))
             amount = transaction.amount
             commercecode = TRANSBANK_API_KEY
             apikey = TRANSBANK_SHARED_SECRET
 
-            tx = Transaction(options=WebpayOptions(commerce_code=commercecode, api_key=apikey, integration_type="TEST"))
+            # Credenciales oficiales del ambiente de integración de Webpay Plus.
+            # Son credenciales públicas de PRUEBA de Transbank; no corresponden a producción.
+            test_commerce_code = "***REMOVED***"
+            test_api_key = "***REMOVED***"
+
+            tx = Transaction(
+                options=WebpayOptions(
+                    commerce_code=test_commerce_code,
+                    api_key=test_api_key,
+                    integration_type="TEST",
+                )
+            )
             response = tx.create(buy_order, session_id, amount, return_url)
             token_ws = response['token']
             url_webpay = response['url']
@@ -401,7 +635,8 @@ def pago(request):
 
             return render(request, 'app/pago.html', context)
         except Exception as e:
-            # Ocurrió un error en la transacción de Transbank, puedes mostrar un mensaje de error o redirigir a una página de error
+            # Muestra el error real del pago del carrito en la terminal.
+            print("ERROR PAGO TRANSBANK:", repr(e))
             return redirect('cancelado')
 
     return redirect('carrito')
@@ -445,22 +680,19 @@ def dar_like(request, track_id):
     return redirect('detalle', track_id=track_id)
 
 def recuperar_contrasena_success(request):
-    return render(request, 'recuperar_contrasena_success.html')
+    # Compatibilidad con la ruta antigua: ahora solo muestra que el correo fue enviado.
+    return render(request, 'registration/password_reset_done.html')
 
 def recuperar_contrasena(request):
-    if request.method == 'POST':
-        email = request.POST.get('email')
-        password = request.POST.get('password')
-
-        try:
-            user = User.objects.get(email=email)
-            user.set_password(password)
-            user.save()
-            return render(request, 'recuperar_contrasena_success.html')
-        except User.DoesNotExist:
-            return render(request, 'recuperar_contrasena.html', {'error': 'El correo electrónico no está registrado.'})
-    else:
-        return render(request, 'registration/recuperar_contrasena.html')
+    # Flujo seguro oficial de Django: nunca cambia la contraseña solo conociendo el correo.
+    view = PasswordResetView.as_view(
+        template_name='registration/password_reset_form.html',
+        email_template_name='registration/password_reset_email.txt',
+        html_email_template_name='emails/restablecer_contrasena.html',
+        subject_template_name='registration/password_reset_subject.txt',
+        success_url=reverse('beatcloud_password_reset_done'),
+    )
+    return view(request)
 
 
 def eliminar_del_carrito(request, venta_id):

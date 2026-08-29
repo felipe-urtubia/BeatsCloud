@@ -17,6 +17,28 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _load_local_env(path):
+    """Carga las variables del archivo .env sin dependencias externas."""
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+
+        os.environ.setdefault(key, value)
+
+
+_load_local_env(BASE_DIR / '.env')
+
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -159,3 +181,19 @@ SESSION_COOKIE_SECURE = not DEBUG  # HTTPS en producción; HTTP local durante el
 TRANSBANK_API_KEY = os.getenv('TRANSBANK_API_KEY', '')
 TRANSBANK_SHARED_SECRET = os.getenv('TRANSBANK_SHARED_SECRET', '')
 TRANSBANK_INTEGRATION_TYPE = os.getenv('TRANSBANK_INTEGRATION_TYPE', 'TEST')
+
+# -----------------------------------------------------------------------------
+# Correo SMTP - confirmación de cuenta y recuperación de contraseña
+# -----------------------------------------------------------------------------
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv(
+    'DEFAULT_FROM_EMAIL',
+    EMAIL_HOST_USER or 'BeatCloud <no-reply@beatcloud.local>'
+)
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))
+

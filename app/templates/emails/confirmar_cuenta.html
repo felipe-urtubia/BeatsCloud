@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light only">
+  <title>Confirma tu cuenta en BeatCloud</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f3f4f8; font-family:Arial, Helvetica, sans-serif; color:#202033;">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+    Confirma tu correo para activar tu cuenta en BeatCloud.
+  </div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+         style="width:100%; background-color:#f3f4f8; margin:0; padding:0;">
+    <tr>
+      <td align="center" style="padding:36px 14px;">
+
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+               style="width:100%; max-width:600px; background-color:#ffffff; border-radius:18px; overflow:hidden; box-shadow:0 8px 28px rgba(25,25,45,0.10);">
+
+          <tr>
+            <td align="center" style="background-color:#17152d; padding:34px 24px 30px;">
+              <div style="font-size:32px; line-height:38px; font-weight:800; letter-spacing:-0.6px; color:#ffffff;">
+                ♫ BeatCloud
+              </div>
+              <div style="margin-top:8px; font-size:14px; line-height:21px; color:#c9c7df;">
+                Música, artistas y productores en un solo lugar
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:40px 38px 34px;">
+              <div style="text-align:center; font-size:13px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:#6d5ce8;">
+                Verificación de correo
+              </div>
+
+              <h1 style="margin:10px 0 22px; text-align:center; font-size:27px; line-height:34px; color:#17152d;">
+                ¡Bienvenido a BeatCloud!
+              </h1>
+
+              <p style="margin:0 0 16px; font-size:16px; line-height:25px; color:#3e3d50;">
+                Hola <strong>{{ usuario.first_name|default:usuario.username }}</strong>,
+              </p>
+
+              <p style="margin:0 0 16px; font-size:16px; line-height:25px; color:#3e3d50;">
+                Gracias por crear tu cuenta. Solo falta confirmar que esta dirección de correo
+                te pertenece para activar tu acceso a BeatCloud.
+              </p>
+
+              <p style="margin:0 0 26px; font-size:16px; line-height:25px; color:#3e3d50;">
+                Presiona el botón para completar la verificación:
+              </p>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="padding:4px 0 30px;">
+                    <a href="{{ activation_url }}"
+                       style="display:inline-block; background-color:#6d5ce8; color:#ffffff; text-decoration:none; font-size:16px; line-height:20px; font-weight:700; padding:15px 30px; border-radius:10px;">
+                      Confirmar mi cuenta
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                     style="background-color:#f7f6ff; border-radius:12px;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="margin:0 0 8px; font-size:13px; line-height:20px; font-weight:700; color:#4a4767;">
+                      ¿El botón no funciona?
+                    </p>
+                    <p style="margin:0 0 8px; font-size:13px; line-height:20px; color:#6a6880;">
+                      Copia y pega este enlace en tu navegador:
+                    </p>
+                    <p style="margin:0; font-size:12px; line-height:18px; word-break:break-all;">
+                      <a href="{{ activation_url }}" style="color:#6d5ce8; text-decoration:underline;">
+                        {{ activation_url }}
+                      </a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:28px 0 0; font-size:13px; line-height:21px; color:#77758a;">
+                Si tú no creaste una cuenta en BeatCloud, no necesitas hacer nada y puedes
+                ignorar este mensaje.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#f8f8fb; border-top:1px solid #ececf2; padding:24px 30px; text-align:center;">
+              <p style="margin:0; font-size:13px; line-height:20px; font-weight:700; color:#4e4d60;">
+                BeatCloud
+              </p>
+              <p style="margin:6px 0 0; font-size:12px; line-height:19px; color:#9391a2;">
+                Este es un mensaje automático de seguridad. No respondas a este correo.
+              </p>
+              <p style="margin:6px 0 0; font-size:12px; line-height:19px; color:#aaa8b5;">
+                © {% now "Y" %} BeatCloud
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
