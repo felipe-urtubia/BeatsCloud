@@ -37,11 +37,11 @@ Antes de comenzar instala:
 Abre PowerShell o la terminal de VS Code:
 
 ```powershell
-git clone URL_DEL_REPOSITORIO
+git clone https://github.com/felipe-urtubia/BeatsCloud.git BeatCloud
 cd BeatCloud
 ```
 
-Reemplaza `URL_DEL_REPOSITORIO` por la URL real del repositorio de GitHub.
+El último argumento (`BeatCloud`) hace que la carpeta local conserve el mismo nombre usado en el resto de esta guía.
 
 ---
 
@@ -54,6 +54,12 @@ python -m venv .venv
 ```
 
 Actívalo:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Si PowerShell bloquea la ejecución del script, habilítalo solo para la sesión actual y vuelve a activarlo:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
@@ -74,7 +80,21 @@ Con el entorno virtual activado:
 
 ```powershell
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+```
+
+`requirements.txt` es la fuente de verdad para las versiones del proyecto. No es necesario subir la carpeta `.venv` a GitHub: cada integrante la recrea localmente con los comandos anteriores.
+
+Comprueba que no haya dependencias rotas:
+
+```powershell
+python -m pip check
+```
+
+El resultado esperado es:
+
+```text
+No broken requirements found.
 ```
 
 ---
@@ -128,12 +148,9 @@ DB_PORT=5432
 # Stripe
 STRIPE_PUBLIC_KEY=
 STRIPE_SECRET_KEY=
-
-# Transbank
-TRANSBANK_API_KEY=
-TRANSBANK_SHARED_SECRET=
-TRANSBANK_INTEGRATION_TYPE=TEST
 ```
+
+Para Transbank, usa únicamente la configuración de integración que esté definida en la versión actual del proyecto. Antes de pasar a producción, las credenciales reales deben quedar centralizadas en variables de entorno o en un gestor de secretos y nunca en GitHub.
 
 ### Generar la clave secreta de Django
 
@@ -227,6 +244,20 @@ http://127.0.0.1:8000/admin/
 
 ## 10. Ejecutar BeatCloud
 
+Antes de iniciar el servidor, verifica la configuración de Django:
+
+```powershell
+python manage.py check
+```
+
+El resultado esperado es similar a:
+
+```text
+System check identified no issues (0 silenced).
+```
+
+Después inicia BeatCloud:
+
 ```powershell
 python manage.py runserver
 ```
@@ -283,7 +314,7 @@ exit()
 
 ## 12. Webpay / Transbank
 
-El proyecto tiene integración de Webpay Plus en ambiente de prueba.
+El proyecto tiene integración de Webpay Plus en ambiente de prueba mediante `transbank-sdk` (`from transbank import webpay`). No instales el paquete independiente llamado `webpay`, porque no corresponde a esta integración.
 
 Durante desarrollo:
 
@@ -342,7 +373,13 @@ Revisar cambios:
 git status
 ```
 
-Agregar cambios:
+Agregar solo los archivos que deseas incluir en el commit:
+
+```powershell
+git add nombre-del-archivo
+```
+
+Si revisaste `git status` y realmente quieres incluir todos los cambios pendientes, puedes usar:
 
 ```powershell
 git add .
@@ -366,6 +403,18 @@ Es recomendable que cada integrante cree ramas para cambios grandes:
 git switch -c nombre-de-la-rama
 ```
 
+### Cuando agregues o actualices una dependencia
+
+Hazlo dentro de `.venv`, comprueba que el proyecto siga funcionando y luego actualiza el archivo de dependencias:
+
+```powershell
+python -m pip check
+python manage.py check
+python -m pip freeze > requirements.txt
+```
+
+Antes de subirlo, revisa `requirements.txt` para evitar paquetes instalados por error o dependencias que el proyecto ya no utiliza.
+
 ---
 
 ## 15. Cuando un compañero descargue cambios nuevos
@@ -379,7 +428,8 @@ git pull
 Si cambió `requirements.txt`:
 
 ```powershell
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python -m pip check
 ```
 
 Si se agregaron migraciones:
@@ -404,8 +454,19 @@ Activa `.venv` e instala las dependencias:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
+
+### `pip` muestra un error de launcher o una ruta antigua
+
+Usa `pip` a través del intérprete activo:
+
+```powershell
+python -m pip --version
+python -m pip install -r requirements.txt
+```
+
+Esto evita depender directamente del ejecutable `pip.exe` cuando el entorno virtual fue movido de carpeta.
 
 ### Error al conectar PostgreSQL
 
@@ -414,7 +475,16 @@ Revisa:
 - que PostgreSQL esté iniciado;
 - que exista la base `beatsbd`;
 - usuario y contraseña del `.env`;
-- puerto `5432`.
+- puerto `5432`;
+- que instalaste las dependencias desde `requirements.txt`.
+
+El proyecto usa el controlador PostgreSQL incluido en `requirements.txt` (actualmente la familia `psycopg` 3). No instales `psycopg2` manualmente salvo que el proyecto vuelva a requerirlo explícitamente.
+
+Para comprobar una conexión real desde Django:
+
+```powershell
+python manage.py shell -c "from django.db import connection; connection.ensure_connection(); print('Conexion PostgreSQL OK')"
+```
 
 ### El correo intenta conectar a localhost
 
@@ -455,6 +525,8 @@ python manage.py migrate
 
 ---
 
+---
+
 ## 17. Estructura principal
 
 ```text
@@ -487,6 +559,7 @@ BeatCloud/
 Cada integrante puede usar el mismo código de GitHub, pero:
 
 - cada uno mantiene su propio `.env`;
+- cada uno crea su propia `.venv` local a partir de `requirements.txt`;
 - cada uno puede tener su propia base PostgreSQL local;
 - los datos locales no se sincronizan mediante Git;
 - las claves privadas nunca se comparten mediante commits.
