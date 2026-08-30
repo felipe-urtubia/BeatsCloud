@@ -659,9 +659,18 @@ def agregar_al_carrito(request, track_id):
 
     return redirect('carrito')
 
+@login_required
 @require_POST
 def eliminar_del_carrito(request, venta_id):
-    venta = get_object_or_404(Venta, pk=venta_id)
+    usuario = get_object_or_404(Usuario, user=request.user)
+
+    venta = get_object_or_404(
+        Venta,
+        pk=venta_id,
+        usuario_id=usuario,
+        completada=False,
+    )
+
     venta.delete()
     return redirect('carrito')
 
@@ -694,11 +703,6 @@ def recuperar_contrasena(request):
     )
     return view(request)
 
-
-def eliminar_del_carrito(request, venta_id):
-    venta = get_object_or_404(Venta, pk=venta_id)
-    venta.delete()
-    return redirect('carrito')
 
 def catalogo_usuarios(request):
     usuarios = Usuario.objects.all()
