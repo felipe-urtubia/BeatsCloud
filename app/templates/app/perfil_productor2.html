@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load static %}
 {% block titulo %} Perfil {% endblock %}
 {% block styles %}
@@ -64,8 +64,9 @@
             <a href="{% url 'realizar_pago' suscripcion.id_sus %}" class="btn btn-warning text-dark">Suscribirse</a>
           {% endif %}
         {% else %}
-          <p>No tienes una suscripción ingresada</p>
-          <a href="{% url 'realizar_pago' suscripcion.id_sus %}" class="btn btn-warning text-dark">Suscribirse</a>
+          <div class="alert alert-info mt-3" role="alert">
+            Este productor todavía no tiene una suscripción disponible.
+          </div>
         {% endif %}
       </div>
     </div>
@@ -89,7 +90,7 @@
               <td>{{ cancion.precio }}</td>
               <td>
                 <audio controls controlsList="nodownload">
-                  <source src="{{ cancion.track.url }}" type="{{ cancion.track.content_type }}">
+                  <source src="{% url 'reproducir_track' cancion.id_track %}" type="{{ cancion.track.content_type }}">
                   Tu navegador no soporta la reproducción de audio.
                 </audio>
               </td>
@@ -105,3 +106,4 @@
   </div>
 </div>
 {% endblock %}
+

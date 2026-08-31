@@ -4,10 +4,11 @@ from django.urls import path
 from .views import (
     inicio, logout, registro, activar_cuenta, perfil_artista, perfil_productor, perfil,
     editar_perfil, upload_file, editar_perfil_p, catalogo, perfil_artista1,
-    perfil_productor1, detalle_track, agregar_comentario, perfil2, carrito,
+    perfil_productor1, detalle_track, descargar_track, reproducir_track,
+    agregar_comentario, eliminar_comentario, perfil2, carrito,
     agregar_al_carrito, eliminar_del_carrito, dar_like, recuperar_contrasena,
     recuperar_contrasena_success, exito, exito_carrito, pago, cancelado, catalogo_usuarios,
-    ingresar_suscripcion_view, eliminar_track, realizar_pago, sobre_nosotros,
+    ingresar_suscripcion_view, editar_track, eliminar_track, realizar_pago, sobre_nosotros,
 )
 
 urlpatterns = [
@@ -26,7 +27,17 @@ urlpatterns = [
     path('perfil_artista/<str:username>/', perfil_artista1, name='perfil_artista1'),
     path('perfil_productor/<str:username>/', perfil_productor1, name='perfil_productor1'),
     path('detalle/<int:track_id>/', detalle_track, name='detalle'),
+
+    # Reproducción del audio a través de Django.
+    path(
+        'track/<int:track_id>/reproducir/',
+        reproducir_track,
+        name='reproducir_track'
+    ),
+
+    path('detalle/<int:track_id>/descargar/', descargar_track, name='descargar_track'),
     path('agregar_comentario/<int:track_id>/', agregar_comentario, name='agregar_comentario'),
+    path('comentario/eliminar/<int:comentario_id>/', eliminar_comentario, name='eliminar_comentario'),
     path('carrito/', carrito, name='carrito'),
     path('carrito/agregar/<int:track_id>/', agregar_al_carrito, name='agregar_al_carrito'),
     path('carrito/eliminar/<int:venta_id>/', eliminar_del_carrito, name='eliminar_del_carrito'),
@@ -44,7 +55,6 @@ urlpatterns = [
     path('recuperar/completado/', auth_views.PasswordResetCompleteView.as_view(
         template_name='registration/password_reset_complete.html'
     ), name='beatcloud_password_reset_complete'),
-    # Alias conservado por compatibilidad con enlaces antiguos del proyecto.
     path('recuperar/success/', recuperar_contrasena_success, name='recuperar_contrasena_success'),
 
     path('eliminar-del-carrito/<int:venta_id>/', eliminar_del_carrito, name='eliminar_del_carrito'),
@@ -54,6 +64,7 @@ urlpatterns = [
     path('pago/exito-carrito/', exito_carrito, name='exito_carrito'),
     path('usuarios/', catalogo_usuarios, name='catalogo_usuarios'),
     path('ingresar-suscripcion/', ingresar_suscripcion_view, name='ingresar_suscripcion'),
+    path('editar_track/<int:track_id>/', editar_track, name='editar_track'),
     path('eliminar_track/<int:track_id>/', eliminar_track, name='eliminar_track'),
     path('suscripcion/<int:suscripcion_id>/', realizar_pago, name='realizar_pago'),
     path('sobre_nosotros/', sobre_nosotros, name='sobre_nosotros'),

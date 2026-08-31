@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% load static %}
 
@@ -30,8 +30,19 @@
               <li>
                 <div class="comment">
                   <div class="user-info">
-                    <a class="username" href="{% url 'perfil2' comentario.usuario.username %}" style = "color: orange;">{{ comentario.usuario.username }}</a>
-                    <p class="comment-content" style = "font-size: 20px">{{ comentario.contenido }}</p>
+                    <a class="username" href="{% url 'perfil2' comentario.usuario.username %}" style="color: orange;">{{ comentario.usuario.username }}</a>
+                    <p class="comment-content" style="font-size: 20px">{{ comentario.contenido }}</p>
+
+                    {% if user.is_authenticated and comentario.usuario == user %}
+                      <form method="post" action="{% url 'eliminar_comentario' comentario.pk %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="btn btn-danger btn-sm"
+                                onclick="return confirm('¿Seguro que quieres eliminar este comentario?');">
+                          Eliminar comentario
+                        </button>
+                      </form>
+                    {% endif %}
                   </div>
                 </div>
                 <hr>
@@ -50,7 +61,7 @@
       {% endif %}
       <div class="audio-player">
         <audio id="audio-player" controls controlsList="nodownload">
-          <source src="{{ track.track.url }}" type="audio/mp3" >
+          <source src="{% url 'reproducir_track' track.id_track %}" type="audio/mp3" >
           Your browser does not support the audio element.
         </audio>
         <div class="buttons">
@@ -58,15 +69,35 @@
                 <span style="color: black; font-size: 20px">Precio: </span>
                 <span style="color: orange; font-size: 20px">${{ track.precio }}</span>
             </p>
-            <a href="#" class="btn btn-warning">Descarga</a>
-            <form method="post" action="{% url 'agregar_al_carrito' track.id_track %}">
-              {% csrf_token %}
-              <input type="hidden" name="track_id" value="{{ track.id_track }}">
-              <button type="submit" class="btn btn-warning" style="margin-top:20px;">Agregar al carrito</button>
-            </form>
+            {% if ya_comprado %}
+              <div class="alert alert-success" style="margin-top:20px;">
+                ✅ Ya compraste este track. Puedes descargarlo cuando quieras.
+              </div>
+              <a href="{% url 'descargar_track' track.id_track %}"
+                 class="btn btn-success"
+                 style="margin-top:10px;">
+                Descargar track
+              </a>
+            {% else %}
+              <form method="post" action="{% url 'agregar_al_carrito' track.id_track %}">
+                {% csrf_token %}
+                <input type="hidden" name="track_id" value="{{ track.id_track }}">
+                <button type="submit" class="btn btn-warning" style="margin-top:20px;">
+                  Agregar al carrito
+                </button>
+              </form>
+            {% endif %}
               <form method="post" action="{% url 'dar_like' track.id_track %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-warning" style="margin-top:20px">Me gusta</button>
+                {% if le_gusta %}
+                  <button type="submit" class="btn btn-success" style="margin-top:20px">
+                    ♥ Te gusta
+                  </button>
+                {% else %}
+                  <button type="submit" class="btn btn-warning" style="margin-top:20px">
+                    ♡ Me gusta
+                  </button>
+                {% endif %}
               </form>
             </div>
         </div>

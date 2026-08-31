@@ -1,34 +1,44 @@
 """
 URL configuration for beatcloud project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+The `urlpatterns` list routes URLs to views.
 """
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib.auth.views import LoginView
+from django.http import Http404
 from app.views import logout as app_logout
 
 
+def bloquear_acceso_directo_canciones(request, path):
+    """
+    Impide abrir directamente archivos de audio mediante
+    /media/canciones/<archivo>.
+
+    Los audios de BeatCloud deben reproducirse mediante la vista
+    reproducir_track() y descargarse mediante descargar_track().
+    """
+    raise Http404("Archivo de audio no disponible mediante acceso directo.")
+
+
 urlpatterns = [
+    # IMPORTANTE: esta ruta debe ir antes del static(MEDIA_URL, ...)
+    # para que /media/canciones/ no quede expuesto directamente.
+    path(
+        'media/canciones/<path:path>',
+        bloquear_acceso_directo_canciones,
+        name='bloquear_acceso_directo_canciones'
+    ),
+
     path('admin/', admin.site.urls),
     path('', include('app.urls')),
     path('accounts/logout/', app_logout, name='accounts_logout'),
-    path('accounts/',include('django.contrib.auth.urls')),
+    path('accounts/', include('django.contrib.auth.urls')),
 ]
 
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT) 
+    # Sigue sirviendo las demás imágenes/archivos de MEDIA durante desarrollo.
+    # /media/canciones/... queda interceptado por la ruta anterior.
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
