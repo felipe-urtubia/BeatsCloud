@@ -1,61 +1,385 @@
 {% extends 'base.html' %}
 
 {% load static %}
+
+{% block titulo %}{{ perfil.user.username|capfirst }} - Artista{% endblock %}
+
 {% block contenido %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="profile-header">
-            {% if perfil.foto_fondo %}<img class="profile-background" src="{{ perfil.foto_fondo.url }}">{% endif %}
-            {% if perfil.foto_perfil %}<img class="profile-picture" src="{{ perfil.foto_perfil.url }}">{% endif %}
+
+<style>
+  .artista-page {
+    padding-bottom: 60px;
+  }
+
+  .artista-cover {
+    position: relative;
+    height: 310px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 35%),
+      linear-gradient(135deg, #151515, #303030);
+  }
+
+  .artista-cover img.cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .artista-cover-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.58), rgba(0,0,0,.05));
+  }
+
+  .artista-profile-wrap {
+    position: relative;
+    margin-top: -78px;
+    z-index: 2;
+  }
+
+  .artista-profile-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .artista-profile-top {
+    display: flex;
+    align-items: flex-end;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+
+  .artista-avatar,
+  .artista-avatar-placeholder {
+    width: 145px;
+    height: 145px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    box-shadow: 0 6px 18px rgba(0,0,0,.16);
+    flex-shrink: 0;
+  }
+
+  .artista-avatar {
+    object-fit: cover;
+    background: #f1f1f1;
+  }
+
+  .artista-avatar-placeholder {
+    background: #ffc107;
+    display: grid;
+    place-items: center;
+    font-size: 4.3rem;
+  }
+
+  .artista-name {
+    flex: 1;
+    min-width: 220px;
+    padding-bottom: 8px;
+  }
+
+  .artista-name h1 {
+    font-weight: 900;
+    margin-bottom: 5px;
+    line-height: 1.05;
+  }
+
+  .artista-role {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 800;
+    font-size: .9rem;
+  }
+
+  .artista-description {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid #ececec;
+    color: #555;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+
+  .artista-redes {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .social-link {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #f5f5f5;
+    display: grid;
+    place-items: center;
+    border: 1px solid #ececec;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .social-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgba(0,0,0,.10);
+  }
+
+  .social-link img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  .social-link.social-disabled {
+    opacity: .45;
+    cursor: default;
+  }
+
+  .artista-info-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr);
+    gap: 24px;
+  }
+
+  .section-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 25px;
+    height: 100%;
+  }
+
+  .section-card h2,
+  .section-card h3 {
+    font-weight: 850;
+  }
+
+  .about-box {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 22px;
+    height: 100%;
+  }
+
+  .about-box p {
+    color: #555;
+    line-height: 1.7;
+    margin-bottom: 0;
+  }
+
+  .discover-box {
+    background: linear-gradient(135deg, #fff8df, #fff);
+    border: 1px solid #ffe38a;
+    border-radius: 15px;
+    padding: 22px;
+  }
+
+  .discover-box p {
+    color: #666;
+  }
+
+  .discover-box .btn {
+    width: 100%;
+    border-radius: 9px;
+    font-weight: 800;
+    padding: 10px;
+  }
+
+  @media (max-width: 767.98px) {
+    .artista-cover {
+      height: 230px;
+    }
+
+    .artista-profile-wrap {
+      margin-top: -58px;
+    }
+
+    .artista-profile-card {
+      padding: 20px;
+    }
+
+    .artista-profile-top {
+      align-items: center;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .artista-name {
+      flex-basis: 100%;
+    }
+
+    .artista-redes {
+      justify-content: center;
+    }
+
+    .artista-avatar,
+    .artista-avatar-placeholder {
+      width: 120px;
+      height: 120px;
+    }
+
+    .artista-info-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="artista-page">
+
+  <!-- Portada -->
+  <section class="artista-cover">
+    {% if perfil.foto_fondo %}
+      <img
+        src="{{ perfil.foto_fondo.url }}"
+        alt="Portada de {{ perfil.user.username }}"
+        class="cover-img"
+      >
+      <div class="artista-cover-overlay"></div>
+    {% endif %}
+  </section>
+
+  <div class="container artista-profile-wrap">
+
+    <!-- Información principal -->
+    <section class="artista-profile-card">
+      <div class="artista-profile-top">
+
+        {% if perfil.foto_perfil %}
+          <img
+            src="{{ perfil.foto_perfil.url }}"
+            alt="Foto de perfil de {{ perfil.user.username }}"
+            class="artista-avatar"
+          >
+        {% else %}
+          <div class="artista-avatar-placeholder">🎤</div>
+        {% endif %}
+
+        <div class="artista-name">
+          <h1>{{ perfil.user.username|capfirst }}</h1>
+          <span class="artista-role">🎤 Artista</span>
         </div>
+      </div>
+
+      {% if perfil.descripcion %}
+        <div class="artista-description">{{ perfil.descripcion }}</div>
+      {% else %}
+        <div class="artista-description text-muted">
+          Este artista todavía no ha agregado una descripción a su perfil.
+        </div>
+      {% endif %}
+
+      <!-- Redes sociales -->
+      <div class="artista-redes">
+
+        {% if perfil.youtube and perfil.youtube != "None" %}
+          <a
+            href="{{ perfil.youtube }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="YouTube"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Este artista aún no ha agregado su enlace de YouTube.');"
+            title="YouTube no configurado"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
+          </a>
+        {% endif %}
+
+        {% if perfil.spotify and perfil.spotify != "None" %}
+          <a
+            href="{{ perfil.spotify }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Spotify"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Este artista aún no ha agregado su enlace de Spotify.');"
+            title="Spotify no configurado"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
+          </a>
+        {% endif %}
+
+        {% if perfil.instagram and perfil.instagram != "None" %}
+          <a
+            href="{{ perfil.instagram }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Instagram"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Este artista aún no ha agregado su enlace de Instagram.');"
+            title="Instagram no configurado"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
+          </a>
+        {% endif %}
+
+      </div>
+    </section>
+
+    <div class="artista-info-grid">
+
+      <!-- Sobre el artista -->
+      <section class="section-card">
+        <h2>Sobre el artista</h2>
+
+        <div class="about-box">
+          {% if perfil.descripcion %}
+            <p>
+              {{ perfil.descripcion }}
+            </p>
+          {% else %}
+            <p class="text-muted">
+              Este artista todavía no ha compartido información adicional sobre su perfil.
+            </p>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- Explorar catálogo -->
+      <section class="section-card">
+        <h3>Descubre nueva música</h3>
+
+        <div class="discover-box">
+          <p>
+            Explora los tracks publicados por productores de BeatsCloud
+            y encuentra nuevas pistas para tus proyectos.
+          </p>
+
+          <a href="{% url 'catalogo' %}" class="btn btn-warning">
+            Explorar catálogo
+          </a>
+        </div>
+      </section>
+
     </div>
+
+  </div>
 </div>
 
-<div class="container mt-3">
-    <div class="row">
-        <div class="col-md-6">
-            <div class="profile-info">
-                <h2 class="username">{{ perfil.user.username | capfirst }}</h2>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="social-media">
-                {% if perfil.youtube %}
-                    <a href="{{ perfil.youtube }}" target="_blank" rel="noopener noreferrer">
-                        <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" class="social-icon" style="width:80px; height:80px;">
-                    </a>
-                {% else %}
-                    <a href="#" onclick="alert('Este artista aún no ha agregado su enlace de YouTube.'); return false;">
-                        <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" class="social-icon" style="width:80px; height:80px; opacity:0.45;">
-                    </a>
-                {% endif %}
-
-                {% if perfil.spotify %}
-                    <a href="{{ perfil.spotify }}" target="_blank" rel="noopener noreferrer">
-                        <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" class="social-icon" style="width:80px; height:80px;">
-                    </a>
-                {% else %}
-                    <a href="#" onclick="alert('Este artista aún no ha agregado su enlace de Spotify.'); return false;">
-                        <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" class="social-icon" style="width:80px; height:80px; opacity:0.45;">
-                    </a>
-                {% endif %}
-
-                {% if perfil.instagram %}
-                    <a href="{{ perfil.instagram }}" target="_blank" rel="noopener noreferrer">
-                        <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" class="social-icon" style="width:80px; height:80px;">
-                    </a>
-                {% else %}
-                    <a href="#" onclick="alert('Este artista aún no ha agregado su enlace de Instagram.'); return false;">
-                        <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" class="social-icon" style="width:80px; height:80px; opacity:0.45;">
-                    </a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="row mt-3">
-        <div class="col-md-12">
-            <p class="desc" style="word-wrap: break-word; white-space: pre-wrap;">{{ perfil.descripcion }}</p>
-        </div>
-    </div>
-</div>
 {% endblock %}

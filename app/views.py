@@ -23,6 +23,7 @@ from django.contrib.auth.decorators import login_required
 from .forms import UsuarioUpdateForm
 import mutagen
 from django.db.models import Q
+from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -313,7 +314,8 @@ def editar_perfil(request):
         form = UsuarioUpdateForm(instance=usuario)
 
     context = {
-        'form': form
+        'form': form,
+        'usuario': usuario,
     }
 
     return render(request, 'app/editar_perfil.html', context)
@@ -332,10 +334,11 @@ def editar_perfil_p(request):
         form = UsuarioUpdateForm(instance=usuario)
 
     context = {
-        'form': form
+        'form': form,
+        'usuario': usuario,
     }
 
-    return render(request, 'app/editar_perfil.html', context)
+    return render(request, 'app/editar_perfil_p.html', context)
 
 
 
@@ -442,46 +445,100 @@ def upload_file(request):
     return render(request, 'app/subir_archivo.html', {'form': form})
 
 def catalogo(request):
-        # Obtener todos los tracks de la base de datos
-    tracks = Track.objects.all()
+    # Cargamos los datos relacionados en la misma consulta para evitar
+    # consultas repetidas al mostrar productor y género.
+    tracks = Track.objects.select_related(
+        'usuario__user',
+        'genero',
+    ).all()
 
-    # Obtener todos los géneros de la base de datos
-    generos = Genero_Musical.objects.all()
+    generos = Genero_Musical.objects.all().order_by('descripcion')
 
-    # Obtener todos los usuarios de tipo ARTISTA de la base de datos
-    usuarios = Usuario.objects.filter(tipo_usu=Usuario.ARTISTA)
+    query = (request.GET.get('q') or '').strip()
+    genero_selected = (request.GET.get('genero') or '').strip()
+    precio_selected = (request.GET.get('precio') or '').strip()
+    orden_selected = (request.GET.get('orden') or 'recientes').strip()
 
-    # Obtener el valor del parámetro de búsqueda (si existe)
-    query = request.GET.get('q')
-    
-    # Obtener el valor del parámetro de precio (si existe)
-    precio_selected = request.GET.get('precio')
-    genero_selected = request.GET.get('genero')
-
-    if genero_selected:
-    # Si se ha proporcionado un parámetro de género, filtrar los tracks por género
-        tracks = tracks.filter(genero__descripcion=genero_selected)
-    if precio_selected:
-        # Si se ha proporcionado un parámetro de precio, convertir el valor en un rango de precios
-        min_price, max_price = [int(p) for p in precio_selected.split('-')]
-        tracks = tracks.filter(precio__gte=min_price, precio__lte=max_price)
-
+    # Buscar por nombre del track, productor o género.
     if query:
-        # Si se ha proporcionado un parámetro de búsqueda, filtrar los tracks y usuarios por nombre o descripción
         tracks = tracks.filter(
             Q(nombre_track__icontains=query) |
+            Q(usuario__user__username__icontains=query) |
             Q(genero__descripcion__icontains=query)
         )
-        usuarios = usuarios.filter(user__username__icontains=query)
 
+    if genero_selected:
+        tracks = tracks.filter(genero__descripcion=genero_selected)
+
+    # Rangos de precio definidos por la interfaz.
+    rangos_precio = {
+        '0-5000': (0, 5000),
+        '5001-10000': (5001, 10000),
+        '10001-20000': (10001, 20000),
+    }
+
+    if precio_selected in rangos_precio:
+        minimo, maximo = rangos_precio[precio_selected]
+        tracks = tracks.filter(precio__gte=minimo, precio__lte=maximo)
+    elif precio_selected == '20001-mas':
+        tracks = tracks.filter(precio__gte=20001)
+
+    # Ordenamiento.
+    ordenes = {
+        'recientes': '-id_track',
+        'antiguos': 'id_track',
+        'precio_menor': 'precio',
+        'precio_mayor': '-precio',
+        'nombre': 'nombre_track',
+    }
+
+    tracks = tracks.order_by(
+        ordenes.get(orden_selected, '-id_track')
+    )
+
+    # Identificamos los tracks que el usuario autenticado ya compró.
+    tracks_comprados = []
+
+    if request.user.is_authenticated:
+        perfil_usuario = Usuario.objects.filter(user=request.user).first()
+
+        ids_historial_compra = set()
+        if perfil_usuario:
+            ids_historial_compra = set(
+                HistorialCompra.objects.filter(
+                    usuario=perfil_usuario
+                ).values_list('track_id', flat=True)
+            )
+
+        ids_historial_venta = set(
+            HistorialVenta.objects.filter(
+                comprador=request.user
+            ).values_list('track_id', flat=True)
+        )
+
+        tracks_comprados = list(
+            ids_historial_compra | ids_historial_venta
+        )
+
+    # Guardamos el total antes de paginar.
+    total_resultados = tracks.count()
+
+    # Mostramos 6 tracks por página.
+    paginator = Paginator(tracks, 6)
+    numero_pagina = request.GET.get('page')
+    pagina_tracks = paginator.get_page(numero_pagina)
 
     context = {
-        'tracks': tracks,
+        'tracks': pagina_tracks,
         'generos': generos,
-        'usuarios': usuarios,
         'query': query,
-        'precio_selected': precio_selected
+        'genero_selected': genero_selected,
+        'precio_selected': precio_selected,
+        'orden_selected': orden_selected,
+        'total_resultados': total_resultados,
+        'tracks_comprados': tracks_comprados,
     }
+
     return render(request, 'app/catalogo.html', context)
 
 def perfil2(request, username):
@@ -1108,12 +1165,12 @@ def dar_like(request, track_id):
 
 def recuperar_contrasena_success(request):
     # Compatibilidad con la ruta antigua: ahora solo muestra que el correo fue enviado.
-    return render(request, 'registration/password_reset_done.html')
+    return render(request, 'app/password_reset_done.html')
 
 def recuperar_contrasena(request):
     # Flujo seguro oficial de Django: nunca cambia la contraseña solo conociendo el correo.
     view = PasswordResetView.as_view(
-        template_name='registration/password_reset_form.html',
+        template_name='app/password_reset_form.html',
         email_template_name='registration/password_reset_email.txt',
         html_email_template_name='emails/restablecer_contrasena.html',
         subject_template_name='registration/password_reset_subject.txt',
@@ -1123,8 +1180,35 @@ def recuperar_contrasena(request):
 
 
 def catalogo_usuarios(request):
-    usuarios = Usuario.objects.all()
-    return render(request, 'app/catalogo_usuarios.html', {'usuarios': usuarios})
+    # Todos los perfiles, ordenados por nombre de usuario.
+    usuarios = Usuario.objects.select_related('user').all().order_by('user__username')
+
+    tipo = (request.GET.get('tipo') or 'todos').strip().lower()
+    query = (request.GET.get('q') or '').strip()
+
+    if tipo == 'artistas':
+        usuarios = usuarios.filter(tipo_usu=Usuario.ARTISTA)
+    elif tipo == 'productores':
+        usuarios = usuarios.filter(tipo_usu=Usuario.PRODUCTOR)
+    else:
+        tipo = 'todos'
+
+    if query:
+        usuarios = usuarios.filter(
+            Q(user__username__icontains=query) |
+            Q(user__first_name__icontains=query) |
+            Q(user__last_name__icontains=query)
+        )
+
+    context = {
+        'usuarios': usuarios,
+        'tipo': tipo,
+        'query': query,
+        'total_artistas': Usuario.objects.filter(tipo_usu=Usuario.ARTISTA).count(),
+        'total_productores': Usuario.objects.filter(tipo_usu=Usuario.PRODUCTOR).count(),
+    }
+
+    return render(request, 'app/catalogo_usuarios.html', context)
 
 def ingresar_suscripcion_view(request):
     if request.method == 'POST':

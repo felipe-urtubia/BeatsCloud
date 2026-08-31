@@ -1,73 +1,587 @@
 {% extends "base.html" %}
 {% load static %}
-{% block titulo %} Registro {% endblock %}
-{% block stylesheet %}
-<link rel="stylesheet" type="text/css" href="{% static '/app/static/app/css/login.css' %}">
 
-{% endblock %}
+{% block titulo %}Crear cuenta{% endblock %}
 
 {% block contenido %}
-<div class="container d-flex align-items-center justify-content-center" style="min-height:100vh">
-  <div class="card border-0 shadow-lg">
-    <div class="card-body" style="padding:80px">
-      <h2 class="text-center">Registrate</h2>
-      <hr>
-      <form method="post" class="box" enctype="multipart/form-data" >
+
+<style>
+  .register-page {
+    padding: 42px 0 70px;
+  }
+
+  .register-shell {
+    max-width: 1050px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0,0,0,.12);
+  }
+
+  .register-info {
+    padding: 48px 40px;
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.30), transparent 35%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .register-brand {
+    display: inline-block;
+    width: fit-content;
+    background: #ffc107;
+    color: #171717;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-weight: 900;
+    margin-bottom: 20px;
+  }
+
+  .register-info h1 {
+    font-size: clamp(2.2rem, 4vw, 3.3rem);
+    font-weight: 900;
+    line-height: 1.08;
+    margin-bottom: 14px;
+  }
+
+  .register-info p {
+    color: rgba(255,255,255,.76);
+    line-height: 1.7;
+    margin-bottom: 24px;
+  }
+
+  .register-benefits {
+    display: grid;
+    gap: 13px;
+  }
+
+  .register-benefit {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: rgba(255,255,255,.9);
+  }
+
+  .register-benefit-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: rgba(255,193,7,.14);
+    color: #ffc107;
+    flex-shrink: 0;
+  }
+
+  .register-form-panel {
+    padding: 42px 38px;
+  }
+
+  .register-form-panel h2 {
+    font-weight: 900;
+    margin-bottom: 7px;
+  }
+
+  .register-subtitle {
+    color: #6c757d;
+    margin-bottom: 25px;
+  }
+
+  .register-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .register-field {
+    min-width: 0;
+  }
+
+  .register-field.full {
+    grid-column: 1 / -1;
+  }
+
+  .register-field label {
+    display: block;
+    font-weight: 800;
+    margin-bottom: 7px;
+    color: #222;
+  }
+
+  .register-field input:not([type="file"]),
+  .register-field select,
+  .register-field textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 9px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 10px;
+    background: #fff;
+    color: #212529;
+  }
+
+  .register-field input:not([type="file"]):focus,
+  .register-field select:focus,
+  .register-field textarea:focus {
+    outline: none;
+    border-color: #ffc107;
+    box-shadow: 0 0 0 .2rem rgba(255,193,7,.18);
+  }
+
+  .register-field input[type="file"] {
+    width: 100%;
+  }
+
+  .file-box {
+    border: 2px dashed #d7d7d7;
+    border-radius: 13px;
+    padding: 16px;
+    background: #fafafa;
+  }
+
+  .field-help {
+    display: block;
+    margin-top: 7px;
+    color: #6c757d;
+    font-size: .85rem;
+  }
+
+  .field-error,
+  .errorlist {
+    color: #dc3545;
+    font-weight: 700;
+    font-size: .88rem;
+    list-style: none;
+    padding-left: 0;
+    margin: 7px 0 0;
+  }
+
+  .register-errors {
+    grid-column: 1 / -1;
+    border-radius: 11px;
+    margin-bottom: 0;
+  }
+
+  .password-wrap {
+    position: relative;
+  }
+
+  .password-wrap input {
+    padding-right: 58px !important;
+  }
+
+  .password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #555;
+    font-weight: 700;
+    padding: 5px 7px;
+    cursor: pointer;
+  }
+
+  .register-submit {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 48px;
+    border-radius: 10px;
+    font-weight: 850;
+    margin-top: 4px;
+  }
+
+  .register-login {
+    text-align: center;
+    margin-top: 20px;
+  }
+
+  .register-login a {
+    color: #b27d00;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .register-login a:hover {
+    color: #171717;
+    text-decoration: underline;
+  }
+
+  .register-note {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid #ececec;
+    color: #777;
+    font-size: .85rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .image-preview {
+    display: none;
+    margin-top: 10px;
+  }
+
+  .image-preview img {
+    width: 95px;
+    height: 95px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+  }
+
+  .cover-preview img {
+    width: 160px;
+    height: 85px;
+  }
+
+  @media (max-width: 900px) {
+    .register-shell {
+      grid-template-columns: 1fr;
+      max-width: 650px;
+    }
+
+    .register-info {
+      padding: 34px 28px;
+    }
+
+    .register-benefits {
+      display: none;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .register-page {
+      padding: 24px 0 45px;
+    }
+
+    .register-shell {
+      border-radius: 16px;
+    }
+
+    .register-info,
+    .register-form-panel {
+      padding: 28px 22px;
+    }
+
+    .register-form {
+      grid-template-columns: 1fr;
+    }
+
+    .register-field.full,
+    .register-submit,
+    .register-errors {
+      grid-column: 1;
+    }
+  }
+</style>
+
+<div class="container register-page">
+
+  <div class="register-shell">
+
+    <!-- Presentación -->
+    <section class="register-info">
+      <span class="register-brand">BeatsCloud</span>
+
+      <h1>Crea tu cuenta</h1>
+
+      <p>
+        Únete a BeatsCloud como artista o productor y comienza a participar
+        en una comunidad enfocada en descubrir, compartir y adquirir música.
+      </p>
+
+      <div class="register-benefits">
+        <div class="register-benefit">
+          <span class="register-benefit-icon">🎤</span>
+          <span>Regístrate como artista y descubre nuevos tracks.</span>
+        </div>
+
+        <div class="register-benefit">
+          <span class="register-benefit-icon">🎛️</span>
+          <span>Regístrate como productor y publica tus proyectos.</span>
+        </div>
+
+        <div class="register-benefit">
+          <span class="register-benefit-icon">✉️</span>
+          <span>Activa tu cuenta mediante confirmación por correo.</span>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Formulario -->
+    <section class="register-form-panel">
+
+      <h2>Registro</h2>
+
+      <p class="register-subtitle">
+        Completa tus datos para crear una cuenta.
+      </p>
+
+      <form method="post" enctype="multipart/form-data" class="register-form" novalidate>
         {% csrf_token %}
+
         {% if form.non_field_errors %}
-          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          <div class="alert alert-danger register-errors">
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
         {% endif %}
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.first_name.id_for_label }}" style="display: block;">Nombre</label>
+
+
+        <div class="register-field">
+          <label for="{{ form.first_name.id_for_label }}">Nombre</label>
           {{ form.first_name }}
-          {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors }}</div>{% endif %}
+
+          {% for error in form.first_name.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
         </div>
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.last_name.id_for_label }}" style="display: block;">Apellido</label>
+
+
+        <div class="register-field">
+          <label for="{{ form.last_name.id_for_label }}">Apellido</label>
           {{ form.last_name }}
-          {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors }}</div>{% endif %}
+
+          {% for error in form.last_name.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
         </div>
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.email.id_for_label }}" style="display: block;">Email</label>
+
+
+        <div class="register-field full">
+          <label for="{{ form.email.id_for_label }}">Correo electrónico</label>
           {{ form.email }}
-          {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors }}</div>{% endif %}
+
+          <small class="field-help">
+            Usaremos este correo para enviarte el enlace de activación de tu cuenta.
+          </small>
+
+          {% for error in form.email.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
         </div>
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.username.id_for_label }}" style="display: block;">Usuario | Nombre artistico</label>
+
+
+        <div class="register-field">
+          <label for="{{ form.username.id_for_label }}">
+            Usuario / nombre artístico
+          </label>
+
           {{ form.username }}
-          {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors }}</div>{% endif %}
+
+          {% for error in form.username.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
         </div>
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.tipo_usu.id_for_label }}" style="display: block;">Tipo de Usuario</label>
+
+
+        <div class="register-field">
+          <label for="{{ form.tipo_usu.id_for_label }}">Tipo de usuario</label>
           {{ form.tipo_usu }}
-          {% if form.tipo_usu.errors %}<div class="text-danger small">{{ form.tipo_usu.errors }}</div>{% endif %}
-      </div>
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.password1.id_for_label }}" style="display: block;">Contraseña</label>
-          {{ form.password1 }}
-          {% if form.password1.errors %}<div class="text-danger small">{{ form.password1.errors }}</div>{% endif %}
+
+          {% for error in form.tipo_usu.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
         </div>
-        <div class="form-group" style="margin-bottom: 20px;">
-          <label for="{{ form.password2.id_for_label }}" style="display: block;">Confirmar Contraseña</label>
-          {{ form.password2 }}
-          {% if form.password2.errors %}<div class="text-danger small">{{ form.password2.errors }}</div>{% endif %}
+
+
+        <div class="register-field">
+          <label for="{{ form.password1.id_for_label }}">Contraseña</label>
+
+          <div class="password-wrap">
+            {{ form.password1 }}
+
+            <button
+              type="button"
+              class="password-toggle"
+              data-password-target="{{ form.password1.id_for_label }}"
+            >
+              Ver
+            </button>
+          </div>
+
+          {% if form.password1.help_text %}
+            <small class="field-help">
+              {{ form.password1.help_text|safe }}
+            </small>
+          {% endif %}
+
+          {% for error in form.password1.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
         </div>
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.foto_perfil.id_for_label }}" style="display: block;">Foto de perfil</label>
-          {{ form.foto_perfil }}
-          {% if form.foto_perfil.errors %}<div class="text-danger small">{{ form.foto_perfil.errors }}</div>{% endif %}
-      </div>
-      <div class="form-group" style="margin-bottom: 10px;">
-          <label for="{{ form.foto_fondo.id_for_label }}" style="display: block;">Foto de fondo</label>
-          {{ form.foto_fondo }}
-          {% if form.foto_fondo.errors %}<div class="text-danger small">{{ form.foto_fondo.errors }}</div>{% endif %}
-      </div>
-        <button type="submit" class="btn btn-warning btn-block">Registrarse</button>
+
+
+        <div class="register-field">
+          <label for="{{ form.password2.id_for_label }}">Confirmar contraseña</label>
+
+          <div class="password-wrap">
+            {{ form.password2 }}
+
+            <button
+              type="button"
+              class="password-toggle"
+              data-password-target="{{ form.password2.id_for_label }}"
+            >
+              Ver
+            </button>
+          </div>
+
+          {% for error in form.password2.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+
+        <div class="register-field">
+          <label for="{{ form.foto_perfil.id_for_label }}">Foto de perfil</label>
+
+          <div class="file-box">
+            {{ form.foto_perfil }}
+
+            <small class="field-help">
+              Puedes agregarla ahora o modificarla más adelante.
+            </small>
+
+            <div id="perfil-preview-box" class="image-preview">
+              <img id="perfil-preview" alt="Vista previa de foto de perfil">
+            </div>
+          </div>
+
+          {% for error in form.foto_perfil.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+
+        <div class="register-field">
+          <label for="{{ form.foto_fondo.id_for_label }}">Foto de portada</label>
+
+          <div class="file-box">
+            {{ form.foto_fondo }}
+
+            <small class="field-help">
+              Una imagen horizontal suele verse mejor como portada.
+            </small>
+
+            <div id="fondo-preview-box" class="image-preview cover-preview">
+              <img id="fondo-preview" alt="Vista previa de foto de portada">
+            </div>
+          </div>
+
+          {% for error in form.foto_fondo.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+
+        <button type="submit" class="btn btn-warning register-submit">
+          Crear cuenta
+        </button>
+
       </form>
-      <div class="text-center">
-        <a class="nav-link" href="{% url 'login' %}">¿Ya tienes una cuenta? Inicia sesión</a>
+
+
+      <div class="register-login">
+        <a href="{% url 'login' %}">
+          ¿Ya tienes una cuenta? Inicia sesión
+        </a>
       </div>
-    </div>
+
+      <div class="register-note">
+        Después de registrarte recibirás un correo para confirmar tu dirección
+        y activar la cuenta antes de iniciar sesión.
+      </div>
+
+    </section>
+
   </div>
 </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  document.querySelectorAll('.password-toggle').forEach(function (button) {
+    const input = document.getElementById(button.dataset.passwordTarget);
+
+    if (!input) {
+      return;
+    }
+
+    button.addEventListener('click', function () {
+      const visible = input.type === 'text';
+
+      input.type = visible ? 'password' : 'text';
+      button.textContent = visible ? 'Ver' : 'Ocultar';
+    });
+  });
+
+
+  const perfilInput = document.getElementById('{{ form.foto_perfil.id_for_label }}');
+  const fondoInput = document.getElementById('{{ form.foto_fondo.id_for_label }}');
+
+  const perfilPreviewBox = document.getElementById('perfil-preview-box');
+  const perfilPreview = document.getElementById('perfil-preview');
+
+  const fondoPreviewBox = document.getElementById('fondo-preview-box');
+  const fondoPreview = document.getElementById('fondo-preview');
+
+
+  function configurarVistaPrevia(input, box, image) {
+    if (!input || !box || !image) {
+      return;
+    }
+
+    input.setAttribute(
+      'accept',
+      'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'
+    );
+
+    input.addEventListener('change', function () {
+      if (!input.files || input.files.length === 0) {
+        box.style.display = 'none';
+        image.removeAttribute('src');
+        return;
+      }
+
+      const archivo = input.files[0];
+
+      if (archivo.type && archivo.type.startsWith('image/')) {
+        const reader = new FileReader();
+
+        reader.onload = function (event) {
+          image.src = event.target.result;
+          box.style.display = 'block';
+        };
+
+        reader.readAsDataURL(archivo);
+      }
+    });
+  }
+
+  configurarVistaPrevia(
+    perfilInput,
+    perfilPreviewBox,
+    perfilPreview
+  );
+
+  configurarVistaPrevia(
+    fondoInput,
+    fondoPreviewBox,
+    fondoPreview
+  );
+});
+</script>
+
 {% endblock %}

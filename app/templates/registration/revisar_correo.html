@@ -1,14 +1,241 @@
 {% extends "base.html" %}
+
 {% block titulo %}Confirma tu correo{% endblock %}
+
 {% block contenido %}
-<div class="container d-flex align-items-center justify-content-center" style="min-height: 70vh">
-  <div class="card border-0 shadow-lg" style="max-width: 560px; width: 100%;">
-    <div class="card-body text-center p-4">
-      <h2>Revisa tu correo 📩</h2>
-      <p class="mt-3">Enviamos un enlace de confirmación a:</p>
-      <strong>{{ email }}</strong>
-      <p class="mt-3 mb-0">Debes abrir ese enlace para activar tu cuenta antes de iniciar sesión.</p>
-    </div>
+
+<style>
+  .verify-page {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    padding: 48px 0 70px;
+  }
+
+  .verify-shell {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .verify-card {
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0,0,0,.12);
+  }
+
+  .verify-header {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 34%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    padding: 42px 30px 34px;
+    text-align: center;
+  }
+
+  .verify-icon {
+    width: 88px;
+    height: 88px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #ffc107;
+    color: #171717;
+    font-size: 2.6rem;
+    box-shadow: 0 10px 24px rgba(255,193,7,.22);
+  }
+
+  .verify-header h1 {
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .verify-header p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+  }
+
+  .verify-body {
+    padding: 32px;
+    text-align: center;
+  }
+
+  .verify-body h2 {
+    font-weight: 850;
+    margin-bottom: 14px;
+  }
+
+  .verify-body p {
+    color: #666;
+    line-height: 1.65;
+    margin-bottom: 18px;
+  }
+
+  .email-box {
+    display: inline-block;
+    max-width: 100%;
+    background: #fff8df;
+    border: 1px solid #ffe38a;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-weight: 850;
+    color: #171717;
+    word-break: break-word;
+    margin-bottom: 24px;
+  }
+
+  .steps-box {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+
+  .steps-box h3 {
+    font-size: 1.05rem;
+    font-weight: 850;
+    margin-bottom: 13px;
+  }
+
+  .verify-step {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  .verify-step:last-child {
+    margin-bottom: 0;
+  }
+
+  .step-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 900;
+    font-size: .82rem;
+  }
+
+  .verify-note {
+    background: #eaf7ef;
+    border: 1px solid #b8dfc7;
+    color: #245b38;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 24px;
+    line-height: 1.55;
+  }
+
+  .verify-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .verify-actions .btn {
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-weight: 850;
+  }
+
+  @media (max-width: 575.98px) {
+    .verify-page {
+      padding-top: 28px;
+    }
+
+    .verify-card {
+      border-radius: 16px;
+    }
+
+    .verify-header,
+    .verify-body {
+      padding: 24px 20px;
+    }
+
+    .verify-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="container verify-page">
+
+  <div class="verify-shell">
+
+    <section class="verify-card">
+
+      <div class="verify-header">
+        <div class="verify-icon">✉️</div>
+
+        <h1>Revisa tu correo</h1>
+
+        <p>
+          Falta un último paso para activar tu cuenta en BeatsCloud.
+        </p>
+      </div>
+
+      <div class="verify-body">
+
+        <h2>Te enviamos un enlace de confirmación</h2>
+
+        <p>
+          Revisa la bandeja de entrada del siguiente correo:
+        </p>
+
+        <div class="email-box">
+          {{ email }}
+        </div>
+
+        <div class="steps-box">
+          <h3>¿Qué debes hacer ahora?</h3>
+
+          <div class="verify-step">
+            <span class="step-number">1</span>
+            <span>Abre el correo enviado por BeatsCloud.</span>
+          </div>
+
+          <div class="verify-step">
+            <span class="step-number">2</span>
+            <span>Presiona el enlace de confirmación.</span>
+          </div>
+
+          <div class="verify-step">
+            <span class="step-number">3</span>
+            <span>Una vez activada tu cuenta, podrás iniciar sesión normalmente.</span>
+          </div>
+        </div>
+
+        <div class="verify-note">
+          <strong>¿No encuentras el correo?</strong><br>
+          Revisa también las carpetas de spam, correo no deseado o promociones.
+        </div>
+
+        <div class="verify-actions">
+          <a href="{% url 'login' %}" class="btn btn-warning">
+            Ir a iniciar sesión
+          </a>
+
+          <a href="{% url 'inicio' %}" class="btn btn-outline-dark">
+            Volver al inicio
+          </a>
+        </div>
+
+      </div>
+
+    </section>
+
   </div>
+
 </div>
+
 {% endblock %}

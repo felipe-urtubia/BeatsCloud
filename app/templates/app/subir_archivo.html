@@ -1,139 +1,478 @@
 {% extends 'base.html' %}
 
-{% block stylesheet %}
-{% endblock %}
+{% block titulo %}Subir track{% endblock %}
 
 {% block contenido %}
-<div class="container">
-  <h1 class="text-center">Subir Track</h1>
 
-  {% if form.errors %}
-    <div class="alert alert-danger" role="alert">
-      <strong>⚠️ No se pudo subir el track.</strong>
-      Revisa los campos marcados abajo.
-    </div>
-  {% endif %}
+<style>
+  .upload-page {
+    padding: 38px 0 65px;
+  }
 
-  <form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
+  .upload-hero {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 35%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    border-radius: 22px;
+    padding: 34px 30px;
+    margin-bottom: 28px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.12);
+  }
 
-    {% if form.non_field_errors %}
-      <div class="alert alert-danger">
-        {% for error in form.non_field_errors %}
-          <div>{{ error }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
+  .upload-hero h1 {
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
 
-    <div class="form-group">
-      <label for="{{ form.nombre_track.id_for_label }}" style="width: 100%;">
-        Nombre del Track:
-      </label>
-      {{ form.nombre_track }}
-      {% for error in form.nombre_track.errors %}
-        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
-      {% endfor %}
-    </div>
+  .upload-hero p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+  }
 
-    <div class="form-group">
-      <label for="{{ form.precio.id_for_label }}" style="width: 100%;">
-        Precio:
-      </label>
-      {{ form.precio }}
-      {% for error in form.precio.errors %}
-        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
-      {% endfor %}
-    </div>
+  .upload-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 26px;
+    align-items: start;
+  }
 
-    <div class="form-group">
-      <label for="{{ form.track.id_for_label }}" style="width: 100%;">
-        Archivo de audio:
-      </label>
+  .upload-card,
+  .upload-help {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+  }
 
-      <div class="alert alert-info py-2">
-        <strong>Formatos permitidos:</strong>
-        .MP3, .WAV, .FLAC, .M4A, .AAC y .OGG
-      </div>
+  .upload-card {
+    padding: 28px;
+  }
 
-      {{ form.track }}
+  .upload-help {
+    padding: 24px;
+    position: sticky;
+    top: 20px;
+  }
 
-      <div id="audio-extension-error"
-           class="alert alert-danger mt-2 mb-2"
-           style="display:none;"
-           role="alert">
-        <strong>⚠️ Archivo no válido.</strong><br>
-        Debes seleccionar un archivo de audio con extensión
-        MP3, WAV, FLAC, M4A, AAC u OGG.
-      </div>
+  .upload-help h3 {
+    font-weight: 850;
+    margin-bottom: 14px;
+  }
 
-      {% if form.track.help_text %}
-        <small class="form-text text-muted">
-          {{ form.track.help_text }}
-        </small>
+  .upload-help p,
+  .upload-help li {
+    color: #606060;
+    line-height: 1.55;
+  }
+
+  .upload-help ul {
+    padding-left: 20px;
+    margin-bottom: 0;
+  }
+
+  .upload-field {
+    margin-bottom: 23px;
+  }
+
+  .upload-field label {
+    display: block;
+    font-weight: 800;
+    margin-bottom: 7px;
+    color: #222;
+  }
+
+  .upload-field input[type="text"],
+  .upload-field input[type="number"],
+  .upload-field input[type="url"],
+  .upload-field select,
+  .upload-field textarea {
+    display: block;
+    width: 100%;
+    min-height: 45px;
+    padding: 9px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 9px;
+    background: #fff;
+    color: #212529;
+  }
+
+  .upload-field textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  .upload-field input:focus,
+  .upload-field select:focus,
+  .upload-field textarea:focus {
+    outline: none;
+    border-color: #ffc107;
+    box-shadow: 0 0 0 .2rem rgba(255,193,7,.18);
+  }
+
+  .file-box {
+    border: 2px dashed #d7d7d7;
+    border-radius: 13px;
+    padding: 18px;
+    background: #fafafa;
+  }
+
+  .file-box input[type="file"] {
+    width: 100%;
+  }
+
+  .format-box {
+    background: #fff8df;
+    border: 1px solid #ffe38a;
+    border-radius: 11px;
+    padding: 11px 13px;
+    margin-bottom: 12px;
+    font-size: .93rem;
+  }
+
+  .format-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .format-badge {
+    background: #171717;
+    color: #ffc107;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: .78rem;
+    font-weight: 800;
+  }
+
+  .field-help {
+    display: block;
+    margin-top: 7px;
+    color: #6c757d;
+    font-size: .87rem;
+  }
+
+  .field-error {
+    margin-top: 8px;
+    color: #b02a37;
+    font-weight: 700;
+    font-size: .92rem;
+  }
+
+  .upload-error-summary {
+    border-radius: 12px;
+    margin-bottom: 22px;
+  }
+
+  .preview-box {
+    margin-top: 13px;
+    display: none;
+  }
+
+  .preview-box img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+  }
+
+  .selected-file {
+    margin-top: 9px;
+    font-size: .9rem;
+    color: #555;
+    word-break: break-all;
+  }
+
+  .upload-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 30px;
+    padding-top: 22px;
+    border-top: 1px solid #ececec;
+  }
+
+  .upload-actions .btn {
+    border-radius: 9px;
+    font-weight: 800;
+    padding: 10px 19px;
+  }
+
+  .errorlist {
+    color: #dc3545;
+    font-weight: 700;
+    list-style: none;
+    padding-left: 0;
+    margin: 7px 0 0;
+  }
+
+  @media (max-width: 991.98px) {
+    .upload-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .upload-help {
+      position: static;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .upload-hero,
+    .upload-card,
+    .upload-help {
+      border-radius: 16px;
+    }
+
+    .upload-hero,
+    .upload-card {
+      padding: 22px;
+    }
+
+    .upload-actions .btn {
+      width: 100%;
+    }
+  }
+</style>
+
+<div class="container upload-page">
+
+  <section class="upload-hero">
+    <h1>Subir nuevo track</h1>
+    <p>
+      Publica un proyecto en BeatsCloud para que los artistas puedan descubrirlo,
+      escucharlo y comprarlo.
+    </p>
+  </section>
+
+  <div class="upload-grid">
+
+    <section class="upload-card">
+
+      {% if form.errors %}
+        <div class="alert alert-danger upload-error-summary" role="alert">
+          <strong>⚠ No se pudo subir el track.</strong><br>
+          Revisa los campos marcados antes de volver a intentarlo.
+        </div>
       {% endif %}
 
-      {% for error in form.track.errors %}
-        <div class="alert alert-danger mt-2 mb-2" role="alert">
-          <strong>⚠️ Archivo de audio inválido.</strong><br>
-          {{ error }}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
         </div>
-      {% endfor %}
-    </div>
-
-    <div class="form-group">
-      <label for="{{ form.foto.id_for_label }}" style="width: 100%;">
-        Foto:
-      </label>
-
-      {{ form.foto }}
-
-      {% if form.foto.help_text %}
-        <small class="form-text text-muted">
-          {{ form.foto.help_text }}
-        </small>
       {% endif %}
 
-      {% for error in form.foto.errors %}
-        <div class="alert alert-danger mt-2 mb-2" role="alert">
-          <strong>⚠️ Imagen inválida.</strong><br>
-          {{ error }}
+      <form method="post" enctype="multipart/form-data" id="upload-track-form">
+        {% csrf_token %}
+
+        <!-- Nombre -->
+        <div class="upload-field">
+          <label for="{{ form.nombre_track.id_for_label }}">
+            Nombre del track
+          </label>
+
+          {{ form.nombre_track }}
+
+          {% for error in form.nombre_track.errors %}
+            <div class="field-error">⚠ {{ error }}</div>
+          {% endfor %}
         </div>
-      {% endfor %}
-    </div>
 
-    <div class="form-group">
-      <label for="{{ form.genero.id_for_label }}" style="width: 100%;">
-        Género Musical:
-      </label>
-      {{ form.genero }}
-      {% for error in form.genero.errors %}
-        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
-      {% endfor %}
-    </div>
 
-    <div class="form-group">
-      <label for="{{ form.descripcion.id_for_label }}" style="width: 100%;">
-        Descripción:
-      </label>
-      {{ form.descripcion }}
-      {% for error in form.descripcion.errors %}
-        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
-      {% endfor %}
-    </div>
+        <!-- Precio -->
+        <div class="upload-field">
+          <label for="{{ form.precio.id_for_label }}">
+            Precio
+          </label>
 
-    <div class="form-group">
-      <button type="submit" class="btn btn-warning" style="margin-bottom: 30px;">
-        Subir
-      </button>
-    </div>
-  </form>
+          {{ form.precio }}
+
+          <small class="field-help">
+            Ingresa el valor del track en pesos chilenos.
+          </small>
+
+          {% for error in form.precio.errors %}
+            <div class="field-error">⚠ {{ error }}</div>
+          {% endfor %}
+        </div>
+
+
+        <!-- Género -->
+        <div class="upload-field">
+          <label for="{{ form.genero.id_for_label }}">
+            Género musical
+          </label>
+
+          {{ form.genero }}
+
+          {% for error in form.genero.errors %}
+            <div class="field-error">⚠ {{ error }}</div>
+          {% endfor %}
+        </div>
+
+
+        <!-- Audio -->
+        <div class="upload-field">
+          <label for="{{ form.track.id_for_label }}">
+            Archivo de audio
+          </label>
+
+          <div class="format-box">
+            <strong>Formatos de audio permitidos</strong>
+
+            <div class="format-badges">
+              <span class="format-badge">MP3</span>
+              <span class="format-badge">WAV</span>
+              <span class="format-badge">FLAC</span>
+              <span class="format-badge">M4A</span>
+              <span class="format-badge">AAC</span>
+              <span class="format-badge">OGG</span>
+            </div>
+          </div>
+
+          <div class="file-box">
+            {{ form.track }}
+            <div id="audio-selected-file" class="selected-file"></div>
+          </div>
+
+          <div
+            id="audio-extension-error"
+            class="alert alert-danger mt-2 mb-0"
+            style="display:none;"
+            role="alert"
+          >
+            <strong>⚠ Archivo no válido.</strong><br>
+            Selecciona un archivo MP3, WAV, FLAC, M4A, AAC u OGG.
+          </div>
+
+          {% if form.track.help_text %}
+            <small class="field-help">
+              {{ form.track.help_text }}
+            </small>
+          {% endif %}
+
+          {% for error in form.track.errors %}
+            <div class="alert alert-danger mt-2 mb-0" role="alert">
+              <strong>⚠ Archivo de audio inválido.</strong><br>
+              {{ error }}
+            </div>
+          {% endfor %}
+        </div>
+
+
+        <!-- Portada -->
+        <div class="upload-field">
+          <label for="{{ form.foto.id_for_label }}">
+            Imagen de portada
+          </label>
+
+          <div class="format-box">
+            <strong>Formatos de imagen permitidos</strong>
+
+            <div class="format-badges">
+              <span class="format-badge">JPG</span>
+              <span class="format-badge">JPEG</span>
+              <span class="format-badge">PNG</span>
+              <span class="format-badge">WEBP</span>
+            </div>
+          </div>
+
+          <div class="file-box">
+            {{ form.foto }}
+            <div id="image-selected-file" class="selected-file"></div>
+
+            <div id="image-preview-box" class="preview-box">
+              <img id="image-preview" alt="Vista previa de la portada">
+            </div>
+          </div>
+
+          {% if form.foto.help_text %}
+            <small class="field-help">
+              {{ form.foto.help_text }}
+            </small>
+          {% endif %}
+
+          {% for error in form.foto.errors %}
+            <div class="alert alert-danger mt-2 mb-0" role="alert">
+              <strong>⚠ Imagen inválida.</strong><br>
+              {{ error }}
+            </div>
+          {% endfor %}
+        </div>
+
+
+        <!-- Descripción -->
+        <div class="upload-field">
+          <label for="{{ form.descripcion.id_for_label }}">
+            Descripción
+          </label>
+
+          {{ form.descripcion }}
+
+          <small class="field-help">
+            Describe brevemente tu track para que los artistas sepan qué tipo
+            de proyecto están escuchando.
+          </small>
+
+          {% for error in form.descripcion.errors %}
+            <div class="field-error">⚠ {{ error }}</div>
+          {% endfor %}
+        </div>
+
+
+        <div class="upload-actions">
+          <button type="submit" class="btn btn-warning">
+            Publicar track
+          </button>
+
+          <a href="{% url 'perfil_productor' %}" class="btn btn-outline-dark">
+            Cancelar
+          </a>
+        </div>
+
+      </form>
+    </section>
+
+
+    <!-- Ayuda lateral -->
+    <aside class="upload-help">
+      <h3>Antes de publicar</h3>
+
+      <p>
+        Revisa que la información del track esté correcta antes de subirlo.
+      </p>
+
+      <ul>
+        <li>Usa un nombre claro para el proyecto.</li>
+        <li>Selecciona el género correcto.</li>
+        <li>Sube solamente archivos de audio válidos.</li>
+        <li>Agrega una portada para mejorar la presentación.</li>
+        <li>Escribe una descripción breve y útil.</li>
+      </ul>
+
+      <div class="alert alert-warning mt-4 mb-0">
+        <strong>Importante:</strong><br>
+        Si un track ya tiene compras, su archivo de audio no podrá reemplazarse
+        posteriormente.
+      </div>
+    </aside>
+
+  </div>
 </div>
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const audioInput = document.getElementById('{{ form.track.id_for_label }}');
+  const imageInput = document.getElementById('{{ form.foto.id_for_label }}');
   const errorBox = document.getElementById('audio-extension-error');
-  const form = audioInput ? audioInput.closest('form') : null;
+  const audioFileText = document.getElementById('audio-selected-file');
+  const imageFileText = document.getElementById('image-selected-file');
+  const imagePreviewBox = document.getElementById('image-preview-box');
+  const imagePreview = document.getElementById('image-preview');
+  const form = document.getElementById('upload-track-form');
 
   const extensionesAudio = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'];
 
@@ -142,28 +481,60 @@ document.addEventListener('DOMContentLoaded', function () {
       return true;
     }
 
-    const nombre = audioInput.files[0].name.toLowerCase();
+    const archivo = audioInput.files[0];
+    const nombre = archivo.name.toLowerCase();
     const partes = nombre.split('.');
     const extension = partes.length > 1 ? partes.pop() : '';
 
     if (!extensionesAudio.includes(extension)) {
       errorBox.style.display = 'block';
+      audioFileText.textContent = '';
       audioInput.value = '';
       return false;
     }
 
     errorBox.style.display = 'none';
+    audioFileText.textContent = 'Archivo seleccionado: ' + archivo.name;
     return true;
   }
 
   if (audioInput) {
-    // Refuerza el filtro del selector de archivos.
     audioInput.setAttribute(
       'accept',
       'audio/*,.mp3,.wav,.flac,.m4a,.aac,.ogg'
     );
 
     audioInput.addEventListener('change', extensionValida);
+  }
+
+  if (imageInput) {
+    imageInput.setAttribute(
+      'accept',
+      'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'
+    );
+
+    imageInput.addEventListener('change', function () {
+      if (!imageInput.files || imageInput.files.length === 0) {
+        imageFileText.textContent = '';
+        imagePreviewBox.style.display = 'none';
+        imagePreview.removeAttribute('src');
+        return;
+      }
+
+      const archivo = imageInput.files[0];
+      imageFileText.textContent = 'Imagen seleccionada: ' + archivo.name;
+
+      if (archivo.type && archivo.type.startsWith('image/')) {
+        const reader = new FileReader();
+
+        reader.onload = function (event) {
+          imagePreview.src = event.target.result;
+          imagePreviewBox.style.display = 'block';
+        };
+
+        reader.readAsDataURL(archivo);
+      }
+    });
   }
 
   if (form) {
@@ -176,30 +547,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-{% endblock %}
-
-{% block css %}
-<style>
-  .form-control {
-    width: 100%;
-    margin-bottom: 10px;
-  }
-
-  label {
-    font-weight: bold;
-  }
-
-  button[type=submit] {
-    background-color: yellow;
-    color: black;
-  }
-
-  .errorlist {
-    color: #dc3545;
-    font-weight: bold;
-    list-style: none;
-    padding-left: 0;
-    margin-top: 6px;
-  }
-</style>
 {% endblock %}

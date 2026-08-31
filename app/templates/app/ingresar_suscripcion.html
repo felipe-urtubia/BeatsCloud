@@ -1,25 +1,311 @@
 {% extends "base.html" %}
 {% load static %}
-{% block titulo %} Ingresar Suscripción {% endblock %}
+
+{% block titulo %}Crear suscripción{% endblock %}
 
 {% block contenido %}
-<div class="container">
-    <div class="row">
-        <div class="col-md-6 offset-md-3">
-            <h2>Ingresar Suscripción</h2>
-            <form method="POST">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label for="detalle">Detalle:</label>
-                    <input type="text" class="form-control" id="detalle" name="detalle" required>
-                </div>
-                <div class="form-group">
-                    <label for="precio">Precio:</label>
-                    <input type="number" class="form-control" id="precio" name="precio" required>
-                </div>
-                <button type="submit" class="btn btn-warning text-dark">Guardar Suscripción</button>
-            </form>
+
+<style>
+  .subscription-page {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    padding: 48px 0 70px;
+  }
+
+  .subscription-shell {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, .9fr) minmax(390px, 1.1fr);
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0,0,0,.12);
+  }
+
+  .subscription-info {
+    padding: 44px 36px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.30), transparent 35%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+  }
+
+  .subscription-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background: #ffc107;
+    color: #171717;
+    font-size: 2rem;
+    margin-bottom: 20px;
+  }
+
+  .subscription-info h1 {
+    font-weight: 900;
+    line-height: 1.08;
+    margin-bottom: 12px;
+  }
+
+  .subscription-info p {
+    color: rgba(255,255,255,.76);
+    line-height: 1.65;
+    margin-bottom: 22px;
+  }
+
+  .subscription-benefits {
+    display: grid;
+    gap: 11px;
+  }
+
+  .subscription-benefit {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    color: rgba(255,255,255,.85);
+    font-size: .92rem;
+    line-height: 1.45;
+  }
+
+  .subscription-benefit span:first-child {
+    color: #ffc107;
+    font-weight: 900;
+  }
+
+  .subscription-form-panel {
+    padding: 42px 38px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .subscription-form-panel h2 {
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .subscription-subtitle {
+    color: #6c757d;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .subscription-field {
+    margin-bottom: 20px;
+  }
+
+  .subscription-field label {
+    display: block;
+    font-weight: 800;
+    margin-bottom: 7px;
+  }
+
+  .subscription-field input {
+    width: 100%;
+    min-height: 50px;
+    padding: 10px 13px;
+    border: 1px solid #ced4da;
+    border-radius: 10px;
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+
+  .subscription-field input:focus {
+    outline: none;
+    border-color: #ffc107;
+    box-shadow: 0 0 0 .2rem rgba(255,193,7,.18);
+  }
+
+  .field-help {
+    display: block;
+    margin-top: 7px;
+    color: #7a7a7a;
+    font-size: .84rem;
+    line-height: 1.45;
+  }
+
+  .price-wrap {
+    position: relative;
+  }
+
+  .price-prefix {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: 850;
+    color: #555;
+  }
+
+  .price-wrap input {
+    padding-left: 30px;
+  }
+
+  .subscription-note {
+    background: #fff8df;
+    border: 1px solid #ffe38a;
+    color: #664d03;
+    border-radius: 13px;
+    padding: 15px;
+    margin-bottom: 22px;
+    font-size: .9rem;
+    line-height: 1.55;
+  }
+
+  .subscription-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .subscription-actions .btn {
+    min-height: 48px;
+    border-radius: 10px;
+    font-weight: 850;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media (max-width: 780px) {
+    .subscription-shell {
+      grid-template-columns: 1fr;
+      max-width: 580px;
+    }
+
+    .subscription-info {
+      padding: 30px 24px;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .subscription-page {
+      padding-top: 28px;
+    }
+
+    .subscription-shell {
+      border-radius: 16px;
+    }
+
+    .subscription-form-panel {
+      padding: 28px 22px;
+    }
+
+    .subscription-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="container subscription-page">
+
+  <div class="subscription-shell">
+
+    <section class="subscription-info">
+      <div class="subscription-icon">★</div>
+
+      <h1>Crea tu suscripción</h1>
+
+      <p>
+        Define una propuesta para que los usuarios puedan apoyar tu trabajo
+        como productor dentro de BeatsCloud.
+      </p>
+
+      <div class="subscription-benefits">
+        <div class="subscription-benefit">
+          <span>✓</span>
+          <span>Describe claramente qué incluye tu suscripción.</span>
         </div>
-    </div>
+
+        <div class="subscription-benefit">
+          <span>✓</span>
+          <span>Define el valor que deseas cobrar.</span>
+        </div>
+
+        <div class="subscription-benefit">
+          <span>✓</span>
+          <span>La suscripción quedará asociada a tu perfil de productor.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="subscription-form-panel">
+
+      <h2>Nueva suscripción</h2>
+
+      <p class="subscription-subtitle">
+        Completa los datos que verán los usuarios antes de realizar el pago.
+      </p>
+
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="subscription-field">
+          <label for="detalle">Detalle de la suscripción</label>
+
+          <input
+            type="text"
+            id="detalle"
+            name="detalle"
+            placeholder="Ej.: Acceso a contenido exclusivo y beneficios"
+            autocomplete="off"
+            required
+          >
+
+          <span class="field-help">
+            Escribe una descripción breve y fácil de entender.
+          </span>
+        </div>
+
+        <div class="subscription-field">
+          <label for="precio">Precio</label>
+
+          <div class="price-wrap">
+            <span class="price-prefix">$</span>
+
+            <input
+              type="number"
+              id="precio"
+              name="precio"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              placeholder="5000"
+              required
+            >
+          </div>
+
+          <span class="field-help">
+            Ingresa el valor en pesos chilenos, sin puntos ni comas.
+          </span>
+        </div>
+
+        <div class="subscription-note">
+          <strong>Antes de guardar:</strong>
+          revisa que la descripción y el precio sean correctos.
+        </div>
+
+        <div class="subscription-actions">
+          <button type="submit" class="btn btn-warning">
+            Guardar suscripción
+          </button>
+
+          <a href="{% url 'perfil_productor' %}" class="btn btn-outline-dark">
+            Cancelar
+          </a>
+        </div>
+      </form>
+
+    </section>
+
+  </div>
+
 </div>
+
 {% endblock %}

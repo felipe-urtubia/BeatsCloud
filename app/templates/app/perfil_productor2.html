@@ -1,109 +1,581 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static %}
-{% block titulo %} Perfil {% endblock %}
-{% block styles %}
-<link rel="stylesheet" type="text/css" href="{% static 'app/css/perfil_productor.css' %}">
-{% endblock %}
+
+{% block titulo %}{{ perfil.user.username|capfirst }} - Productor{% endblock %}
 
 {% block contenido %}
-<div class="container-fluid">
-  <div class="row">
-    <div class="profile-header">
-      {% if perfil.foto_fondo %}<img class="profile-background" src="{{ perfil.foto_fondo.url }}">{% endif %}
-      {% if perfil.foto_perfil %}<img class="profile-picture" src="{{ perfil.foto_perfil.url }}">{% endif %}
-    </div>
-  </div>
-</div>
 
-<div class="container mt-3">
-  <div class="row">
-    <div class="col-md-3 text-center">
-      <h2 class="username">{{ perfil.user.username | capfirst }}</h2>
-      <p class="desc" style="word-wrap: break-word;">{{ perfil.descripcion }}</p>
-      <div class="d-flex justify-content-center" id="redes">
+<style>
+  .productor-page {
+    padding-bottom: 60px;
+  }
+
+  .productor-cover {
+    position: relative;
+    height: 310px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 35%),
+      linear-gradient(135deg, #151515, #303030);
+  }
+
+  .productor-cover img.cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .productor-cover-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.58), rgba(0,0,0,.05));
+  }
+
+  .productor-profile-wrap {
+    position: relative;
+    margin-top: -78px;
+    z-index: 2;
+  }
+
+  .productor-profile-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .productor-profile-top {
+    display: flex;
+    align-items: flex-end;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+
+  .productor-avatar,
+  .productor-avatar-placeholder {
+    width: 145px;
+    height: 145px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    box-shadow: 0 6px 18px rgba(0,0,0,.16);
+    flex-shrink: 0;
+  }
+
+  .productor-avatar {
+    object-fit: cover;
+    background: #f1f1f1;
+  }
+
+  .productor-avatar-placeholder {
+    background: #ffc107;
+    display: grid;
+    place-items: center;
+    font-size: 4.3rem;
+  }
+
+  .productor-name {
+    flex: 1;
+    min-width: 220px;
+    padding-bottom: 8px;
+  }
+
+  .productor-name h1 {
+    font-weight: 900;
+    margin-bottom: 5px;
+    line-height: 1.05;
+  }
+
+  .productor-role {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 800;
+    font-size: .9rem;
+  }
+
+  .productor-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 8px;
+  }
+
+  .productor-stat {
+    min-width: 105px;
+    background: #f7f7f7;
+    border-radius: 13px;
+    padding: 11px 14px;
+    text-align: center;
+  }
+
+  .productor-stat strong {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1.1;
+  }
+
+  .productor-stat span {
+    color: #6c757d;
+    font-size: .82rem;
+  }
+
+  .productor-description {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid #ececec;
+    color: #555;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+
+  .productor-redes {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .social-link {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #f5f5f5;
+    display: grid;
+    place-items: center;
+    border: 1px solid #ececec;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .social-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgba(0,0,0,.10);
+  }
+
+  .social-link img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  .social-link.social-disabled {
+    opacity: .45;
+    cursor: default;
+  }
+
+  .section-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 25px;
+    height: 100%;
+  }
+
+  .section-card h2,
+  .section-card h3 {
+    font-weight: 850;
+  }
+
+  .subscription-box {
+    background: linear-gradient(135deg, #fff8df, #fff);
+    border: 1px solid #ffe38a;
+    border-radius: 15px;
+    padding: 20px;
+  }
+
+  .subscription-price {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #171717;
+    margin: 8px 0 15px;
+  }
+
+  .subscription-box .btn {
+    width: 100%;
+    font-weight: 800;
+    border-radius: 9px;
+    padding: 10px;
+  }
+
+  .tracks-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .tracks-heading h2 {
+    margin: 0;
+  }
+
+  .tracks-heading .badge {
+    padding: 8px 11px;
+    font-size: .9rem;
+  }
+
+  .track-card {
+    height: 100%;
+    border-radius: 17px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #ececec;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .track-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 25px rgba(0,0,0,.10);
+  }
+
+  .track-cover {
+    height: 205px;
+    background: linear-gradient(135deg, #ffc107, #ffdc73);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .track-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .track-placeholder {
+    font-size: 4.8rem;
+  }
+
+  .track-price {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 800;
+    padding: 6px 10px;
+    border-radius: 999px;
+  }
+
+  .track-body {
+    padding: 18px;
+  }
+
+  .track-body h3 {
+    font-size: 1.18rem;
+    font-weight: 800;
+    margin-bottom: 7px;
+  }
+
+  .track-genre {
+    display: inline-block;
+    background: #f2f2f2;
+    color: #444;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: .82rem;
+    font-weight: 700;
+    margin-bottom: 13px;
+  }
+
+  .track-audio {
+    width: 100%;
+    margin-bottom: 13px;
+  }
+
+  .track-body .btn {
+    width: 100%;
+    border-radius: 9px;
+    font-weight: 800;
+  }
+
+  .sin-tracks {
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 42px 20px;
+  }
+
+  @media (max-width: 767.98px) {
+    .productor-cover {
+      height: 230px;
+    }
+
+    .productor-profile-wrap {
+      margin-top: -58px;
+    }
+
+    .productor-profile-card {
+      padding: 20px;
+    }
+
+    .productor-profile-top {
+      align-items: center;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .productor-name {
+      flex-basis: 100%;
+    }
+
+    .productor-stats,
+    .productor-redes {
+      justify-content: center;
+    }
+
+    .productor-avatar,
+    .productor-avatar-placeholder {
+      width: 120px;
+      height: 120px;
+    }
+  }
+</style>
+
+<div class="productor-page">
+
+  <!-- Portada -->
+  <section class="productor-cover">
+    {% if perfil.foto_fondo %}
+      <img
+        src="{{ perfil.foto_fondo.url }}"
+        alt="Portada de {{ perfil.user.username }}"
+        class="cover-img"
+      >
+      <div class="productor-cover-overlay"></div>
+    {% endif %}
+  </section>
+
+  <div class="container productor-profile-wrap">
+
+    <!-- Información del productor -->
+    <section class="productor-profile-card">
+      <div class="productor-profile-top">
+
+        {% if perfil.foto_perfil %}
+          <img
+            src="{{ perfil.foto_perfil.url }}"
+            alt="Foto de perfil de {{ perfil.user.username }}"
+            class="productor-avatar"
+          >
+        {% else %}
+          <div class="productor-avatar-placeholder">🎛️</div>
+        {% endif %}
+
+        <div class="productor-name">
+          <h1>{{ perfil.user.username|capfirst }}</h1>
+          <span class="productor-role">🎛️ Productor</span>
+        </div>
+
+        <div class="productor-stats">
+          <div class="productor-stat">
+            <strong>{{ canciones|length }}</strong>
+            <span>Track{{ canciones|length|pluralize }}</span>
+          </div>
+
+          <div class="productor-stat">
+            {% if suscripcion %}
+              <strong>✓</strong>
+              <span>Suscripción</span>
+            {% else %}
+              <strong>—</strong>
+              <span>Sin suscripción</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if perfil.descripcion %}
+        <div class="productor-description">{{ perfil.descripcion }}</div>
+      {% else %}
+        <div class="productor-description text-muted">
+          Este productor todavía no ha agregado una descripción a su perfil.
+        </div>
+      {% endif %}
+
+      <!-- Redes sociales -->
+      <div class="productor-redes">
+
         {% if perfil.youtube and perfil.youtube != "None" %}
-          <a href="{{ perfil.youtube }}" target="_blank" rel="noopener noreferrer" title="Abrir YouTube">
-            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px;">
+          <a
+            href="{{ perfil.youtube }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="YouTube"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
           </a>
         {% else %}
-          <a href="#" onclick="event.preventDefault(); alert('Este usuario aún no ha agregado su enlace de YouTube.');" title="YouTube no configurado">
-            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Este productor aún no ha agregado su enlace de YouTube.');"
+            title="YouTube no configurado"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
           </a>
         {% endif %}
 
         {% if perfil.spotify and perfil.spotify != "None" %}
-          <a href="{{ perfil.spotify }}" target="_blank" rel="noopener noreferrer" title="Abrir Spotify">
-            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px;">
+          <a
+            href="{{ perfil.spotify }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Spotify"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
           </a>
         {% else %}
-          <a href="#" onclick="event.preventDefault(); alert('Este usuario aún no ha agregado su enlace de Spotify.');" title="Spotify no configurado">
-            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Este productor aún no ha agregado su enlace de Spotify.');"
+            title="Spotify no configurado"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
           </a>
         {% endif %}
 
         {% if perfil.instagram and perfil.instagram != "None" %}
-          <a href="{{ perfil.instagram }}" target="_blank" rel="noopener noreferrer" title="Abrir Instagram">
-            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px;">
+          <a
+            href="{{ perfil.instagram }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Instagram"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
           </a>
         {% else %}
-          <a href="#" onclick="event.preventDefault(); alert('Este usuario aún no ha agregado su enlace de Instagram.');" title="Instagram no configurado">
-            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Este productor aún no ha agregado su enlace de Instagram.');"
+            title="Instagram no configurado"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
           </a>
         {% endif %}
       </div>
-      <div class="suscripcion-section">
-        <h4>Suscripción</h4>
-        {% if suscripcion %}
-          <p>Detalle: {{ suscripcion.detalle }}</p>
-          <p>Precio: ${{ suscripcion.precio }}</p>
-          {% if pago_exitoso %}
-            <button class="btn btn-warning text-dark" disabled>Suscripción exitosa</button>
-          {% elif user_has_paid %}
-            <button class="btn btn-warning text-dark" disabled>Ya te has suscrito</button>
-          {% else %}
-            <a href="{% url 'realizar_pago' suscripcion.id_sus %}" class="btn btn-warning text-dark">Suscribirse</a>
-          {% endif %}
-        {% else %}
-          <div class="alert alert-info mt-3" role="alert">
-            Este productor todavía no tiene una suscripción disponible.
-          </div>
-        {% endif %}
-      </div>
-    </div>
+    </section>
 
-    <div class="col-md-9">
-      <h3>Proyectos</h3>
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>Foto</th>
-            <th>Nombre</th>
-            <th>Precio</th>
-            <th>Reproducir</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for cancion in canciones %}
-            <tr>
-              <td>{% if cancion.foto %}<img src="{{ cancion.foto.url }}" style="max-height: 100px;">{% endif %}</td>
-              <td>{{ cancion.nombre_track }}</td>
-              <td>{{ cancion.precio }}</td>
-              <td>
-                <audio controls controlsList="nodownload">
-                  <source src="{% url 'reproducir_track' cancion.id_track %}" type="{{ cancion.track.content_type }}">
-                  Tu navegador no soporta la reproducción de audio.
-                </audio>
-              </td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="4">No se encontraron proyectos</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="row">
+
+      <!-- Suscripción -->
+      <div class="col-lg-4 mb-4">
+        <section class="section-card">
+          <h3>Suscripción</h3>
+          <p class="text-muted">
+            Accede a la propuesta de suscripción publicada por este productor.
+          </p>
+
+          {% if suscripcion %}
+            <div class="subscription-box">
+              <strong>{{ suscripcion.detalle }}</strong>
+              <div class="subscription-price">${{ suscripcion.precio }}</div>
+
+              {% if pago_exitoso %}
+                <button class="btn btn-success" disabled>
+                  Suscripción exitosa
+                </button>
+              {% elif user_has_paid %}
+                <button class="btn btn-success" disabled>
+                  ✓ Ya estás suscrito
+                </button>
+              {% else %}
+                <a
+                  href="{% url 'realizar_pago' suscripcion.id_sus %}"
+                  class="btn btn-warning"
+                >
+                  Suscribirse
+                </a>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="alert alert-info mb-0">
+              Este productor todavía no tiene una suscripción disponible.
+            </div>
+          {% endif %}
+        </section>
+      </div>
+
+      <!-- Tracks -->
+      <div class="col-lg-8 mb-4">
+        <section class="section-card">
+          <div class="tracks-heading">
+            <h2>Proyectos</h2>
+            <span class="badge badge-warning">
+              {{ canciones|length }} publicado{{ canciones|length|pluralize }}
+            </span>
+          </div>
+
+          {% if canciones %}
+            <div class="row">
+              {% for cancion in canciones %}
+                <div class="col-md-6 mb-4">
+                  <article class="track-card">
+
+                    <div class="track-cover">
+                      {% if cancion.foto %}
+                        <img
+                          src="{{ cancion.foto.url }}"
+                          alt="Portada de {{ cancion.nombre_track }}"
+                        >
+                      {% else %}
+                        <div class="track-placeholder">🎵</div>
+                      {% endif %}
+
+                      <span class="track-price">${{ cancion.precio }}</span>
+                    </div>
+
+                    <div class="track-body">
+                      <h3>{{ cancion.nombre_track }}</h3>
+
+                      <span class="track-genre">
+                        {{ cancion.genero.descripcion }}
+                      </span>
+
+                      <audio
+                        class="track-audio"
+                        controls
+                        controlsList="nodownload"
+                        preload="none"
+                      >
+                        <source src="{% url 'reproducir_track' cancion.id_track %}">
+                        Tu navegador no soporta la reproducción de audio.
+                      </audio>
+
+                      <a
+                        href="{% url 'detalle' track_id=cancion.id_track %}"
+                        class="btn btn-warning"
+                      >
+                        Ver detalle
+                      </a>
+                    </div>
+
+                  </article>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="sin-tracks">
+              <h4 class="font-weight-bold">Aún no hay proyectos publicados</h4>
+              <p class="text-muted mb-0">
+                Cuando este productor publique tracks, aparecerán aquí.
+              </p>
+            </div>
+          {% endif %}
+        </section>
+      </div>
+
     </div>
   </div>
 </div>
-{% endblock %}
 
+{% endblock %}

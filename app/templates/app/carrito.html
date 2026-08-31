@@ -1,61 +1,480 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% load static %}
 
+{% block titulo %}Carrito de compra{% endblock %}
+
 {% block contenido %}
 
-<h1>Carrito de Compra</h1>
+<style>
+  .cart-page {
+    padding: 38px 0 65px;
+  }
 
-{% if ventas %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Nombre Track</th>
-        <th>Precio</th>
-        <th>IVA</th>
-        <th>Precio Total</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for venta in ventas %}
-        <tr>
-          <td>{{ venta.detalle }}</td>
-          <td>${{ venta.precio }}</td>
-          <td>${{ venta.iva }}</td>
-          <td>${{ venta.precio_total }}</td>
-          <td>
-            <audio controls controlsList="nodownload">
-              <source src="{% url 'reproducir_track' venta.track.id_track %}" type="audio/mp3">
-              Your browser does not support the audio element.
-            </audio>
-          </td>
-          <td>
-            <form method="post" action="{% url 'eliminar_del_carrito' venta.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-danger">Eliminar</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-      <tr>
-        <td colspan="3">Total:</td>
-        <td>${{ precio_total_con_iva }}</td>
-        <td>
-            <form id="webpay-form" method="post" action="{% url 'pago' %}">
-              {% csrf_token %}
-              <input type="hidden" name="buy_order" value="{{ buy_order }}">
-              <input type="hidden" name="session_id" value="{{ session_id }}">
-              <input type="hidden" name="amount" value="{{ precio_total_con_iva }}">
-              <input type="hidden" name="return_url" value="{{ return_url }}">
-              <button type="submit" class="btn btn-primary">Pagar con Webpay</button>
-            </form>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-{% else %}
-  <p>No hay productos en el carrito.</p>
-{% endif %}
+  .cart-hero {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 35%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    border-radius: 22px;
+    padding: 34px 30px;
+    margin-bottom: 28px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.12);
+  }
+
+  .cart-hero h1 {
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .cart-hero p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+  }
+
+  .cart-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 26px;
+    align-items: start;
+  }
+
+  .cart-products,
+  .cart-summary {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+  }
+
+  .cart-products {
+    padding: 25px;
+  }
+
+  .cart-summary {
+    padding: 24px;
+    position: sticky;
+    top: 20px;
+  }
+
+  .cart-section-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+
+  .cart-section-title h2 {
+    margin: 0;
+    font-weight: 850;
+  }
+
+  .cart-count {
+    background: #ffc107;
+    color: #171717;
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-weight: 800;
+    font-size: .88rem;
+  }
+
+  .cart-item {
+    display: grid;
+    grid-template-columns: 105px minmax(0, 1fr);
+    gap: 18px;
+    padding: 20px 0;
+    border-bottom: 1px solid #ececec;
+  }
+
+  .cart-item:first-of-type {
+    padding-top: 0;
+  }
+
+  .cart-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .cart-cover,
+  .cart-cover-placeholder {
+    width: 105px;
+    height: 105px;
+    border-radius: 14px;
+  }
+
+  .cart-cover {
+    object-fit: cover;
+  }
+
+  .cart-cover-placeholder {
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #ffc107, #ffdc73);
+    font-size: 2.8rem;
+  }
+
+  .cart-item-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    align-items: flex-start;
+    margin-bottom: 9px;
+  }
+
+  .cart-item-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 850;
+  }
+
+  .cart-price-total {
+    font-size: 1.15rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .cart-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  .cart-meta span {
+    background: #f5f5f5;
+    border-radius: 999px;
+    padding: 5px 9px;
+    color: #555;
+    font-size: .82rem;
+    font-weight: 700;
+  }
+
+  .cart-audio {
+    width: 100%;
+    max-width: 430px;
+    margin-bottom: 12px;
+  }
+
+  .cart-item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .cart-item-actions .btn {
+    border-radius: 8px;
+    font-weight: 750;
+  }
+
+  .cart-summary h3 {
+    font-weight: 850;
+    margin-bottom: 20px;
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 0;
+    color: #555;
+  }
+
+  .summary-row.total {
+    border-top: 1px solid #e7e7e7;
+    margin-top: 8px;
+    padding-top: 18px;
+    color: #171717;
+    align-items: center;
+  }
+
+  .summary-row.total span:first-child {
+    font-weight: 800;
+  }
+
+  .summary-total {
+    font-size: 1.7rem;
+    font-weight: 900;
+  }
+
+  .webpay-note {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 13px;
+    color: #666;
+    font-size: .88rem;
+    line-height: 1.5;
+    margin: 17px 0;
+  }
+
+  .webpay-form .btn {
+    width: 100%;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-weight: 850;
+  }
+
+  .continue-link {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    color: #555;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .continue-link:hover {
+    color: #171717;
+    text-decoration: underline;
+  }
+
+  .empty-cart {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 55px 25px;
+    text-align: center;
+  }
+
+  .empty-cart-icon {
+    font-size: 4.5rem;
+    margin-bottom: 12px;
+  }
+
+  .empty-cart h2 {
+    font-weight: 900;
+  }
+
+  .empty-cart p {
+    color: #6c757d;
+    margin-bottom: 22px;
+  }
+
+  .empty-cart .btn {
+    border-radius: 9px;
+    font-weight: 800;
+    padding: 10px 20px;
+  }
+
+  @media (max-width: 991.98px) {
+    .cart-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .cart-summary {
+      position: static;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .cart-hero,
+    .cart-products,
+    .cart-summary,
+    .empty-cart {
+      border-radius: 16px;
+    }
+
+    .cart-hero,
+    .cart-products {
+      padding: 22px;
+    }
+
+    .cart-item {
+      grid-template-columns: 1fr;
+    }
+
+    .cart-cover,
+    .cart-cover-placeholder {
+      width: 100%;
+      height: 210px;
+    }
+
+    .cart-item-top {
+      flex-direction: column;
+    }
+
+    .cart-price-total {
+      font-size: 1.3rem;
+    }
+  }
+</style>
+
+<div class="container cart-page">
+
+  <section class="cart-hero">
+    <h1>Carrito de compra</h1>
+    <p>
+      Revisa tus tracks antes de continuar al pago seguro con Webpay.
+    </p>
+  </section>
+
+  {% if ventas %}
+
+    <div class="cart-grid">
+
+      <!-- Productos -->
+      <section class="cart-products">
+
+        <div class="cart-section-title">
+          <h2>Tus tracks</h2>
+          <span class="cart-count">
+            {{ ventas|length }} producto{{ ventas|length|pluralize }}
+          </span>
+        </div>
+
+        {% for venta in ventas %}
+          <article class="cart-item">
+
+            <div>
+              {% if venta.track.foto %}
+                <img
+                  src="{{ venta.track.foto.url }}"
+                  alt="Portada de {{ venta.track.nombre_track }}"
+                  class="cart-cover"
+                >
+              {% else %}
+                <div class="cart-cover-placeholder">🎵</div>
+              {% endif %}
+            </div>
+
+            <div>
+              <div class="cart-item-top">
+                <div>
+                  <h3 class="cart-item-title">
+                    {{ venta.detalle }}
+                  </h3>
+
+                  {% if venta.track.usuario %}
+                    <small class="text-muted">
+                      Productor:
+                      {{ venta.track.usuario.user.username|capfirst }}
+                    </small>
+                  {% endif %}
+                </div>
+
+                <div class="cart-price-total">
+                  ${{ venta.precio_total }}
+                </div>
+              </div>
+
+              <div class="cart-meta">
+                <span>Precio: ${{ venta.precio }}</span>
+                <span>IVA: ${{ venta.iva }}</span>
+
+                {% if venta.track.genero %}
+                  <span>{{ venta.track.genero.descripcion }}</span>
+                {% endif %}
+              </div>
+
+              <audio
+                class="cart-audio"
+                controls
+                controlsList="nodownload"
+                preload="none"
+              >
+                <source src="{% url 'reproducir_track' venta.track.id_track %}">
+                Tu navegador no soporta la reproducción de audio.
+              </audio>
+
+              <div class="cart-item-actions">
+                <a
+                  href="{% url 'detalle' venta.track.id_track %}"
+                  class="btn btn-outline-dark btn-sm"
+                >
+                  Ver detalle
+                </a>
+
+                <form
+                  method="post"
+                  action="{% url 'eliminar_del_carrito' venta.pk %}"
+                  class="mb-0"
+                >
+                  {% csrf_token %}
+
+                  <button
+                    type="submit"
+                    class="btn btn-outline-danger btn-sm"
+                    onclick="return confirm('¿Deseas eliminar este track del carrito?');"
+                  >
+                    Eliminar
+                  </button>
+                </form>
+              </div>
+            </div>
+
+          </article>
+        {% endfor %}
+
+      </section>
+
+
+      <!-- Resumen -->
+      <aside class="cart-summary">
+        <h3>Resumen de compra</h3>
+
+        <div class="summary-row">
+          <span>Productos</span>
+          <strong>{{ ventas|length }}</strong>
+        </div>
+
+        <div class="summary-row">
+          <span>Impuestos</span>
+          <span>IVA incluido</span>
+        </div>
+
+        <div class="summary-row total">
+          <span>Total a pagar</span>
+          <span class="summary-total">${{ precio_total_con_iva }}</span>
+        </div>
+
+        <div class="webpay-note">
+          El pago se procesará mediante Webpay. Tus compras se registrarán
+          solamente después de que la transacción sea autorizada.
+        </div>
+
+        <form
+          id="webpay-form"
+          method="post"
+          action="{% url 'pago' %}"
+          class="webpay-form"
+        >
+          {% csrf_token %}
+
+          <input type="hidden" name="buy_order" value="{{ buy_order }}">
+          <input type="hidden" name="session_id" value="{{ session_id }}">
+          <input type="hidden" name="amount" value="{{ precio_total_con_iva }}">
+          <input type="hidden" name="return_url" value="{{ return_url }}">
+
+          <button type="submit" class="btn btn-warning">
+            Pagar con Webpay
+          </button>
+        </form>
+
+        <a href="{% url 'catalogo' %}" class="continue-link">
+          ← Seguir explorando el catálogo
+        </a>
+      </aside>
+
+    </div>
+
+  {% else %}
+
+    <section class="empty-cart">
+      <div class="empty-cart-icon">🛒</div>
+
+      <h2>Tu carrito está vacío</h2>
+
+      <p>
+        Explora el catálogo de BeatsCloud y agrega los tracks que quieras comprar.
+      </p>
+
+      <a href="{% url 'catalogo' %}" class="btn btn-warning">
+        Explorar catálogo
+      </a>
+    </section>
+
+  {% endif %}
+
+</div>
 
 {% endblock %}

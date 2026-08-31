@@ -150,10 +150,12 @@ class Compra(models.Model):
 class WebpayTransaction(models.Model):
     ESTADO_PENDIENTE = 'PENDING'
     ESTADO_AUTORIZADO = 'AUTHORIZED'
+    ESTADO_CANCELADO = 'CANCELLED'
 
     ESTADO_CHOICES = (
         (ESTADO_PENDIENTE, 'Pendiente'),
         (ESTADO_AUTORIZADO, 'Autorizado'),
+        (ESTADO_CANCELADO, 'Cancelado'),
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)

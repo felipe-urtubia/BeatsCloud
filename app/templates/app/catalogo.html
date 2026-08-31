@@ -1,86 +1,480 @@
-﻿{% extends "base.html" %}
-{% block styles %}
-{% endblock %}
+{% extends "base.html" %}
 
+{% block titulo %}Catálogo{% endblock %}
 
 {% block contenido %}
-<!-- Buscador -->
-<form method="GET">
-    <div class="form-row" >
-      <div class="form-group col-md-4">
-  
-        <label for="q">Buscar:</label>
-        <input type="text" class="form-control" name="q" id="q" value="{{ query }}">
+
+<style>
+  .catalogo-page {
+    padding: 32px 0 60px;
+  }
+
+  .catalogo-hero {
+    background: linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    border-radius: 22px;
+    padding: 34px 28px;
+    margin-bottom: 28px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.12);
+  }
+
+  .catalogo-hero h1 {
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .catalogo-hero p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+  }
+
+  .catalogo-filtros {
+    background: #fff;
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.07);
+  }
+
+  .catalogo-filtros label {
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .catalogo-filtros .form-control {
+    min-height: 44px;
+    border-radius: 9px;
+  }
+
+  .catalogo-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .catalogo-acciones .btn {
+    font-weight: 700;
+    border-radius: 9px;
+    padding: 10px 18px;
+  }
+
+  .catalogo-resumen {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .catalogo-resumen h2 {
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .catalogo-resumen .badge {
+    font-size: .95rem;
+    padding: 8px 12px;
+  }
+
+  .track-card {
+    height: 100%;
+    background: #fff;
+    border: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .track-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 34px rgba(0,0,0,.12);
+  }
+
+  .track-cover {
+    position: relative;
+    height: 230px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #ffc107, #ffda64);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .track-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .track-cover-placeholder {
+    font-size: 5rem;
+  }
+
+
+  .track-comprado {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    background: #198754;
+    color: #fff;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  }
+
+  .track-acciones {
+    display: grid;
+    gap: 9px;
+  }
+
+  .track-acciones .btn {
+    width: 100%;
+  }
+
+  .track-price {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    background: #171717;
+    color: #ffc107;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  }
+
+  .track-body {
+    padding: 22px;
+  }
+
+  .track-body h3 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+
+  .track-productor {
+    margin-bottom: 12px;
+  }
+
+  .track-productor a {
+    color: #d99b00;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .track-productor a:hover {
+    text-decoration: underline;
+  }
+
+  .track-genero {
+    display: inline-block;
+    background: #f1f1f1;
+    color: #333;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: .86rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .track-audio {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .track-body .btn {
+    width: 100%;
+    border-radius: 9px;
+    font-weight: 700;
+  }
+
+  .catalogo-vacio {
+    text-align: center;
+    background: #f8f9fa;
+    padding: 55px 20px;
+    border-radius: 18px;
+  }
+
+  .catalogo-vacio h3 {
+    font-weight: 800;
+  }
+
+
+  .catalogo-paginacion {
+    margin-top: 22px;
+  }
+
+  .catalogo-paginacion .pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .catalogo-paginacion .page-link {
+    color: #171717;
+    border-radius: 8px;
+    font-weight: 700;
+    min-width: 42px;
+    text-align: center;
+  }
+
+  .catalogo-paginacion .page-item.active .page-link {
+    background: #ffc107;
+    border-color: #ffc107;
+    color: #171717;
+  }
+
+  .catalogo-paginacion .page-link:hover {
+    background: #fff3cd;
+    color: #171717;
+  }
+
+  @media (max-width: 767.98px) {
+    .catalogo-hero {
+      border-radius: 18px;
+      padding: 28px 22px;
+    }
+  }
+</style>
+
+<div class="container catalogo-page">
+
+  <div class="catalogo-hero">
+    <h1>Catálogo de BeatsCloud</h1>
+    <p>
+      Explora pistas creadas por productores de la comunidad y encuentra
+      el sonido ideal para tu próximo proyecto.
+    </p>
+  </div>
+
+  <form method="get" class="catalogo-filtros">
+    <div class="row">
+
+      <div class="col-md-6 col-lg-3 mb-3">
+        <label for="q">Buscar</label>
+        <input
+          type="text"
+          class="form-control"
+          name="q"
+          id="q"
+          value="{{ query }}"
+          placeholder="Track o productor..."
+        >
       </div>
-      <div class="form-group col-md-4">
-        <label for="genero">Género:</label>
+
+      <div class="col-md-6 col-lg-3 mb-3">
+        <label for="genero">Género</label>
         <select class="form-control" name="genero" id="genero">
-          <option value="">Todos</option>
+          <option value="">Todos los géneros</option>
           {% for genero in generos %}
-          <option value="{{ genero.descripcion }}" {% if genero.descripcion == genero_selected %}selected{% endif %}>{{ genero.descripcion }}</option>
+            <option
+              value="{{ genero.descripcion }}"
+              {% if genero.descripcion == genero_selected %}selected{% endif %}
+            >
+              {{ genero.descripcion }}
+            </option>
           {% endfor %}
         </select>
       </div>
-      <div class="form-group col-md-4">
-        <label for="precio">Precio:</label>
+
+      <div class="col-md-6 col-lg-3 mb-3">
+        <label for="precio">Precio</label>
         <select class="form-control" name="precio" id="precio">
-            <option value="">Todos</option>
-            <option value="0-5000" {% if precio_selected == '0-5000' %}selected{% endif %}>$0 - $5000</option>
-            <option value="5000-10000" {% if precio_selected == '5000-10000' %}selected{% endif %}>$5000 - $10000</option>
-            <option value="10000-20000" {% if precio_selected == '10000-20000' %}selected{% endif %}>$10000 - $20000</option>
-            <option value="20000-100000" {% if precio_selected == '20000 - 100000' %}selected{% endif %}>Más de $20000</option>
+          <option value="">Todos los precios</option>
+          <option value="0-5000" {% if precio_selected == '0-5000' %}selected{% endif %}>
+            $0 - $5.000
+          </option>
+          <option value="5001-10000" {% if precio_selected == '5001-10000' %}selected{% endif %}>
+            $5.001 - $10.000
+          </option>
+          <option value="10001-20000" {% if precio_selected == '10001-20000' %}selected{% endif %}>
+            $10.001 - $20.000
+          </option>
+          <option value="20001-mas" {% if precio_selected == '20001-mas' %}selected{% endif %}>
+            Más de $20.000
+          </option>
         </select>
       </div>
-      
-    
-    
-  </div>
-  <button type="submit" class="btn btn-warning btn btn-warning float-right" >Buscar</button><br><br>
-    <p style = "border-top: 1px solid #CCCCCC;">
+
+      <div class="col-md-6 col-lg-3 mb-3">
+        <label for="orden">Ordenar por</label>
+        <select class="form-control" name="orden" id="orden">
+          <option value="recientes" {% if orden_selected == 'recientes' %}selected{% endif %}>
+            Más recientes
+          </option>
+          <option value="antiguos" {% if orden_selected == 'antiguos' %}selected{% endif %}>
+            Más antiguos
+          </option>
+          <option value="precio_menor" {% if orden_selected == 'precio_menor' %}selected{% endif %}>
+            Menor precio
+          </option>
+          <option value="precio_mayor" {% if orden_selected == 'precio_mayor' %}selected{% endif %}>
+            Mayor precio
+          </option>
+          <option value="nombre" {% if orden_selected == 'nombre' %}selected{% endif %}>
+            Nombre A-Z
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div class="catalogo-acciones">
+      <button type="submit" class="btn btn-warning">
+        Buscar y filtrar
+      </button>
+
+      <a href="{% url 'catalogo' %}" class="btn btn-outline-dark">
+        Limpiar filtros
+      </a>
+    </div>
   </form>
- 
-  <!-- Catálogo de canciones -->
+
+  <div class="catalogo-resumen">
+    <h2>Tracks disponibles</h2>
+    <span class="badge badge-warning">
+      {{ total_resultados }} resultado{{ total_resultados|pluralize }}
+    </span>
+  </div>
+
   {% if tracks %}
+    <div class="row">
+      {% for track in tracks %}
+        <div class="col-sm-6 col-lg-4 mb-4">
+          <article class="track-card">
 
-    <h2>Canciones</h2>
-    <br>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Portada</th>
-          <th>Nombre</th>
-          <th>Precio</th>
-          <th>Artista</th>
-          <th>Género</th>
-          <th>Detalle</th>
-        </tr>
-      </thead>
-  
-      <tbody>
-        {% for track in tracks %}
-          <tr>
-            <td>
+            <div class="track-cover">
               {% if track.foto %}
-                <img src="{{ track.foto.url }}" alt="{{ track.nombre_track }}" class="img-thumbnail" style="max-width: 100px;">
+                <img
+                  src="{{ track.foto.url }}"
+                  alt="Portada de {{ track.nombre_track }}"
+                >
+              {% else %}
+                <div class="track-cover-placeholder">🎵</div>
               {% endif %}
-              <audio src="{% url 'reproducir_track' track.id_track %}" controls controlsList="nodownload"></audio>
-            </td>
-            <td>{{ track.nombre_track }}</td>
-            <td>${{ track.precio }}</td>
-            <td><a href="{% url 'perfil_productor1' track.usuario.user.username %}" class="artista-link" style="color: orange; text-transform: capitalize;">{{ track.usuario.user.username }}</a></td>
-            <td>{{ track.genero.descripcion }}</td>
-            <td>
-              {% url 'detalle' track_id=track.id_track as detalle_url %}
-                <a href="{{ detalle_url }}" class="btn btn-warning">Detalle</a>
-              </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p>No se encontraron canciones con los criterios de búsqueda especificados.</p>
-  {% endif %}
-  
 
+              {% if track.id_track in tracks_comprados %}
+                <span class="track-comprado">✓ Comprado</span>
+              {% endif %}
+
+              <span class="track-price">${{ track.precio }}</span>
+            </div>
+
+            <div class="track-body">
+              <h3>{{ track.nombre_track }}</h3>
+
+              <div class="track-productor">
+                Por
+                <a href="{% url 'perfil_productor1' track.usuario.user.username %}">
+                  {{ track.usuario.user.username|capfirst }}
+                </a>
+              </div>
+
+              <span class="track-genero">
+                {{ track.genero.descripcion }}
+              </span>
+
+              <audio
+                class="track-audio"
+                src="{% url 'reproducir_track' track.id_track %}"
+                controls
+                controlsList="nodownload"
+                preload="none"
+              ></audio>
+
+              <div class="track-acciones">
+                {% if track.id_track in tracks_comprados %}
+                  <a
+                    href="{% url 'descargar_track' track.id_track %}"
+                    class="btn btn-success"
+                  >
+                    Descargar track
+                  </a>
+                {% endif %}
+
+                <a
+                  href="{% url 'detalle' track_id=track.id_track %}"
+                  class="btn btn-warning"
+                >
+                  Ver detalle
+                </a>
+              </div>
+            </div>
+
+          </article>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if tracks.paginator.num_pages > 1 %}
+      <nav class="catalogo-paginacion" aria-label="Paginación del catálogo">
+        <ul class="pagination">
+
+          {% if tracks.has_previous %}
+            <li class="page-item">
+              <a
+                class="page-link"
+                href="?page={{ tracks.previous_page_number }}&q={{ query|urlencode }}&genero={{ genero_selected|urlencode }}&precio={{ precio_selected|urlencode }}&orden={{ orden_selected|urlencode }}"
+                aria-label="Página anterior"
+              >
+                &laquo;
+              </a>
+            </li>
+          {% endif %}
+
+          {% for numero in tracks.paginator.page_range %}
+            {% if numero == tracks.number %}
+              <li class="page-item active" aria-current="page">
+                <span class="page-link">{{ numero }}</span>
+              </li>
+            {% elif numero >= tracks.number|add:'-2' and numero <= tracks.number|add:'2' %}
+              <li class="page-item">
+                <a
+                  class="page-link"
+                  href="?page={{ numero }}&q={{ query|urlencode }}&genero={{ genero_selected|urlencode }}&precio={{ precio_selected|urlencode }}&orden={{ orden_selected|urlencode }}"
+                >
+                  {{ numero }}
+                </a>
+              </li>
+            {% endif %}
+          {% endfor %}
+
+          {% if tracks.has_next %}
+            <li class="page-item">
+              <a
+                class="page-link"
+                href="?page={{ tracks.next_page_number }}&q={{ query|urlencode }}&genero={{ genero_selected|urlencode }}&precio={{ precio_selected|urlencode }}&orden={{ orden_selected|urlencode }}"
+                aria-label="Página siguiente"
+              >
+                &raquo;
+              </a>
+            </li>
+          {% endif %}
+
+        </ul>
+
+        <p class="text-center text-muted">
+          Página {{ tracks.number }} de {{ tracks.paginator.num_pages }}
+        </p>
+      </nav>
+    {% endif %}
+
+  {% else %}
+    <div class="catalogo-vacio">
+      <h3>No encontramos tracks</h3>
+      <p class="text-muted">
+        Prueba cambiando los filtros o realizando otra búsqueda.
+      </p>
+      <a href="{% url 'catalogo' %}" class="btn btn-warning">
+        Ver todo el catálogo
+      </a>
+    </div>
+  {% endif %}
+
+</div>
 
 {% endblock %}
