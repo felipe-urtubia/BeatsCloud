@@ -8,7 +8,8 @@ from .views import (
     agregar_comentario, eliminar_comentario, perfil2, carrito,
     agregar_al_carrito, eliminar_del_carrito, dar_like, recuperar_contrasena,
     recuperar_contrasena_success, exito, exito_carrito, pago, cancelado, catalogo_usuarios,
-    ingresar_suscripcion_view, editar_track, eliminar_track, realizar_pago, sobre_nosotros,
+    ingresar_suscripcion_view, editar_track, eliminar_track, realizar_pago,
+    cancelar_pago_pendiente, sobre_nosotros,
 )
 
 urlpatterns = [
@@ -59,6 +60,11 @@ urlpatterns = [
 
     path('eliminar-del-carrito/<int:venta_id>/', eliminar_del_carrito, name='eliminar_del_carrito'),
     path('pago/', pago, name='pago'),
+    path(
+        'pago/cancelar/<int:transaction_id>/',
+        cancelar_pago_pendiente,
+        name='cancelar_pago_pendiente'
+    ),
     path('pago/cancelado/', cancelado, name='cancelado'),
     path('pago/exito/', exito, name='exito'),
     path('pago/exito-carrito/', exito_carrito, name='exito_carrito'),

@@ -740,6 +740,40 @@ def carrito(request):
     }
 
     return render(request, 'app/carrito.html', context)
+
+def _marcar_cancelada_desde_retorno_webpay(request, *, es_suscripcion):
+    """
+    Marca como CANCELLED una transacción PENDING cuando Webpay devuelve
+    TBK_ORDEN_COMPRA/TBK_ID_SESION sin token_ws después de una cancelación.
+    """
+    if not request.user.is_authenticated:
+        return False
+
+    buy_order = (
+        request.POST.get('TBK_ORDEN_COMPRA')
+        or request.GET.get('TBK_ORDEN_COMPRA')
+    )
+    session_id = (
+        request.POST.get('TBK_ID_SESION')
+        or request.GET.get('TBK_ID_SESION')
+    )
+
+    if not buy_order or not session_id:
+        return False
+
+    actualizadas = WebpayTransaction.objects.filter(
+        buy_order=str(buy_order),
+        session_id=str(session_id),
+        user=request.user,
+        status=WebpayTransaction.ESTADO_PENDIENTE,
+        suscripcion__isnull=not es_suscripcion,
+    ).update(
+        status=WebpayTransaction.ESTADO_CANCELADO
+    )
+
+    return actualizadas == 1
+
+
 @login_required
 @csrf_exempt
 def exito(request):
@@ -752,9 +786,15 @@ def exito(request):
     token_ws = request.POST.get('token_ws') or request.GET.get('token_ws')
 
     if not token_ws:
+        cancelada = _marcar_cancelada_desde_retorno_webpay(
+            request,
+            es_suscripcion=True,
+        )
         print(
             "PAGO SUSCRIPCION CANCELADO O SIN TOKEN:",
-            dict(request.POST) if request.method == 'POST' else dict(request.GET)
+            dict(request.POST) if request.method == 'POST' else dict(request.GET),
+            "TRANSACCION_CANCELADA_LOCALMENTE:",
+            cancelada,
         )
         return redirect('cancelado')
 
@@ -854,9 +894,15 @@ def exito_carrito(request):
     # Cuando el usuario cancela/abandona Webpay, Transbank puede retornar
     # parámetros TBK_* en vez de token_ws.
     if not token_ws:
+        cancelada = _marcar_cancelada_desde_retorno_webpay(
+            request,
+            es_suscripcion=False,
+        )
         print(
             "PAGO CARRITO CANCELADO O SIN TOKEN:",
-            dict(request.POST) if request.method == 'POST' else dict(request.GET)
+            dict(request.POST) if request.method == 'POST' else dict(request.GET),
+            "TRANSACCION_CANCELADA_LOCALMENTE:",
+            cancelada,
         )
         return redirect('cancelado')
 
@@ -999,6 +1045,38 @@ def exito_carrito(request):
 def cancelado(request):
     return render(request, 'app/cancelado.html')
 
+
+@login_required
+@require_POST
+def cancelar_pago_pendiente(request, transaction_id):
+    webpay_transaction = get_object_or_404(
+        WebpayTransaction,
+        id=transaction_id,
+        user=request.user,
+    )
+
+    if webpay_transaction.status == WebpayTransaction.ESTADO_PENDIENTE:
+        webpay_transaction.status = WebpayTransaction.ESTADO_CANCELADO
+        webpay_transaction.save(update_fields=['status'])
+        messages.info(
+            request,
+            'El pago fue cancelado correctamente. No se realizó ningún cobro.'
+        )
+    else:
+        messages.info(
+            request,
+            'Esta transacción ya no se encuentra pendiente.'
+        )
+
+    if webpay_transaction.suscripcion_id:
+        return redirect(
+            'perfil_productor1',
+            username=webpay_transaction.suscripcion.user.user.username,
+        )
+
+    return redirect('carrito')
+
+
 @login_required
 @require_POST
 def pago(request):
@@ -1064,6 +1142,7 @@ def pago(request):
             "return_url": return_url,
             "token_ws": token_ws,
             "url_webpay": url_webpay,
+            "transaction_id": transaction.id,
             "first_name": request.user.first_name,
             "last_name": request.user.last_name,
             "email": request.user.email,
@@ -1292,6 +1371,7 @@ def realizar_pago(request, suscripcion_id):
                 "return_url": return_url,
                 "token_ws": token_ws,
                 "url_webpay": url_webpay,
+                "transaction_id": transaction.id,
             }
 
             return render(request, 'app/pago.html', context)
