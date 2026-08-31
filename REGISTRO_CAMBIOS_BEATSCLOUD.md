@@ -2,11 +2,9 @@
 
 **Proyecto:** BeatsCloud  
 **Periodo cubierto:** 28-08-2026 al 31-08-2026  
-**Zona horaria de referencia:** Chile continental (UTC-04:00)  
 **Última actualización:** 31-08-2026
 
-> Este archivo registra los cambios técnicos y visuales realizados durante la mejora del proyecto.
-> Cuando no existe una hora exacta verificable, se registra solamente la fecha o se indica que el cambio ocurrió durante la sesión.
+> Este documento resume los cambios funcionales, visuales, de seguridad, configuración y documentación realizados durante la etapa final de mejora del proyecto BeatsCloud.
 
 ---
 
@@ -16,306 +14,493 @@
 
 | Cambio | Descripción | Estado |
 |---|---|---|
-| Inicio de mejoras de BeatsCloud | Se comenzó a revisar la estructura del proyecto Django, registro de usuarios, perfiles, pagos, correo y seguridad. | Iniciado |
-| Confirmación de cuenta por correo | El registro fue ajustado para crear usuarios inactivos hasta confirmar el correo mediante `uidb64` y `default_token_generator`. | Implementado |
-| Validación de correo duplicado | Se agregó control para impedir registrar dos cuentas con el mismo correo electrónico. | Implementado |
-| Configuración `.env` | Se dejó la configuración sensible fuera del código fuente y se comprobó la lectura del archivo `.env` desde `settings.py`. | Implementado |
-| Gmail SMTP | Se comprobó el envío de correos desde Django mediante Gmail SMTP. | Probado |
-| Correos HTML | Se crearon plantillas HTML para confirmación de cuenta y recuperación de contraseña. | Implementado |
-| Recuperación segura de contraseña | Se adoptó el flujo oficial de Django para restablecer contraseña mediante un enlace enviado por correo. | Implementado |
-| Redes sociales de perfiles | Se evitó generar rutas terminadas en `/None` cuando Instagram, YouTube o Spotify no tienen URL configurada. | Implementado |
-| Perfil público de artista | Se corrigieron los enlaces sociales del perfil público. | Implementado |
-| Perfil propio de artista | Se corrigieron los enlaces sociales del perfil privado. | Implementado |
-| Revisión de Transbank | Se comenzó a revisar el error `401 Not Authorized` y el flujo de pago del carrito. | Revisado |
+| Inicio de revisión general | Se revisó la estructura del proyecto Django, registro, perfiles, correo, pagos y configuración. | Completado |
+| Confirmación de cuenta por correo | Los usuarios nuevos quedan inactivos hasta confirmar la cuenta mediante enlace seguro con `uidb64` y token de Django. | Implementado |
+| Validación de correo duplicado | Se evita registrar dos cuentas con el mismo correo electrónico. | Implementado |
+| Configuración mediante `.env` | Se implementó lectura de variables sensibles desde `.env`. | Implementado |
+| Gmail SMTP | Se configuró y probó el envío de correo desde Django mediante Gmail SMTP. | Probado |
+| Correos HTML | Se crearon plantillas para confirmación de cuenta y recuperación de contraseña. | Implementado |
+| Recuperación de contraseña | Se implementó el flujo seguro oficial de Django para restablecer contraseña mediante correo. | Implementado |
+| Redes sociales sin URL | Se evitó generar rutas terminadas en `/None` cuando Instagram, YouTube o Spotify no tienen enlace configurado. | Implementado |
+| Perfiles públicos y privados | Se corrigió el comportamiento de enlaces sociales y visualización de perfiles. | Implementado |
 
 ---
 
 # 29-08-2026
 
-## Seguridad, compras y tracks
+## Seguridad, carrito, compras y tracks
 
 | Cambio | Descripción | Estado |
 |---|---|---|
-| Transbank Webpay TEST | Se corrigieron las credenciales de integración y se utilizó el ambiente de prueba de Transbank. | Implementado |
-| Monto Webpay | Se normalizó el monto a entero en CLP antes de crear la transacción. | Implementado |
-| Validación del retorno Webpay | `exito_carrito()` comprueba autorización, orden, sesión, monto y respuesta antes de registrar una compra. | Implementado |
-| Registro posterior al pago | El historial se genera únicamente después de una respuesta autorizada y válida. | Implementado |
-| Prevención de compra duplicada | Se impide volver a comprar un track ya adquirido. | Implementado |
-| Carrito sin duplicados | Si un track ya está pendiente en el carrito no se crea otra venta pendiente. | Implementado |
-| Descarga segura | Se creó `descargar_track()` con `FileResponse` y comprobación de compra. | Implementado |
-| Detalle de track comprado | El sistema reconoce la compra previa y habilita descarga sin cobrar nuevamente. | Implementado |
-| Botón Me gusta | Se convirtió en toggle: `♡ Me gusta` / `♥ Te gusta`. | Implementado |
-| Comentarios | Alta y eliminación protegidas; solo el autor puede eliminar su comentario. | Implementado |
-| Eliminación de tracks | Se protegió mediante login, POST, CSRF y validación de propietario. | Implementado |
-| Perfiles privados | Se reforzaron vistas con `@login_required`. | Implementado |
-| Edición de tracks | Se agregó control de propietario. | Implementado |
-| Audio de tracks vendidos | Se puede editar metadata, pero no reemplazar el audio cuando ya existen compras. | Implementado |
-| Carrito pendiente | El carrito muestra únicamente ventas con `completada=False`. | Implementado |
-| Historial de compra | Se agregó acceso al detalle del track desde el historial. | Implementado |
-| Callback antiguo de suscripción | Se corrigió un flujo que podía marcar compras mediante GET sin token válido. | Implementado |
-| Dependencias | Se actualizaron paquetes compatibles y se verificó `python -m pip check`. | Verificado |
-| README y `.env.example` | Se documentó el uso de `.env.example` sin subir el `.env` real. | Implementado |
+| Webpay Plus TEST | Se configuró el flujo de pago con Transbank Webpay en ambiente TEST. | Implementado |
+| Validación del monto | El monto enviado a Webpay se normaliza correctamente para CLP. | Implementado |
+| Validación del retorno Webpay | Se comprueba autorización, orden, sesión y monto antes de registrar una compra. | Implementado |
+| Registro posterior al pago | El historial de compras y ventas se genera solo después de una respuesta válida y autorizada. | Implementado |
+| Prevención de compras duplicadas | Se evita comprar nuevamente un track ya adquirido. | Implementado |
+| Carrito sin duplicados | Un track pendiente no vuelve a agregarse como venta duplicada. | Implementado |
+| Eliminación segura del carrito | Eliminación mediante `POST`, CSRF, validación de propietario y estado pendiente. | Implementado |
+| Descarga protegida | Los compradores descargan tracks mediante `FileResponse`. | Implementado |
+| Subida de tracks | Solo los productores pueden subir tracks. | Implementado |
+| Validación real de audio | Se usa `mutagen` para validar que el archivo sea realmente de audio. | Implementado |
+| Validación de extensiones | Se controlan formatos permitidos de audio e imagen. | Implementado |
+| Edición de tracks | Se valida propiedad del track y se permite modificar metadata. | Implementado |
+| Protección de audio vendido | No se permite reemplazar el archivo de audio si el track ya tiene compras. | Implementado |
+| Eliminación de tracks | Eliminación segura mediante `POST`, CSRF y validación de propietario. | Implementado |
+| Reproducción controlada | El audio público se entrega mediante una ruta Django controlada. | Implementado |
+
+> La reproducción controlada evita exponer directamente la ruta física del archivo, pero no constituye DRM.
 
 ---
 
 # 30-08-2026
 
-## Seguridad de carrito, perfiles y pagos
+## Interfaz y experiencia de usuario
 
-| Cambio | Descripción | Estado |
-|---|---|---|
-| Descarga segura consolidada | Se reforzaron las vistas de descarga de tracks comprados. | Implementado |
-| Detalle de track | Reconoce compras previas y ofrece descarga segura. | Probado |
-| Perfiles de artista | Se corrigieron perfil público y privado. | Implementado |
-| Likes | Se terminó el comportamiento toggle. | Implementado |
-| Comentarios | Se completó la protección y eliminación por autor. | Implementado |
-| Eliminación de track | Control de propietario y POST. | Implementado |
-| Perfil del productor | Se consolidaron mejoras funcionales. | Implementado |
-| Protección de perfiles | Se aplicaron controles de autenticación. | Implementado |
-| Edición de track | Se bloquea el reemplazo de audio cuando existen compras. | Implementado |
-| Carrito | Se mantiene únicamente con ventas pendientes. | Implementado |
-| Historial | Se agregó acceso al detalle desde compras. | Implementado |
-| Callback de pago | Se reforzó para evitar convertir operaciones inválidas en compras. | Implementado |
-| Pago del carrito | Trabaja solo con ventas pendientes. | Implementado |
-| `pago()` | Inicio de pago protegido con autenticación y POST. | Implementado |
-| CSRF del carrito | Se eliminó `@csrf_exempt` del inicio de pago; se conserva solo donde Transbank necesita retornar externamente. | Probado |
-| CSRF de suscripción | Inicio de pago protegido con login, POST y CSRF. | Implementado |
-| Transbank de suscripción | Se corrigió el flujo usando el ambiente TEST que funcionaba en el carrito. | Probado |
-| Historial de suscripciones | Se relacionó la suscripción con `WebpayTransaction`. | Implementado |
-| Registro autorizado | Una suscripción solo queda autorizada después de validar la respuesta de Webpay. | Implementado |
-| Historial unificado | El perfil muestra compras de tracks y suscripciones autorizadas. | Probado |
+Se modernizaron las principales páginas del sistema manteniendo la identidad visual de BeatsCloud.
 
-## Validación de archivos y audio
+### Páginas modernizadas
 
-| Cambio | Descripción | Estado |
-|---|---|---|
-| Validación de archivos | Se añadieron extensiones permitidas para audio e imagen. | Implementado |
-| Avisos de formulario | Se muestran errores claros para audio o imagen inválidos. | Implementado |
-| Subida restringida | Solo productores pueden subir tracks. | Implementado |
-| Formatos visibles | MP3, WAV, FLAC, M4A, AAC y OGG. | Probado |
-| Validación en navegador | Se comprueba extensión antes de enviar el formulario. | Probado |
-| Descarga desde historial | Se eliminó el enlace directo al archivo físico y se usa `descargar_track`. | Probado |
-| Ruta de reproducción controlada | Se creó `reproducir_track(request, track_id)`. | Implementado |
-| URL de reproducción | Se agregó `track/<int:track_id>/reproducir/`. | Implementado |
-| Reproductores | Se reemplazaron referencias directas al archivo por la ruta controlada. | Probado |
-| Bloqueo de `/media/canciones/` | El audio original no queda expuesto directamente en desarrollo. | Probado |
-| Prueba de reproducción | La ruta controlada reproduce mientras el acceso directo a `/media/canciones/` devuelve 404. | Probado |
+- Inicio.
+- Catálogo de usuarios.
+- Catálogo de tracks.
+- Detalle de track.
+- Perfil público de artista.
+- Perfil público de productor.
+- Perfil privado de artista.
+- Perfil privado de productor.
+- Edición de perfil.
+- Subida de track.
+- Edición de track.
+- Carrito.
+- Pago.
+- Pago exitoso.
+- Pago cancelado.
+- Login.
+- Registro.
+- Activación de cuenta.
+- Recuperación de contraseña.
+- Creación de suscripción.
+- Confirmación y pago de suscripciones.
+- Página “Sobre nosotros”.
 
-## Suscripciones y mensajes
+### Catálogo de tracks
 
-| Cambio | Descripción | Estado |
-|---|---|---|
-| Compra duplicada de suscripción | Se detecta una `WebpayTransaction` `AUTHORIZED` del mismo usuario y suscripción. | Implementado |
-| Mensaje por compra repetida | Se informa que la suscripción ya fue comprada anteriormente. | Probado |
-| Mensajes globales | `base.html` muestra mensajes Django mediante alertas Bootstrap. | Probado |
-| Productor sin suscripción | El perfil público funciona aunque no exista suscripción. | Implementado |
-| Aviso sin suscripción | Se informa que el productor todavía no tiene una suscripción disponible. | Probado |
-| Limpieza temporal | Se confirmó que scripts `.ps1` y respaldos `.bak` pueden eliminarse tras las pruebas. | Aprobado |
-| Prueba general | Las funciones principales revisadas quedaron operativas. | Confirmado |
-| Datos de prueba Transbank | Se documentó que los datos del ambiente de integración no representan clientes reales. | Documentado |
+Se agregaron:
+
+- búsqueda;
+- filtros;
+- rango de precio;
+- filtros por género;
+- ordenamiento;
+- paginación;
+- indicador de track comprado.
+
+### Interacción
+
+- Sistema de Me gusta.
+- Comentarios.
+- Eliminación segura de comentarios.
+- Mensajes globales mediante Bootstrap.
 
 ---
 
 # 31-08-2026
 
-## Modernización general de interfaz
+## WebpayTransaction y estados de pago
 
-Durante esta etapa se modernizó la presentación visual de BeatsCloud manteniendo la lógica funcional existente.
+Se amplió el modelo de transacciones para trabajar con tres estados:
 
-| Pantalla / módulo | Cambio realizado | Estado |
-|---|---|---|
-| Inicio | Hero, secciones principales, explicación de roles, funcionamiento y llamados a la acción. | Probado |
-| Catálogo de usuarios | Filtros por tipo de usuario, buscador, conteos y tarjetas modernas. | Probado |
-| Catálogo de tracks | Buscador, género, precio, ordenamiento, paginación y estado de compra. | Probado |
-| Detalle de track | Diseño renovado conservando reproducción, compra, descarga, likes y comentarios. | Probado |
-| Perfil público de productor | Diseño moderno con portada, avatar, redes, suscripción y tracks. | Probado |
-| Perfil público de artista | Diseño moderno y corrección de textos/codificación. | Probado |
-| Perfil privado de artista | Historial de tracks, suscripciones, favoritos y edición de perfil. | Probado |
-| Perfil privado de productor | Proyectos, ventas, suscripción, subida y edición de tracks. | Probado |
-| Subir track | Diseño renovado, vista previa de portada y ayuda de formatos. | Probado |
-| Editar track | Diseño renovado y aviso cuando existen compras que impiden reemplazar audio. | Probado |
-| Editar perfil productor | Se corrigió la plantilla utilizada por la vista y se añadió contexto `usuario`. | Probado |
-| Editar perfil artista | Se añadió contexto `usuario` y se modernizó la pantalla. | Probado |
-| Carrito | Tarjetas de productos, reproductor protegido y resumen de compra. | Probado |
-| Pago exitoso | Pantalla de confirmación visual de compra. | Probado |
-| Pago cancelado | Pantalla moderna indicando que no se realizó el cobro. | Probado |
-| Sobre nosotros | Contenido actualizado según las funciones reales del proyecto. | Probado |
-| Login | Diseño renovado, recuperación de contraseña y opción mostrar/ocultar contraseña. | Probado |
-| Registro | Diseño renovado, errores, imágenes y validaciones del formulario existentes. | Probado |
+```text
+PENDING
+AUTHORIZED
+CANCELLED
+```
 
-## Activación de cuenta
+Se creó y aplicó la migración correspondiente.
 
-| Cambio | Descripción | Estado |
-|---|---|---|
-| Revisa tu correo | Se modernizó la pantalla posterior al registro. | Probado |
-| Cuenta activada | Se creó una pantalla propia de BeatsCloud con acceso directo al login. | Probado |
-| Enlace inválido | Se modernizó el mensaje para enlaces vencidos, usados o inválidos. | Probado |
-| Corrección de codificación | Se corrigieron textos con caracteres dañados como `contraseÃ±a`, `sesiÃ³n`, etc. | Implementado |
+### Cancelación segura antes de Webpay
 
-## Recuperación de contraseña con Django
+Se implementó una vista autenticada que:
 
-Se mantuvo el sistema oficial de Django para generar tokens y cambiar contraseñas. Se personalizaron las pantallas para evitar que apareciera la interfaz predeterminada de Django Administration.
+- recibe la transacción por ID;
+- valida que pertenezca al usuario;
+- solo modifica transacciones `PENDING`;
+- actualiza el estado a `CANCELLED`;
+- diferencia entre carrito y suscripción;
+- utiliza formulario `POST` con CSRF.
 
-| Paso | Cambio | Estado |
-|---|---|---|
-| Solicitar recuperación | Formulario propio en `app/password_reset_form.html`. | Probado |
-| Correo enviado | Pantalla propia en `app/password_reset_done.html`. | Probado |
-| Crear nueva contraseña | Pantalla propia en `app/password_reset_confirm.html`. | Probado |
-| Contraseña actualizada | Pantalla propia en `app/password_reset_complete.html`. | Probado |
-| Rutas de recuperación | Se corrigieron `template_name` en `app/urls.py` para utilizar las plantillas de BeatsCloud. | Probado |
-| Privacidad | La respuesta no revela si un correo está o no registrado. | Implementado |
-| Flujo completo | Correo → enlace → nueva contraseña → confirmación → login. | Probado |
+### Cancelación dentro de Webpay
 
-## Suscripciones y pago
+También se corrigió el caso donde el usuario entra a Webpay y cancela allí.
 
-| Cambio | Descripción | Estado |
-|---|---|---|
-| Crear suscripción | Se modernizó `ingresar_suscripcion.html` conservando `detalle`, `precio`, POST y CSRF. | Probado |
-| Confirmar suscripción | Se modernizó `suscripcion.html` con resumen antes de crear el pago. | Probado |
-| Pantalla de Webpay | Se modernizó `pago.html`, corrigiendo codificación y conservando `token_ws` y campos necesarios para Transbank. | Probado |
-| Cancelar antes de Webpay | El botón cancela de forma segura la transacción local: si está `PENDING`, pasa a `CANCELLED` mediante una vista POST protegida con login y CSRF. | Probado |
-| Retorno al cancelar | En suscripciones vuelve al perfil del productor; en carrito vuelve al carrito. | Probado |
-| Cancelar desde Webpay | Si Webpay retorna `TBK_ORDEN_COMPRA` y `TBK_ID_SESION` sin `token_ws`, la transacción `PENDING` correspondiente se marca localmente como `CANCELLED`. | Probado |
-| Validación de cancelación | La cancelación verifica usuario, orden, sesión, estado pendiente y diferencia entre carrito y suscripción. | Probado |
-| Estado `CANCELLED` | Se añadió `ESTADO_CANCELADO = 'CANCELLED'` al modelo `WebpayTransaction` y se aplicó la migración. | Implementado |
+Cuando Transbank retorna sin `token_ws`, BeatsCloud utiliza los datos `TBK_*` disponibles para localizar de forma segura la transacción correspondiente y marcarla:
 
-### Flujo de cancelación de Webpay completado
+```text
+PENDING -> CANCELLED
+```
 
-El modelo utiliza los estados:
+Se probó correctamente tanto para:
 
-- `PENDING`
-- `AUTHORIZED`
-- `CANCELLED`
+- carrito;
+- suscripciones.
 
-Se implementó una vista segura `POST` para cancelar transacciones pendientes antes de entrar a Webpay. La operación solo puede afectar transacciones pertenecientes al usuario autenticado y únicamente cambia el estado cuando todavía se encuentra en `PENDING`.
+### Pago autorizado del carrito
 
-También se corrigió el retorno desde Webpay cuando el usuario cancela dentro de la plataforma de pago. Cuando Transbank devuelve `TBK_ORDEN_COMPRA` y `TBK_ID_SESION` sin `token_ws`, BeatsCloud identifica la transacción pendiente correspondiente y la cambia a `CANCELLED`.
+Se corrigió el flujo de éxito para que la transacción local quede explícitamente:
 
-Pruebas realizadas:
+```text
+AUTHORIZED
+```
 
-- Cancelación de suscripción antes de Webpay: `CANCELLED`.
-- Cancelación de carrito antes de Webpay: `CANCELLED`.
-- Cancelación de carrito desde Webpay: `CANCELLED`, con `suscripcion_id = None`.
-- Confirmación en servidor: `TRANSACCION_CANCELADA_LOCALMENTE: True`.
-- `python manage.py check`: sin problemas detectados.
+después de que Transbank confirma correctamente el pago.
 
-El cambio fue guardado en Git con el commit:
+Se comprobó que después del pago:
 
-`5242ae0 - Implementa cancelacion segura de pagos pendientes`
-
-y subido correctamente a la rama `main`.
-
-## Limpieza de archivos temporales
-
-Se eliminaron los scripts `.ps1` utilizados para aplicar cambios puntuales y los respaldos `.bak` después de comprobar que las modificaciones funcionaban.
-
-Los scripts eran herramientas temporales y no forman parte de la aplicación en producción.
+- `WebpayTransaction` queda `AUTHORIZED`;
+- no quedan ventas pendientes correspondientes en el carrito;
+- no se duplica el historial de compras.
 
 ---
 
-# RESUMEN ACTUAL DE FUNCIONALIDADES
+# Seguridad de credenciales Transbank
 
-## Seguridad
+## Credenciales fuera del código
 
-- Activación de cuentas por correo.
-- Recuperación de contraseña mediante tokens de Django.
-- Contraseñas gestionadas mediante el sistema seguro de Django.
-- Vistas privadas protegidas con autenticación.
-- Acciones sensibles mediante POST y CSRF.
-- Validación de propiedad al editar o eliminar contenido.
-- Descarga de tracks solo para compradores.
-- Prevención de compras duplicadas.
-- Validación del retorno de Webpay.
-- Datos sensibles almacenados en `.env`.
-- El `.env` real no debe subirse al repositorio.
+Las credenciales de Transbank fueron retiradas de `app/views.py`.
 
-## Pagos
+Ahora se utilizan variables de entorno:
 
-- Carrito con Transbank Webpay en ambiente TEST.
-- Suscripciones con Transbank Webpay en ambiente TEST.
-- Validación de orden, sesión, monto y autorización.
-- Registro de suscripciones mediante `WebpayTransaction`.
-- Estados disponibles: `PENDING`, `AUTHORIZED` y `CANCELLED`.
-- Cancelación segura antes de entrar a Webpay, cambiando `PENDING` a `CANCELLED`.
-- Cancelación registrada también cuando el usuario cancela dentro de Webpay y retorna sin `token_ws`.
-- Diferenciación entre transacciones de carrito y suscripción durante la cancelación.
+```env
+TRANSBANK_COMMERCE_CODE=
+TRANSBANK_API_KEY=
+TRANSBANK_INTEGRATION_TYPE=TEST
+```
+
+Y las vistas acceden a:
+
+```python
+settings.TRANSBANK_COMMERCE_CODE
+settings.TRANSBANK_API_KEY
+settings.TRANSBANK_INTEGRATION_TYPE
+```
+
+Se comprobaron los cuatro puntos principales del flujo Webpay:
+
+- creación de pago del carrito;
+- confirmación de pago del carrito;
+- creación de pago de suscripción;
+- confirmación de pago de suscripción.
+
+Todos continuaron funcionando después de mover la configuración a `.env`.
+
+---
+
+# Limpieza del historial de Git
+
+Se detectó que credenciales de Transbank habían aparecido en commits históricos.
+
+Se realizó una limpieza mediante:
+
+```text
+git-filter-repo
+```
+
+Antes de reescribir el historial:
+
+- se creó un bundle local de respaldo;
+- se verificó el bundle;
+- se preparó un reemplazo temporal de secretos.
+
+Después:
+
+- se reescribió el historial;
+- se verificó que los valores sensibles ya no aparecieran;
+- se restauró el remoto;
+- se realizó un `force-with-lease`;
+- se eliminó el archivo temporal utilizado para el reemplazo.
+
+### Importante
+
+El bundle de respaldo del historial antiguo puede contener referencias a secretos anteriores y debe mantenerse privado o eliminarse cuando ya no sea necesario.
+
+Si un compañero tiene un clon anterior a la reescritura del historial, se recomienda volver a clonar el repositorio para evitar reintroducir commits antiguos.
+
+---
+
+# Configuración segura de Django por entorno
+
+Se reemplazó la configuración fija de:
+
+```python
+DEBUG = True
+ALLOWED_HOSTS = []
+```
+
+por configuración basada en variables de entorno:
+
+```env
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+DJANGO_CSRF_TRUSTED_ORIGINS=
+```
+
+`settings.py` ahora construye:
+
+- `DEBUG`;
+- `ALLOWED_HOSTS`;
+- `CSRF_TRUSTED_ORIGINS`.
+
+Se mantuvo:
+
+```python
+SESSION_COOKIE_SECURE = not DEBUG
+```
+
+para permitir HTTP local durante desarrollo y usar cookies seguras cuando `DEBUG=False`.
+
+### Verificación realizada
+
+Se comprobó desde Django que:
+
+- `DEBUG=True`;
+- `ALLOWED_HOSTS` carga localhost, 127.0.0.1 y el dominio configurado;
+- `CSRF_TRUSTED_ORIGINS` carga correctamente el origen HTTPS;
+- `SESSION_COOKIE_SECURE=False` en desarrollo.
+
+`python manage.py check` continuó mostrando:
+
+```text
+System check identified no issues (0 silenced).
+```
+
+---
+
+# VS Code Dev Tunnels
+
+Se configuró correctamente el proyecto para compartirlo temporalmente mediante el puerto 8000.
+
+Configuración utilizada:
+
+- Django ejecutado en `0.0.0.0:8000`;
+- puerto reenviado desde VS Code;
+- visibilidad pública cuando se necesita compartir;
+- protocolo interno HTTP;
+- URL pública HTTPS generada por VS Code.
+
+Se resolvió un error `404` del túnel eliminando y recreando el puerto reenviado.
+
+Cada integrante debe utilizar su propio dominio de Dev Tunnel en su `.env`:
+
+```env
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost,SU-DOMINIO.brs.devtunnels.ms
+DJANGO_CSRF_TRUSTED_ORIGINS=https://SU-DOMINIO.brs.devtunnels.ms
+```
+
+El dominio personal del túnel no debe quedar escrito en `.env.example`.
+
+---
+
+# Documentación para el equipo
+
+Se actualizó `README.md` con una guía completa para levantar BeatsCloud desde cero.
+
+Incluye:
+
+- clonado del repositorio;
+- creación y activación de `.venv`;
+- uso de `python -m pip`;
+- instalación de `requirements.txt`;
+- creación de `.env`;
+- variables Django;
+- PostgreSQL;
+- Gmail SMTP;
+- migraciones;
+- administrador;
+- ejecución local;
+- Dev Tunnels;
+- configuración Transbank;
+- explicación de estados `PENDING`, `AUTHORIZED` y `CANCELLED`;
+- seguridad de secretos;
+- limpieza de historial Git;
+- trabajo colaborativo;
+- solución de errores frecuentes;
+- pasos para compañeros con clones anteriores a la reescritura del historial.
+
+También se actualizó `.env.example` con:
+
+```env
+DJANGO_SECRET_KEY=
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+DJANGO_CSRF_TRUSTED_ORIGINS=
+
+TRANSBANK_COMMERCE_CODE=
+TRANSBANK_API_KEY=
+TRANSBANK_INTEGRATION_TYPE=TEST
+```
+
+además de las variables de PostgreSQL, Gmail y Stripe.
+
+---
+
+# Commit de documentación y configuración
+
+Se creó el commit:
+
+```text
+1a3e302 Actualiza configuracion y documentacion del proyecto
+```
+
+Incluye:
+
+- `.env.example`;
+- `README.md`;
+- `beatcloud/settings.py`.
+
+El commit fue subido correctamente a:
+
+```text
+origin/main
+```
+
+y posteriormente:
+
+```powershell
+git status --short
+```
+
+no mostró archivos pendientes.
+
+---
+
+# Estado actual de BeatsCloud
+
+Al 31-08-2026:
+
+## Cuentas
+
+- Registro funcional.
+- Activación por correo funcional.
+- Recuperación de contraseña funcional.
+- Validación de correo duplicado.
+- Perfiles protegidos donde corresponde.
+
+## Perfiles
+
+- Artistas y productores.
+- Perfiles públicos y privados.
+- Redes sociales seguras.
+- Edición de perfiles.
 
 ## Tracks
 
 - Subida solo para productores.
-- Validación real de archivos de audio.
-- Validación de extensiones de audio e imagen.
-- Edición de metadata.
-- Protección del audio de tracks con compras.
-- Reproducción mediante una ruta Django controlada.
-- Descarga protegida para compradores.
+- Validación real de audio.
+- Edición y eliminación seguras.
+- Reproducción controlada.
+- Descarga protegida.
+- Prevención de reemplazo de audio cuando existen compras.
 
-> La reproducción controlada evita exponer directamente la ruta física del archivo,
-> pero no constituye un sistema DRM.
+## Comunidad
 
-## Perfiles e interfaz
+- Me gusta.
+- Comentarios.
+- Eliminación segura de comentarios.
 
-- Perfiles públicos y privados modernizados.
-- Redes sociales seguras cuando no existe URL.
-- Edición de perfiles modernizada.
-- Catálogo de usuarios con filtros y búsqueda.
-- Catálogo de tracks con filtros, búsqueda y paginación.
-- Carrito y detalle de track modernizados.
-- Login, registro, activación y recuperación con diseño propio de BeatsCloud.
-- Pantallas de éxito y cancelación de pago modernizadas.
-- Suscripciones y confirmación de pago modernizadas.
-- Mensajes globales mediante Bootstrap.
+## Catálogo
 
-## Archivos y repositorio
+- Búsqueda.
+- Filtros.
+- Paginación.
+- Ordenamiento.
+- Indicador de compra previa.
 
-- `.env` para datos sensibles.
-- `.env.example` para configuración de otros integrantes.
-- README de instalación y ejecución.
-- Dependencias verificadas.
-- Scripts temporales `.ps1` eliminables después de aplicarlos.
-- Respaldos `.bak` eliminables después de validar los cambios.
+## Carrito
+
+- Ventas pendientes.
+- Prevención de duplicados.
+- Eliminación segura.
+- Pago mediante Webpay TEST.
+
+## Webpay
+
+- Carrito probado.
+- Suscripciones probadas.
+- Transacciones autorizadas correctamente.
+- Cancelaciones registradas.
+- Credenciales leídas desde `.env`.
+- Estados `PENDING`, `AUTHORIZED`, `CANCELLED`.
+
+## Seguridad
+
+- `.env` ignorado.
+- Secrets fuera del código.
+- Historial de Git limpiado.
+- POST + CSRF en acciones sensibles.
+- Validación de propietario.
+- Retorno Webpay validado.
+- Descargas protegidas.
+- `ALLOWED_HOSTS` configurable.
+- `CSRF_TRUSTED_ORIGINS` configurable.
+
+## Configuración y equipo
+
+- README actualizado.
+- `.env.example` actualizado.
+- Dev Tunnels documentado.
+- Instrucciones para nuevos integrantes.
+- Repositorio sincronizado con GitHub.
 
 ---
 
-# ESTADO ACTUAL
+# Próximos puntos de revisión
 
-Al 31-08-2026:
+Los siguientes puntos pueden revisarse posteriormente sin afectar el funcionamiento actual:
 
-- Las funciones principales probadas continúan funcionando.
-- La modernización visual cubre las principales páginas del sistema.
-- El flujo completo de recuperación de contraseña fue probado correctamente.
-- La activación de cuenta cuenta con pantallas propias de BeatsCloud.
-- El flujo de creación y confirmación de suscripciones fue modernizado.
-- Webpay continúa en ambiente de integración TEST.
-- `WebpayTransaction` ya incluye el estado `CANCELLED`.
-- Falta implementar la acción del servidor que convierta una transacción `PENDING` en `CANCELLED` al abandonar el pago.
-- Antes de subir los cambios finales a GitHub se debe volver a ejecutar `python manage.py check` y revisar `git status`.
+- comprobar de forma segura que `DJANGO_SECRET_KEY` real está definido en `.env` y no se usa el fallback de desarrollo;
+- ejecutar `python manage.py check --deploy` para revisar recomendaciones de producción;
+- decidir configuración de `CSRF_COOKIE_SECURE`;
+- configurar `SECURE_SSL_REDIRECT` solo cuando exista un despliegue HTTPS real;
+- definir HSTS únicamente cuando el sitio esté correctamente desplegado en HTTPS;
+- limpiar transacciones `PENDING` antiguas que hayan quedado abandonadas;
+- eliminar imports duplicados o código de baja prioridad;
+- eliminar el bundle local del historial antiguo cuando ya no sea necesario conservarlo.
 
 ---
 
-# SIGUIENTE PASO TÉCNICO
-
-Implementar una vista segura para **cancelar una transacción pendiente**:
-
-1. Recibir la cancelación mediante POST.
-2. Verificar que la transacción pertenezca al usuario autenticado.
-3. Verificar que su estado actual sea `PENDING`.
-4. Cambiar el estado a `CANCELLED`.
-5. No registrar ninguna compra ni suscripción como autorizada.
-6. Redirigir al perfil del productor o al carrito según el origen.
-7. Mantener CSRF y autenticación.
-
-Después de completar ese cambio:
+# Verificaciones recomendadas antes de cada push
 
 ```powershell
 python manage.py check
-git status
+git status --short
+git diff --stat
 ```
 
-Antes del commit final, comprobar que no se incluyan:
+Si se modifica `requirements.txt`:
 
-- `.env`
-- contraseñas o claves privadas
-- archivos temporales `.ps1`
-- respaldos `.bak`
-- archivos generados que no deban formar parte del repositorio
+```powershell
+python -m pip check
+```
+
+Si se modifican modelos:
+
+```powershell
+python manage.py makemigrations
+python manage.py migrate
+```
+
+---
+
+# Nota final para el equipo
+
+Todos pueden trabajar con el mismo código de GitHub, pero cada integrante debe mantener:
+
+- su propio `.env`;
+- su propia `.venv`;
+- su configuración local de PostgreSQL;
+- su propio dominio Dev Tunnel;
+- sus propias credenciales autorizadas.
+
+Los datos locales y los secretos no se sincronizan mediante Git.
+
+**Nunca se deben subir credenciales reales a GitHub.**
