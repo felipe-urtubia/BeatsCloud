@@ -321,20 +321,26 @@
           </button>
         </form>
 
-        {% if suscripcion %}
-          <a
-            href="{% url 'perfil_productor1' suscripcion.user.user.username %}"
-            class="btn cancel-payment-button"
+        {% if transaction_id %}
+          <form
+            method="post"
+            action="{% url 'cancelar_pago_pendiente' transaction_id %}"
           >
-            Cancelar pago
-          </a>
-        {% elif ventas %}
-          <a href="{% url 'carrito' %}" class="btn cancel-payment-button">
-            Cancelar y volver al carrito
-          </a>
+            {% csrf_token %}
+
+            <button type="submit" class="btn cancel-payment-button">
+              {% if suscripcion %}
+                Cancelar pago
+              {% elif ventas %}
+                Cancelar y volver al carrito
+              {% else %}
+                Cancelar pago
+              {% endif %}
+            </button>
+          </form>
         {% else %}
           <a href="{% url 'inicio' %}" class="btn cancel-payment-button">
-            Cancelar pago
+            Volver al inicio
           </a>
         {% endif %}
 
