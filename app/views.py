@@ -49,9 +49,6 @@ from transbank.webpay.webpay_plus.transaction import Transaction
 from .models import Venta
 from transbank.error.transbank_error import TransbankError
 from transbank.webpay.webpay_plus.transaction import Transaction, WebpayOptions
-TRANSBANK_API_KEY = settings.TRANSBANK_API_KEY
-TRANSBANK_SHARED_SECRET = settings.TRANSBANK_SHARED_SECRET
-TRANSBANK_INTEGRATION_TYPE = settings.TRANSBANK_INTEGRATION_TYPE
 
 
 from django.shortcuts import render, redirect
@@ -799,14 +796,11 @@ def exito(request):
         return redirect('cancelado')
 
     try:
-        test_commerce_code = "***REMOVED***"
-        test_api_key = "***REMOVED***"
-
         tx = Transaction(
             options=WebpayOptions(
-                commerce_code=test_commerce_code,
-                api_key=test_api_key,
-                integration_type="TEST",
+                commerce_code=settings.TRANSBANK_COMMERCE_CODE,
+                api_key=settings.TRANSBANK_API_KEY,
+                integration_type=settings.TRANSBANK_INTEGRATION_TYPE,
             )
         )
 
@@ -906,15 +900,12 @@ def exito_carrito(request):
         )
         return redirect('cancelado')
 
-    test_commerce_code = "***REMOVED***"
-    test_api_key = "***REMOVED***"
-
     try:
         tx = Transaction(
             options=WebpayOptions(
-                commerce_code=test_commerce_code,
-                api_key=test_api_key,
-                integration_type="TEST",
+                commerce_code=settings.TRANSBANK_COMMERCE_CODE,
+                api_key=settings.TRANSBANK_API_KEY,
+                integration_type=settings.TRANSBANK_INTEGRATION_TYPE,
             )
         )
 
@@ -1117,14 +1108,11 @@ def pago(request):
         amount = transaction.amount
 
         # Credenciales oficiales del ambiente de integración de Webpay Plus.
-        test_commerce_code = "***REMOVED***"
-        test_api_key = "***REMOVED***"
-
         tx = Transaction(
             options=WebpayOptions(
-                commerce_code=test_commerce_code,
-                api_key=test_api_key,
-                integration_type="TEST",
+                commerce_code=settings.TRANSBANK_COMMERCE_CODE,
+                api_key=settings.TRANSBANK_API_KEY,
+                integration_type=settings.TRANSBANK_INTEGRATION_TYPE,
             )
         )
 
@@ -1348,14 +1336,11 @@ def realizar_pago(request, suscripcion_id):
             return_url = request.build_absolute_uri(reverse('exito'))
             amount = int(round(float(transaction.amount)))
 
-            test_commerce_code = "***REMOVED***"
-            test_api_key = "***REMOVED***"
-
             tx = Transaction(
                 options=WebpayOptions(
-                    commerce_code=test_commerce_code,
-                    api_key=test_api_key,
-                    integration_type="TEST",
+                    commerce_code=settings.TRANSBANK_COMMERCE_CODE,
+                    api_key=settings.TRANSBANK_API_KEY,
+                    integration_type=settings.TRANSBANK_INTEGRATION_TYPE,
                 )
             )
 
