@@ -1012,6 +1012,12 @@ def exito_carrito(request):
 
         # Registrar la compra únicamente después del commit exitoso.
         with transaction.atomic():
+            # La transacción del carrito también debe quedar registrada como
+            # AUTHORIZED después de que Transbank confirmó el pago.
+            if webpay_transaction.status != WebpayTransaction.ESTADO_AUTORIZADO:
+                webpay_transaction.status = WebpayTransaction.ESTADO_AUTORIZADO
+                webpay_transaction.save(update_fields=['status'])
+
             for venta in ventas:
                 HistorialCompra.objects.get_or_create(
                     usuario=usuario_comprador,
