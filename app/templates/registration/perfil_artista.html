@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load static %}
 {% block titulo %} Perfil {% endblock %}
 {% block stylesheet %}
@@ -22,11 +22,36 @@
         
         <h2 class = "username">{{ user.username | capfirst}}</h2>
         <p class = "desc" style="word-wrap: break-word;">{{ user.usuario.descripcion }}</p>
-        <div class="d-flex justify-content-center" id = "redes">
-            <a href="{{ user.usuario.youtube}}"><img src="{% static 'app/img/youtube.png' %}"  style="width: 50px; height: 50px; margin-right: 20px;"></img></a>
-            <a href="{{ user.usuario.spotify  }}"><img src="{% static 'app/img/spotify.png' %}"  style="width: 50px; height: 50px; margin-right: 20px;"></img></a>
-            <a href="{{ user.usuario.instagram }}"><img src="{% static 'app/img/instagram.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></img></a>
+        <div class="d-flex justify-content-center" id="redes">
+            {% if user.usuario.youtube and user.usuario.youtube != "None" %}
+                <a href="{{ user.usuario.youtube }}" target="_blank" rel="noopener noreferrer" title="Abrir YouTube">
+                    <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px;">
+                </a>
+            {% else %}
+                <a href="#" onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de YouTube.');" title="YouTube no configurado">
+                    <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+                </a>
+            {% endif %}
 
+            {% if user.usuario.spotify and user.usuario.spotify != "None" %}
+                <a href="{{ user.usuario.spotify }}" target="_blank" rel="noopener noreferrer" title="Abrir Spotify">
+                    <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px;">
+                </a>
+            {% else %}
+                <a href="#" onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Spotify.');" title="Spotify no configurado">
+                    <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+                </a>
+            {% endif %}
+
+            {% if user.usuario.instagram and user.usuario.instagram != "None" %}
+                <a href="{{ user.usuario.instagram }}" target="_blank" rel="noopener noreferrer" title="Abrir Instagram">
+                    <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px;">
+                </a>
+            {% else %}
+                <a href="#" onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Instagram.');" title="Instagram no configurado">
+                    <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
+                </a>
+            {% endif %}
         </div>
         <a href="{% url 'editar' %}"  class="btn btn-warning text-dark" style="margin-top:20px">Editar perfil</a>
       </div>
@@ -36,27 +61,70 @@
           <thead>
             <tr>
               <th>Fecha</th>
+              <th>Tipo</th>
               <th>Producto</th>
+              <th>Precio</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
+
             {% for compra in historial_compras %}
               <tr>
                 <td>{{ compra.fecha_compra }}</td>
+                <td>Track</td>
                 <td>
-                  {% if compra.track.foto %}<img src="{{ compra.track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">{% endif %}
+                  {% if compra.track.foto %}
+                    <img src="{{ compra.track.foto.url }}"
+                         alt="Foto del track"
+                         class="img-fluid rounded"
+                         style="max-width: 100px; max-height: 100px;">
+                  {% endif %}
                   {{ compra.track.nombre_track }}
                 </td>
+                <td>${{ compra.track.precio }}</td>
                 <td>
-                  <a href="{{ compra.track.track.url }}" class="btn btn-primary" download>Descargar</a>
+                  <a href="{% url 'detalle' compra.track.id_track %}"
+                     class="btn btn-warning"
+                     style="margin-right:6px;">
+                    Ver detalle
+                  </a>
+
+                  <a href="{% url 'descargar_track' compra.track.id_track %}"
+                     class="btn btn-primary">
+                    Descargar
+                  </a>
                 </td>
               </tr>
-            {% empty %}
+            {% endfor %}
+
+            {% for pago in historial_suscripciones %}
               <tr>
-                <td colspan="4">No se encontraron compras</td>
+                <td>{{ pago.timestamp }}</td>
+                <td>Suscripción</td>
+                <td>
+                  {{ pago.suscripcion.detalle }}
+                  <br>
+                  <small>
+                    Productor: {{ pago.suscripcion.user.user.username|capfirst }}
+                  </small>
+                </td>
+                <td>${{ pago.amount|floatformat:0 }}</td>
+                <td>
+                  <a href="{% url 'perfil_productor1' pago.suscripcion.user.user.username %}"
+                     class="btn btn-warning">
+                    Ver productor
+                  </a>
+                </td>
               </tr>
             {% endfor %}
+
+            {% if not historial_compras and not historial_suscripciones %}
+              <tr>
+                <td colspan="5">No se encontraron compras</td>
+              </tr>
+            {% endif %}
+
           </tbody>
         </table>
 
@@ -69,7 +137,7 @@
           <h4>{{ track.nombre_track }}</h4>
           {% if track.foto %}<img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">{% endif %}
           <audio controls controlsList="nodownload">
-            <source src="{{ track.track.url }}" type="audio/mp3">
+            <source src="{% url 'reproducir_track' track.id_track %}" type="audio/mp3">
             Tu navegador no soporta el elemento de audio.
           </audio>
           <div class="d-flex align-items-center">

@@ -1,56 +1,205 @@
 {% extends 'base.html' %}
-{% block stylesheet %}
 
+{% block stylesheet %}
 {% endblock %}
+
 {% block contenido %}
-  <div class="container">
-    <h1 class="text-center">Subir Track</h1>
-    <form method="POST" enctype="multipart/form-data">
-      {% csrf_token %}
-      <div class="form-group">
-        <label for="{{ form.nombre_track.id_for_label }}" style="width: 100%;" >Nombre del Track:</label>
-        {{ form.nombre_track }}
+<div class="container">
+  <h1 class="text-center">Subir Track</h1>
+
+  {% if form.errors %}
+    <div class="alert alert-danger" role="alert">
+      <strong>⚠️ No se pudo subir el track.</strong>
+      Revisa los campos marcados abajo.
+    </div>
+  {% endif %}
+
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {% for error in form.non_field_errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
       </div>
-      <div class="form-group">
-        <label for="{{ form.precio.id_for_label }}" style="width: 100%;">Precio:</label>
-        {{ form.precio }}
+    {% endif %}
+
+    <div class="form-group">
+      <label for="{{ form.nombre_track.id_for_label }}" style="width: 100%;">
+        Nombre del Track:
+      </label>
+      {{ form.nombre_track }}
+      {% for error in form.nombre_track.errors %}
+        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.precio.id_for_label }}" style="width: 100%;">
+        Precio:
+      </label>
+      {{ form.precio }}
+      {% for error in form.precio.errors %}
+        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.track.id_for_label }}" style="width: 100%;">
+        Archivo de audio:
+      </label>
+
+      <div class="alert alert-info py-2">
+        <strong>Formatos permitidos:</strong>
+        .MP3, .WAV, .FLAC, .M4A, .AAC y .OGG
       </div>
-      <div class="form-group">
-        <label for="{{ form.track.id_for_label }}" style="width: 100%;" >Archivo MP3:</label>
-        {{ form.track }}
+
+      {{ form.track }}
+
+      <div id="audio-extension-error"
+           class="alert alert-danger mt-2 mb-2"
+           style="display:none;"
+           role="alert">
+        <strong>⚠️ Archivo no válido.</strong><br>
+        Debes seleccionar un archivo de audio con extensión
+        MP3, WAV, FLAC, M4A, AAC u OGG.
       </div>
-      <div class="form-group">
-        <label for="{{ form.foto.id_for_label }}" style="width: 100%;">Foto:</label>
-        {{ form.foto }}
-      </div>
-      <div class="form-group">
-        <label for="{{ form.genero.id_for_label }}" style="width: 100%;">Género Musical:</label>
-        {{ form.genero }}
-      </div>
-      <div class="form-group">
-        <label for="{{ form.descripcion.id_for_label}}"  style="width: 100%;" >Descripción</label>
-        {{ form.descripcion }}
-      </div>
-      <div class="form-group">
-      <button type="submit" class="btn btn-warning" style = "margin-bottom: 30px;">Subir</button>
-    </form>
-  </div>
+
+      {% if form.track.help_text %}
+        <small class="form-text text-muted">
+          {{ form.track.help_text }}
+        </small>
+      {% endif %}
+
+      {% for error in form.track.errors %}
+        <div class="alert alert-danger mt-2 mb-2" role="alert">
+          <strong>⚠️ Archivo de audio inválido.</strong><br>
+          {{ error }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.foto.id_for_label }}" style="width: 100%;">
+        Foto:
+      </label>
+
+      {{ form.foto }}
+
+      {% if form.foto.help_text %}
+        <small class="form-text text-muted">
+          {{ form.foto.help_text }}
+        </small>
+      {% endif %}
+
+      {% for error in form.foto.errors %}
+        <div class="alert alert-danger mt-2 mb-2" role="alert">
+          <strong>⚠️ Imagen inválida.</strong><br>
+          {{ error }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.genero.id_for_label }}" style="width: 100%;">
+        Género Musical:
+      </label>
+      {{ form.genero }}
+      {% for error in form.genero.errors %}
+        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.descripcion.id_for_label }}" style="width: 100%;">
+        Descripción:
+      </label>
+      {{ form.descripcion }}
+      {% for error in form.descripcion.errors %}
+        <div class="text-danger font-weight-bold mt-1">⚠️ {{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <button type="submit" class="btn btn-warning" style="margin-bottom: 30px;">
+        Subir
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const audioInput = document.getElementById('{{ form.track.id_for_label }}');
+  const errorBox = document.getElementById('audio-extension-error');
+  const form = audioInput ? audioInput.closest('form') : null;
+
+  const extensionesAudio = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'];
+
+  function extensionValida() {
+    if (!audioInput || !audioInput.files || audioInput.files.length === 0) {
+      return true;
+    }
+
+    const nombre = audioInput.files[0].name.toLowerCase();
+    const partes = nombre.split('.');
+    const extension = partes.length > 1 ? partes.pop() : '';
+
+    if (!extensionesAudio.includes(extension)) {
+      errorBox.style.display = 'block';
+      audioInput.value = '';
+      return false;
+    }
+
+    errorBox.style.display = 'none';
+    return true;
+  }
+
+  if (audioInput) {
+    // Refuerza el filtro del selector de archivos.
+    audioInput.setAttribute(
+      'accept',
+      'audio/*,.mp3,.wav,.flac,.m4a,.aac,.ogg'
+    );
+
+    audioInput.addEventListener('change', extensionValida);
+  }
+
+  if (form) {
+    form.addEventListener('submit', function (event) {
+      if (!extensionValida()) {
+        event.preventDefault();
+      }
+    });
+  }
+});
+</script>
+
 {% endblock %}
 
 {% block css %}
-  <style>
-    .form-control {
-      width: 100%;
-      margin-bottom: 10px;
-    }
+<style>
+  .form-control {
+    width: 100%;
+    margin-bottom: 10px;
+  }
 
-    label {
-      font-weight: bold;
-    }
+  label {
+    font-weight: bold;
+  }
 
-    button[type=submit] {
-      background-color: yellow;
-      color: black;
-    }
-  </style>
+  button[type=submit] {
+    background-color: yellow;
+    color: black;
+  }
+
+  .errorlist {
+    color: #dc3545;
+    font-weight: bold;
+    list-style: none;
+    padding-left: 0;
+    margin-top: 6px;
+  }
+</style>
 {% endblock %}

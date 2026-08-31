@@ -10,9 +10,12 @@
         <p>Precio: ${{ suscripcion.precio }}</p>
 
         <h3>Pago con Webpay</h3>
-        <form action="{{ url_webpay }}" method="POST">
-          <input type="hidden" name="token_ws" value="{{ token_ws }}">
-          <button type="submit" class="btn btn-warning text-dark" >Realizar pago</button>
+
+        <form method="post" action="{% url 'realizar_pago' suscripcion.id_sus %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning text-dark">
+            Continuar a Webpay
+          </button>
         </form>
       </div>
     </div>

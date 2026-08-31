@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% load static %}
 
@@ -26,7 +26,7 @@
           <td>${{ venta.precio_total }}</td>
           <td>
             <audio controls controlsList="nodownload">
-              <source src="{{ venta.track.track.url }}" type="audio/mp3">
+              <source src="{% url 'reproducir_track' venta.track.id_track %}" type="audio/mp3">
               Your browser does not support the audio element.
             </audio>
           </td>

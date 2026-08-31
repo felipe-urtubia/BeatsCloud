@@ -5,6 +5,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
+from django.http import FileResponse
 from django.contrib.sessions.models import Session
 from pyexpat.errors import messages
 from django.shortcuts import redirect, render
@@ -25,7 +26,7 @@ from django.db.models import Q
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
 from django.contrib.auth.tokens import default_token_generator
@@ -61,6 +62,7 @@ from django.db import transaction
 from .models import WebpayTransaction
 
 import uuid
+import mimetypes
 
 def inicio(request):
     return render(request, 'app/inicio.html')
@@ -171,6 +173,7 @@ def activar_cuenta(request, uidb64, token):
     return render(request, 'registration/enlace_invalido.html', status=400)
 
 
+@login_required
 def perfil(request):
     # Obtener el usuario actual
     user = request.user
@@ -186,10 +189,31 @@ def perfil(request):
 def perfil_artista(request):
     usuario = request.user.usuario
     tracks_gustados = usuario.tracks_gustados.all()
-    historial_compras = HistorialCompra.objects.filter(usuario=usuario)
-    return render(request, 'registration/perfil_artista.html', {'usuario': usuario, 'tracks_gustados': tracks_gustados, 'historial_compras': historial_compras})
+    historial_compras = HistorialCompra.objects.filter(
+        usuario=usuario
+    ).order_by('-fecha_compra')
+
+    historial_suscripciones = WebpayTransaction.objects.filter(
+        user=request.user,
+        suscripcion__isnull=False,
+        status=WebpayTransaction.ESTADO_AUTORIZADO,
+    ).select_related(
+        'suscripcion',
+        'suscripcion__user',
+        'suscripcion__user__user',
+    ).order_by('-timestamp')
+
+    context = {
+        'usuario': usuario,
+        'tracks_gustados': tracks_gustados,
+        'historial_compras': historial_compras,
+        'historial_suscripciones': historial_suscripciones,
+    }
+
+    return render(request, 'registration/perfil_artista.html', context)
 
 
+@login_required
 def perfil_productor(request):
     user = request.user
     usuario = user.usuario
@@ -204,14 +228,75 @@ def perfil_productor(request):
     return render(request, 'registration/perfil_productor.html', {'usuario': usuario, 'tracks': tracks, 'suscripcion': suscripcion, 'ventas': ventas})
 
 
-def eliminar_track(request, track_id):
-    # Obtener la instancia del track a eliminar
-    track = get_object_or_404(Track, id_track=track_id, usuario=request.user.usuario)
+@login_required
+def editar_track(request, track_id):
+    track = get_object_or_404(
+        Track,
+        id_track=track_id,
+        usuario=request.user.usuario,
+    )
 
-    # Eliminar el track
+    # Si el track ya fue comprado, permitimos editar sus datos,
+    # pero no reemplazar el archivo de audio para no cambiar
+    # lo que ya adquirieron otros usuarios.
+    tiene_compras = (
+        HistorialVenta.objects.filter(track=track).exists()
+        or HistorialCompra.objects.filter(track=track).exists()
+    )
+
+    if request.method == 'POST':
+        form = TrackForm(
+            request.POST,
+            request.FILES,
+            instance=track,
+        )
+
+        if tiene_compras and request.FILES.get('track'):
+            form.add_error(
+                'track',
+                'Este track ya tiene compras y el archivo de audio no puede reemplazarse.'
+            )
+
+        if form.is_valid():
+            track_actualizado = form.save(commit=False)
+
+            # Conservamos siempre al dueño original.
+            track_actualizado.usuario = request.user.usuario
+            track_actualizado.save()
+
+            messages.success(
+                request,
+                f'El track "{track_actualizado.nombre_track}" fue actualizado correctamente.'
+            )
+            return redirect('perfil_productor')
+    else:
+        form = TrackForm(instance=track)
+
+    context = {
+        'form': form,
+        'track': track,
+        'tiene_compras': tiene_compras,
+    }
+
+    return render(request, 'app/editar_track.html', context)
+
+
+@login_required
+@require_POST
+def eliminar_track(request, track_id):
+    track = get_object_or_404(
+        Track,
+        id_track=track_id,
+        usuario=request.user.usuario,
+    )
+
+    nombre_track = track.nombre_track
     track.delete()
 
-    # Redireccionar a la página de perfil del productor
+    messages.success(
+        request,
+        f'El track "{nombre_track}" fue eliminado correctamente.'
+    )
     return redirect('perfil_productor')
 
 @login_required
@@ -257,18 +342,100 @@ def editar_perfil_p(request):
 
 @login_required
 def upload_file(request):
+    # Solo los productores pueden acceder a la subida de tracks.
+    if request.user.usuario.tipo_usu != Usuario.PRODUCTOR:
+        messages.error(request, 'Solo los productores pueden subir pistas.')
+        return redirect('perfil')
+
     if request.method == 'POST':
         form = TrackForm(request.POST, request.FILES)
-        if form.is_valid():
-            # Aquí obtenemos la instancia de Usuario del usuario logueado
+
+        # Primero dejamos que Django ejecute todas las validaciones del formulario.
+        formulario_valido = form.is_valid()
+        archivos_validos = True
+
+        archivo_audio = request.FILES.get('track')
+        archivo_imagen = request.FILES.get('foto')
+
+        formatos_audio = {'.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg'}
+        formatos_imagen = {'.jpg', '.jpeg', '.png', '.webp'}
+
+        # Validación adicional del archivo de audio directamente en la vista.
+        # Esto evita que un archivo inválido se guarde aunque el navegador
+        # permita seleccionarlo manualmente.
+        if archivo_audio:
+            nombre_audio = archivo_audio.name.lower()
+            extension_audio = (
+                '.' + nombre_audio.rsplit('.', 1)[-1]
+                if '.' in nombre_audio
+                else ''
+            )
+
+            if extension_audio not in formatos_audio:
+                form.add_error(
+                    'track',
+                    'Archivo de audio inválido. Solo se permiten '
+                    'MP3, WAV, FLAC, M4A, AAC u OGG.'
+                )
+                archivos_validos = False
+            else:
+                try:
+                    archivo_audio.seek(0)
+                    audio_detectado = mutagen.File(archivo_audio)
+                    archivo_audio.seek(0)
+
+                    if audio_detectado is None:
+                        form.add_error(
+                            'track',
+                            'El archivo seleccionado no contiene un audio válido.'
+                        )
+                        archivos_validos = False
+
+                except Exception:
+                    try:
+                        archivo_audio.seek(0)
+                    except Exception:
+                        pass
+
+                    form.add_error(
+                        'track',
+                        'No fue posible validar el audio. '
+                        'Comprueba que el archivo no esté dañado.'
+                    )
+                    archivos_validos = False
+        else:
+            form.add_error(
+                'track',
+                'Debes seleccionar un archivo de audio.'
+            )
+            archivos_validos = False
+
+        # La imagen es opcional, pero si se envía debe tener un formato permitido.
+        if archivo_imagen:
+            nombre_imagen = archivo_imagen.name.lower()
+            extension_imagen = (
+                '.' + nombre_imagen.rsplit('.', 1)[-1]
+                if '.' in nombre_imagen
+                else ''
+            )
+
+            if extension_imagen not in formatos_imagen:
+                form.add_error(
+                    'foto',
+                    'Imagen inválida. Solo se permiten JPG, JPEG, PNG o WEBP.'
+                )
+                archivos_validos = False
+
+        if formulario_valido and archivos_validos:
             usuario = request.user.usuario
 
-            # Creamos la instancia Track y establecemos el campo usuario con la instancia obtenida
             track = form.save(commit=False)
             track.usuario = usuario
             track.save()
 
+            messages.success(request, 'Track subido correctamente.')
             return redirect('perfil')
+
     else:
         form = TrackForm()
 
@@ -350,30 +517,161 @@ def detalle_track(request, track_id):
     track = get_object_or_404(Track, id_track=track_id)
     comentarios = track.comentarios.all()
 
-    # Agrega la variable de tipo de perfil al contexto
+    ya_comprado = False
+    le_gusta = False
+
+    if request.user.is_authenticated:
+        usuario = Usuario.objects.filter(user=request.user).first()
+
+        if usuario is not None:
+            ya_comprado = (
+                HistorialCompra.objects.filter(
+                    usuario=usuario,
+                    track=track,
+                ).exists()
+                or HistorialVenta.objects.filter(
+                    comprador=request.user,
+                    track=track,
+                ).exists()
+            )
+
+            le_gusta = usuario.tracks_gustados.filter(
+                id_track=track.id_track
+            ).exists()
+
     context = {
         'track': track,
         'comentarios': comentarios,
-        'tipo_usuario': track.usuario.tipo_usu
+        'tipo_usuario': track.usuario.tipo_usu,
+        'ya_comprado': ya_comprado,
+        'le_gusta': le_gusta,
     }
 
     return render(request, 'app/detalle_track.html', context)
 
+
+@require_GET
+def reproducir_track(request, track_id):
+    """
+    Reproduce el audio mediante una vista de Django en lugar de exponer
+    directamente la ruta física /media/canciones/...
+    """
+    track = get_object_or_404(Track, id_track=track_id)
+
+    if not track.track:
+        from django.http import Http404
+        raise Http404('El archivo de audio no está disponible.')
+
+    archivo = track.track.open('rb')
+    nombre_archivo = track.track.name.rsplit('/', 1)[-1]
+
+    content_type = (
+        mimetypes.guess_type(nombre_archivo)[0]
+        or 'application/octet-stream'
+    )
+
+    response = FileResponse(
+        archivo,
+        content_type=content_type,
+    )
+
+    # El navegador puede reproducirlo, pero no se presenta como descarga.
+    response['Content-Disposition'] = (
+        f'inline; filename="{nombre_archivo}"'
+    )
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Cache-Control'] = 'private, no-store'
+
+    return response
+
+
 @login_required
+def descargar_track(request, track_id):
+    track = get_object_or_404(Track, id_track=track_id)
+    usuario = get_object_or_404(Usuario, user=request.user)
+
+    ya_comprado = (
+        HistorialCompra.objects.filter(
+            usuario=usuario,
+            track=track,
+        ).exists()
+        or HistorialVenta.objects.filter(
+            comprador=request.user,
+            track=track,
+        ).exists()
+    )
+
+    if not ya_comprado:
+        messages.error(
+            request,
+            'Debes comprar este track antes de poder descargarlo.'
+        )
+        return redirect('detalle', track_id=track_id)
+
+    if not track.track:
+        messages.error(
+            request,
+            'El archivo de este track no está disponible.'
+        )
+        return redirect('detalle', track_id=track_id)
+
+    archivo = track.track.open('rb')
+    nombre_archivo = track.track.name.rsplit('/', 1)[-1]
+
+    return FileResponse(
+        archivo,
+        as_attachment=True,
+        filename=nombre_archivo,
+    )
+
+
+@login_required
+@require_POST
 def agregar_comentario(request, track_id):
-    if request.method == 'POST':
-        contenido = request.POST['contenido']
-        track = get_object_or_404(Track, id_track=track_id)
+    contenido = request.POST.get('contenido', '').strip()
+    track = get_object_or_404(Track, id_track=track_id)
 
-        comentario = Comentario(usuario=request.user, track=track, contenido=contenido)
-        comentario.save()
+    if not contenido:
+        messages.warning(request, 'El comentario no puede estar vacío.')
+        return redirect('detalle', track_id=track_id)
 
-    return HttpResponseRedirect(reverse('detalle', args=[track_id]))
+    Comentario.objects.create(
+        usuario=request.user,
+        track=track,
+        contenido=contenido,
+    )
+
+    messages.success(request, 'Comentario publicado correctamente.')
+    return redirect('detalle', track_id=track_id)
+
+
+@login_required
+@require_POST
+def eliminar_comentario(request, comentario_id):
+    comentario = get_object_or_404(
+        Comentario,
+        pk=comentario_id,
+        usuario=request.user,
+    )
+
+    track_id = comentario.track.id_track
+    comentario.delete()
+
+    messages.success(request, 'Comentario eliminado correctamente.')
+    return redirect('detalle', track_id=track_id)
 
 @login_required
 def carrito(request):
-    usuario = Usuario.objects.get(user=request.user)
-    ventas = Venta.objects.filter(usuario_id=usuario.id)
+    usuario = get_object_or_404(Usuario, user=request.user)
+
+    # El carrito solo debe mostrar compras pendientes.
+    # Las ventas ya completadas quedan en el historial,
+    # pero no vuelven a aparecer como productos por pagar.
+    ventas = Venta.objects.filter(
+        usuario_id=usuario,
+        completada=False,
+    )
+
     precio_total = sum(venta.precio for venta in ventas)
     iva_total = sum(venta.iva for venta in ventas)
     precio_total_con_iva = precio_total + iva_total
@@ -386,35 +684,104 @@ def carrito(request):
 
     return render(request, 'app/carrito.html', context)
 @login_required
+@csrf_exempt
 def exito(request):
     """
-    Flujo existente conservado para compatibilidad con el pago de suscripción.
-    El pago del carrito usa exito_carrito(), que valida la respuesta de Transbank.
+    Retorno de Webpay Plus para el pago de suscripción.
+
+    Esta vista ya NO registra compras del carrito.
+    Solo muestra éxito si Transbank confirma que la transacción fue autorizada.
     """
-    if request.method == 'GET':
-        usuario_comprador = Usuario.objects.get(user=request.user)
-        ventas = Venta.objects.filter(usuario_id=usuario_comprador.id)
+    token_ws = request.POST.get('token_ws') or request.GET.get('token_ws')
 
-        with transaction.atomic():
-            for venta in ventas:
-                historial_compra, created = HistorialCompra.objects.get_or_create(
-                    usuario=usuario_comprador,
-                    track=venta.track
-                )
-                if created:
-                    historial_compra.save()
+    if not token_ws:
+        print(
+            "PAGO SUSCRIPCION CANCELADO O SIN TOKEN:",
+            dict(request.POST) if request.method == 'POST' else dict(request.GET)
+        )
+        return redirect('cancelado')
 
-                HistorialVenta.objects.create(
-                    comprador=usuario_comprador.user,
-                    precio=venta.track.precio,
-                    track=venta.track
-                )
+    try:
+        test_commerce_code = "***REMOVED***"
+        test_api_key = "***REMOVED***"
 
-                venta.delete()
+        tx = Transaction(
+            options=WebpayOptions(
+                commerce_code=test_commerce_code,
+                api_key=test_api_key,
+                integration_type="TEST",
+            )
+        )
 
+        response = tx.commit(token_ws)
+
+        def tbk_value(name, default=None):
+            if isinstance(response, dict):
+                return response.get(name, default)
+            return getattr(response, name, default)
+
+        response_code = tbk_value('response_code')
+        status = tbk_value('status')
+        buy_order = str(tbk_value('buy_order', ''))
+        session_id = str(tbk_value('session_id', ''))
+        amount = tbk_value('amount')
+
+        try:
+            response_code_ok = int(response_code) == 0
+        except (TypeError, ValueError):
+            response_code_ok = False
+
+        if not response_code_ok or str(status).upper() != 'AUTHORIZED':
+            print("PAGO SUSCRIPCION RECHAZADO POR TRANSBANK")
+            return redirect('cancelado')
+
+        webpay_transaction = WebpayTransaction.objects.filter(
+            buy_order=buy_order
+        ).first()
+
+        if webpay_transaction is None:
+            print("PAGO SUSCRIPCION: buy_order no encontrado:", buy_order)
+            return redirect('cancelado')
+
+        try:
+            expected_amount = int(round(float(webpay_transaction.amount)))
+            paid_amount = int(round(float(amount)))
+        except (TypeError, ValueError):
+            print("PAGO SUSCRIPCION: monto inválido")
+            return redirect('cancelado')
+
+        if expected_amount != paid_amount:
+            print(
+                "PAGO SUSCRIPCION: monto no coincide.",
+                "Esperado:", expected_amount,
+                "Pagado:", paid_amount,
+            )
+            return redirect('cancelado')
+
+        if session_id and str(webpay_transaction.session_id) != session_id:
+            print("PAGO SUSCRIPCION: session_id no coincide")
+            return redirect('cancelado')
+
+        if webpay_transaction.user_id != request.user.id:
+            print("PAGO SUSCRIPCION: la transacción pertenece a otro usuario")
+            return redirect('cancelado')
+
+        if webpay_transaction.suscripcion_id is None:
+            print("PAGO SUSCRIPCION: la transacción no tiene una suscripción asociada")
+            return redirect('cancelado')
+
+        # Solo después de que Transbank confirmó AUTHORIZED marcamos
+        # la suscripción como comprada.
+        if webpay_transaction.status != WebpayTransaction.ESTADO_AUTORIZADO:
+            webpay_transaction.status = WebpayTransaction.ESTADO_AUTORIZADO
+            webpay_transaction.save(update_fields=['status'])
+
+        # El carrito mantiene su retorno seguro independiente: exito_carrito().
         return render(request, 'app/exito.html')
 
-    return redirect('perfil')
+    except Exception as e:
+        print("ERROR CONFIRMANDO PAGO SUSCRIPCION:", repr(e))
+        return redirect('cancelado')
 
 
 @csrf_exempt
@@ -517,7 +884,8 @@ def exito_carrito(request):
             user=webpay_transaction.user
         )
         ventas = Venta.objects.filter(
-            usuario_id=usuario_comprador.id
+            usuario_id=usuario_comprador,
+            completada=False,
         )
 
         if not ventas.exists():
@@ -574,90 +942,139 @@ def exito_carrito(request):
 def cancelado(request):
     return render(request, 'app/cancelado.html')
 
-@csrf_exempt
+@login_required
+@require_POST
 def pago(request):
-    usuario = Usuario.objects.get(user=request.user)
-    ventas = Venta.objects.filter(usuario_id=usuario.id)
+    usuario = get_object_or_404(Usuario, user=request.user)
+
+    # Solo se incluyen productos que todavía están pendientes de pago.
+    ventas = Venta.objects.filter(
+        usuario_id=usuario,
+        completada=False,
+    )
+
+    if not ventas.exists():
+        messages.info(request, 'Tu carrito no tiene productos pendientes de pago.')
+        return redirect('carrito')
+
     precio_total = sum(venta.precio for venta in ventas)
     iva_total = sum(venta.iva for venta in ventas)
     precio_total_con_iva = int(round(float(precio_total + iva_total)))
 
-    if request.method == 'POST':
-        try:
-            # Crear una instancia de WebpayTransaction y guardarla en la base de datos
-            transaction = WebpayTransaction.objects.create(
-                user=request.user,
-                buy_order=str(random.randrange(1000000, 99999999)),
-                session_id=request.user.username,
-                amount=precio_total_con_iva,
+    try:
+        # Guardar exactamente el monto que se enviará a Webpay.
+        transaction = WebpayTransaction.objects.create(
+            user=request.user,
+            buy_order=str(random.randrange(1000000, 99999999)),
+            session_id=request.user.username,
+            amount=precio_total_con_iva,
+        )
+
+        buy_order = transaction.buy_order
+        session_id = transaction.session_id
+        return_url = request.build_absolute_uri(reverse('exito_carrito'))
+        amount = transaction.amount
+
+        # Credenciales oficiales del ambiente de integración de Webpay Plus.
+        test_commerce_code = "***REMOVED***"
+        test_api_key = "***REMOVED***"
+
+        tx = Transaction(
+            options=WebpayOptions(
+                commerce_code=test_commerce_code,
+                api_key=test_api_key,
+                integration_type="TEST",
             )
+        )
 
-            # Obtener los datos necesarios de la transacción
-            buy_order = transaction.buy_order
-            session_id = transaction.session_id
-            return_url = request.build_absolute_uri(reverse('exito_carrito'))
-            final_url = request.build_absolute_uri(reverse('cancelado'))
-            amount = transaction.amount
-            commercecode = TRANSBANK_API_KEY
-            apikey = TRANSBANK_SHARED_SECRET
+        response = tx.create(
+            buy_order,
+            session_id,
+            amount,
+            return_url,
+        )
 
-            # Credenciales oficiales del ambiente de integración de Webpay Plus.
-            # Son credenciales públicas de PRUEBA de Transbank; no corresponden a producción.
-            test_commerce_code = "***REMOVED***"
-            test_api_key = "***REMOVED***"
+        token_ws = response['token']
+        url_webpay = response['url']
 
-            tx = Transaction(
-                options=WebpayOptions(
-                    commerce_code=test_commerce_code,
-                    api_key=test_api_key,
-                    integration_type="TEST",
-                )
-            )
-            response = tx.create(buy_order, session_id, amount, return_url)
-            token_ws = response['token']
-            url_webpay = response['url']
+        context = {
+            "ventas": ventas,
+            "precio_total": precio_total,
+            "precio_total_con_iva": precio_total_con_iva,
+            "buy_order": buy_order,
+            "session_id": session_id,
+            "amount": amount,
+            "return_url": return_url,
+            "token_ws": token_ws,
+            "url_webpay": url_webpay,
+            "first_name": request.user.first_name,
+            "last_name": request.user.last_name,
+            "email": request.user.email,
+        }
 
-            # Realizar el proceso de pago con Transbank
-            context = {
-                "ventas": ventas,
-                "precio_total": precio_total,
-                "precio_total_con_iva": precio_total_con_iva,
-                "buy_order": buy_order,
-                "session_id": session_id,
-                "amount": amount,
-                "return_url": return_url,
-                "token_ws": token_ws,
-                "url_webpay": url_webpay,
-                "first_name": request.user.first_name,
-                "last_name": request.user.last_name,
-                "email": request.user.email,
-            }
+        return render(request, 'app/pago.html', context)
 
-            return render(request, 'app/pago.html', context)
-        except Exception as e:
-            # Muestra el error real del pago del carrito en la terminal.
-            print("ERROR PAGO TRANSBANK:", repr(e))
-            return redirect('cancelado')
+    except Exception as e:
+        print("ERROR PAGO TRANSBANK:", repr(e))
+        return redirect('cancelado')
 
-    return redirect('carrito')
  
 
+@login_required
+@require_POST
 def agregar_al_carrito(request, track_id):
     track = get_object_or_404(Track, id_track=track_id)
-    
+    usuario = get_object_or_404(Usuario, user=request.user)
+
+    # Impedir recomprar un track que ya fue adquirido.
+    # Se revisan ambos historiales para cubrir compras antiguas y actuales.
+    ya_comprado = (
+        HistorialCompra.objects.filter(
+            usuario=usuario,
+            track=track,
+        ).exists()
+        or HistorialVenta.objects.filter(
+            comprador=request.user,
+            track=track,
+        ).exists()
+    )
+
+    if ya_comprado:
+        messages.info(
+            request,
+            'Ya compraste este track anteriormente. Puedes descargarlo desde esta página.'
+        )
+        return redirect('detalle', track_id=track_id)
+
+    # Impedir agregar el mismo track más de una vez al carrito.
+    if Venta.objects.filter(
+        usuario_id=usuario,
+        track=track,
+        completada=False,
+    ).exists():
+        messages.info(
+            request,
+            'Este track ya está agregado a tu carrito.'
+        )
+        return redirect('carrito')
+
     precio = track.precio
-    iva = 0.19 * precio  # Calcula el IVA como el 19% del precio
+    iva = int(round(precio * 0.19))
     precio_total = precio + iva
 
-    usuario = Usuario.objects.get(user=request.user)
-    
-        # Guardar la información del track en el carrito
+    Venta.objects.create(
+        detalle=track.nombre_track,
+        fecha=timezone.now(),
+        precio=precio,
+        iva=iva,
+        precio_total=precio_total,
+        usuario_id=usuario,
+        track=track,
+    )
 
-
-    venta = Venta(detalle=track.nombre_track, fecha=timezone.now(), precio=precio, iva=iva, precio_total=precio_total, usuario_id=usuario, track = track)
-    venta.save()
-
+    messages.success(request, 'Track agregado al carrito.')
     return redirect('carrito')
+
 
 @login_required
 @require_POST
@@ -675,17 +1092,18 @@ def eliminar_del_carrito(request, venta_id):
     return redirect('carrito')
 
 @login_required
+@require_POST
 def dar_like(request, track_id):
-    # Obtener el track
     track = get_object_or_404(Track, id_track=track_id)
+    perfil_usuario = get_object_or_404(Usuario, user=request.user)
 
-    # Obtener el perfil del usuario actual
-    perfil_usuario = request.user.usuario
+    if perfil_usuario.tracks_gustados.filter(id_track=track.id_track).exists():
+        perfil_usuario.tracks_gustados.remove(track)
+        messages.info(request, 'Quitaste este track de tus Me gusta.')
+    else:
+        perfil_usuario.tracks_gustados.add(track)
+        messages.success(request, 'Este track ahora está en tus Me gusta.')
 
-    # Guardar el track en el perfil del usuario
-    perfil_usuario.tracks_gustados.add(track)
-
-    # Redirigir a la página de detalle del track
     return redirect('detalle', track_id=track_id)
 
 def recuperar_contrasena_success(request):
@@ -722,10 +1140,28 @@ def ingresar_suscripcion_view(request):
 
     return render(request, 'app/ingresar_suscripcion.html')
 
-@csrf_exempt
+@login_required
 def realizar_pago(request, suscripcion_id):
-    suscripcion = Suscripcion.objects.get(id_sus=suscripcion_id)
-    
+    suscripcion = get_object_or_404(Suscripcion, id_sus=suscripcion_id)
+
+    # Si esta cuenta ya compró esta misma suscripción y el pago fue
+    # autorizado por Webpay, no permitimos volver a cobrarla.
+    ya_suscrito = WebpayTransaction.objects.filter(
+        user=request.user,
+        suscripcion=suscripcion,
+        status=WebpayTransaction.ESTADO_AUTORIZADO,
+    ).exists()
+
+    if ya_suscrito:
+        messages.info(
+            request,
+            'Ya compraste esta suscripción anteriormente.'
+        )
+        return redirect(
+            'perfil_productor1',
+            username=suscripcion.user.user.username,
+        )
+
     if request.method == 'POST':
         try:
             # Crear una instancia de WebpayTransaction y guardarla en la base de datos
@@ -734,20 +1170,32 @@ def realizar_pago(request, suscripcion_id):
                 buy_order=str(random.randrange(1000000, 99999999)),
                 session_id=request.user.username,
                 amount=suscripcion.precio,
+                suscripcion=suscripcion,
+                status=WebpayTransaction.ESTADO_PENDIENTE,
             )
-            suscripcion.usuario = request.user
-            suscripcion.save()
             # Obtener los datos necesarios de la transacción
             buy_order = transaction.buy_order
             session_id = transaction.session_id
             return_url = request.build_absolute_uri(reverse('exito'))
-            final_url = request.build_absolute_uri(reverse('cancelado'))
-            amount = transaction.amount
-            commercecode = TRANSBANK_API_KEY
-            apikey = TRANSBANK_SHARED_SECRET
+            amount = int(round(float(transaction.amount)))
 
-            tx = Transaction(options=WebpayOptions(commerce_code=commercecode, api_key=apikey, integration_type="TEST"))
-            response = tx.create(buy_order, session_id, amount, return_url)
+            test_commerce_code = "***REMOVED***"
+            test_api_key = "***REMOVED***"
+
+            tx = Transaction(
+                options=WebpayOptions(
+                    commerce_code=test_commerce_code,
+                    api_key=test_api_key,
+                    integration_type="TEST",
+                )
+            )
+
+            response = tx.create(
+                buy_order,
+                session_id,
+                amount,
+                return_url,
+            )
             token_ws = response['token']
             url_webpay = response['url']
 
@@ -764,7 +1212,7 @@ def realizar_pago(request, suscripcion_id):
 
             return render(request, 'app/pago.html', context)
         except Exception as e:
-            # Ocurrió un error en la transacción de Transbank, puedes mostrar un mensaje de error o redirigir a una página de error
+            print("ERROR PAGO SUSCRIPCION TRANSBANK:", repr(e))
             return redirect('cancelado')
 
     context = {

@@ -30,17 +30,25 @@
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav">
-        <li class="nav-item active">
-          <a class="nav-link" href="{% url 'inicio'%}">Inicio <span class="sr-only">(actual)</span></a>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'inicio' %}">Inicio</a>
         </li>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'sobre_nosotros'%}">Sobre nosotros</a>
-      </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link" href="{% url 'carrito'%}">Carrito</a>
-          </div>
-        </li> 
+
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'catalogo' %}">Catálogo</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'catalogo_usuarios' %}">Usuarios</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'sobre_nosotros' %}">Sobre nosotros</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'carrito' %}">Carrito</a>
+        </li>
       </ul>
 
       {% if user.is_authenticated %}
@@ -72,6 +80,16 @@
   <div class="wrapper">
     <div class="content">
       <div class="container">
+
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show mt-3" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+
         <div class="row">
             <div class="col-12">
                 {% block contenido %}  {% endblock %}    

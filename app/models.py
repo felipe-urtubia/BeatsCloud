@@ -148,15 +148,39 @@ class Compra(models.Model):
         return str(self.id)
 
 class WebpayTransaction(models.Model):
+    ESTADO_PENDIENTE = 'PENDING'
+    ESTADO_AUTORIZADO = 'AUTHORIZED'
+
+    ESTADO_CHOICES = (
+        (ESTADO_PENDIENTE, 'Pendiente'),
+        (ESTADO_AUTORIZADO, 'Autorizado'),
+    )
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     buy_order = models.CharField(max_length=50)
     session_id = models.CharField(max_length=50)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     timestamp = models.DateTimeField(auto_now_add=True)
-    # Otros campos que desees almacenar, como el estado de la transacción, por ejemplo
+
+    # Si esta transacción corresponde a una suscripción, se guarda aquí.
+    # Para pagos del carrito queda en NULL.
+    suscripcion = models.ForeignKey(
+        Suscripcion,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='transacciones_webpay',
+    )
+
+    # Solo las transacciones AUTHORIZED se mostrarán como compras de suscripción.
+    status = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_PENDIENTE,
+    )
 
     def __str__(self):
-        return f"{self.buy_order} - {self.amount}"
+        return f"{self.buy_order} - {self.amount} - {self.status}"
     
 class HistorialVenta(models.Model):
     comprador = models.ForeignKey(User, on_delete=models.CASCADE)
