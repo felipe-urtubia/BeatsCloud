@@ -1,6 +1,163 @@
 {% extends 'base.html' %}
 
+{% block titulo %}Pago cancelado{% endblock %}
+
 {% block contenido %}
-  <h1>Pago Cancelado</h1>
-  <p>El pago no pudo ser completado. Por favor, inténtalo nuevamente.</p>
+
+<style>
+  .cancel-page {
+    padding: 55px 0 75px;
+  }
+
+  .cancel-card {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.10);
+    overflow: hidden;
+  }
+
+  .cancel-header {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.25), transparent 34%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    padding: 42px 30px 36px;
+    text-align: center;
+  }
+
+  .cancel-icon {
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #dc3545;
+    color: #fff;
+    font-size: 2.4rem;
+    font-weight: 900;
+    box-shadow: 0 10px 24px rgba(220,53,69,.22);
+  }
+
+  .cancel-header h1 {
+    font-weight: 900;
+    margin-bottom: 9px;
+  }
+
+  .cancel-header p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+  }
+
+  .cancel-body {
+    padding: 30px;
+  }
+
+  .cancel-message {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .cancel-message h2 {
+    font-weight: 850;
+    margin-bottom: 10px;
+  }
+
+  .cancel-message p {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 0;
+  }
+
+  .cancel-info {
+    background: #fff3cd;
+    border: 1px solid #ffe69c;
+    color: #664d03;
+    border-radius: 13px;
+    padding: 16px;
+    margin-bottom: 24px;
+    line-height: 1.55;
+  }
+
+  .cancel-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .cancel-actions .btn {
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-weight: 850;
+  }
+
+  @media (max-width: 575.98px) {
+    .cancel-page {
+      padding-top: 28px;
+    }
+
+    .cancel-card {
+      border-radius: 16px;
+    }
+
+    .cancel-header,
+    .cancel-body {
+      padding: 24px 20px;
+    }
+
+    .cancel-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="container cancel-page">
+
+  <section class="cancel-card">
+
+    <div class="cancel-header">
+      <div class="cancel-icon">×</div>
+
+      <h1>Pago cancelado</h1>
+
+      <p>
+        La transacción no pudo completarse.
+      </p>
+    </div>
+
+    <div class="cancel-body">
+
+      <div class="cancel-message">
+        <h2>No se realizó ningún cobro</h2>
+
+        <p>
+          Puedes volver a intentarlo cuando quieras. Si estabas comprando tracks,
+          seguirán disponibles en tu carrito mientras no hayan sido eliminados.
+        </p>
+      </div>
+
+      <div class="cancel-info">
+        <strong>¿Qué puedes hacer ahora?</strong><br>
+        Revisa tu carrito, confirma que los datos estén correctos e intenta
+        realizar el pago nuevamente.
+      </div>
+
+      <div class="cancel-actions">
+        <a href="{% url 'carrito' %}" class="btn btn-warning">
+          Volver al carrito
+        </a>
+
+        <a href="{% url 'catalogo' %}" class="btn btn-outline-dark">
+          Volver al catálogo
+        </a>
+      </div>
+
+    </div>
+
+  </section>
+
+</div>
+
 {% endblock %}

@@ -1,166 +1,729 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static %}
-{% block titulo %} Perfil {% endblock %}
-{% block stylesheet %}
-<link rel = "stylesheet" href = "{% static 'app/css/perfil_artista.css' %}">
-{% endblock %}
+
+{% block titulo %}Mi perfil - Artista{% endblock %}
 
 {% block contenido %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="profile-header">
-            {% if user.usuario.foto_fondo %}<img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">{% endif %}
-            {% if user.usuario.foto_perfil %}<img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">{% endif %}
-        </div>
-      
-    </div>
-  </div>
-  
-  <div class="container mt-3">
-    <div class="row">
-      <div class="col-md-3 text-center">
-        
-        <h2 class = "username">{{ user.username | capfirst}}</h2>
-        <p class = "desc" style="word-wrap: break-word;">{{ user.usuario.descripcion }}</p>
-        <div class="d-flex justify-content-center" id="redes">
-            {% if user.usuario.youtube and user.usuario.youtube != "None" %}
-                <a href="{{ user.usuario.youtube }}" target="_blank" rel="noopener noreferrer" title="Abrir YouTube">
-                    <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px;">
-                </a>
-            {% else %}
-                <a href="#" onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de YouTube.');" title="YouTube no configurado">
-                    <img src="{% static 'app/img/youtube.png' %}" alt="YouTube" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
-                </a>
-            {% endif %}
 
-            {% if user.usuario.spotify and user.usuario.spotify != "None" %}
-                <a href="{{ user.usuario.spotify }}" target="_blank" rel="noopener noreferrer" title="Abrir Spotify">
-                    <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px;">
-                </a>
-            {% else %}
-                <a href="#" onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Spotify.');" title="Spotify no configurado">
-                    <img src="{% static 'app/img/spotify.png' %}" alt="Spotify" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
-                </a>
-            {% endif %}
+<style>
+  .perfil-artista-page {
+    padding-bottom: 60px;
+  }
 
-            {% if user.usuario.instagram and user.usuario.instagram != "None" %}
-                <a href="{{ user.usuario.instagram }}" target="_blank" rel="noopener noreferrer" title="Abrir Instagram">
-                    <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px;">
-                </a>
-            {% else %}
-                <a href="#" onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Instagram.');" title="Instagram no configurado">
-                    <img src="{% static 'app/img/instagram.png' %}" alt="Instagram" style="width: 50px; height: 50px; margin-right: 20px; opacity: 0.65;">
-                </a>
-            {% endif %}
+  .perfil-cover {
+    position: relative;
+    height: 310px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 35%),
+      linear-gradient(135deg, #151515, #303030);
+  }
+
+  .perfil-cover img.cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .perfil-cover-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.58), rgba(0,0,0,.05));
+  }
+
+  .perfil-wrap {
+    position: relative;
+    margin-top: -78px;
+    z-index: 2;
+  }
+
+  .perfil-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .perfil-top {
+    display: flex;
+    align-items: flex-end;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+
+  .perfil-avatar,
+  .perfil-avatar-placeholder {
+    width: 145px;
+    height: 145px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    box-shadow: 0 6px 18px rgba(0,0,0,.16);
+    flex-shrink: 0;
+  }
+
+  .perfil-avatar {
+    object-fit: cover;
+    background: #f1f1f1;
+  }
+
+  .perfil-avatar-placeholder {
+    background: #ffc107;
+    display: grid;
+    place-items: center;
+    font-size: 4.3rem;
+  }
+
+  .perfil-name {
+    flex: 1;
+    min-width: 220px;
+    padding-bottom: 8px;
+  }
+
+  .perfil-name h1 {
+    font-weight: 900;
+    margin-bottom: 5px;
+    line-height: 1.05;
+  }
+
+  .perfil-role {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 800;
+    font-size: .9rem;
+  }
+
+  .perfil-actions {
+    padding-bottom: 8px;
+  }
+
+  .perfil-actions .btn {
+    border-radius: 9px;
+    font-weight: 800;
+    padding: 10px 18px;
+  }
+
+  .perfil-description {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid #ececec;
+    color: #555;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+
+  .perfil-redes {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .social-link {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #f5f5f5;
+    display: grid;
+    place-items: center;
+    border: 1px solid #ececec;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .social-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgba(0,0,0,.10);
+  }
+
+  .social-link img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  .social-disabled {
+    opacity: .45;
+  }
+
+  .section-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 25px;
+    margin-bottom: 28px;
+  }
+
+  .section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .section-title h2 {
+    font-weight: 850;
+    margin: 0;
+  }
+
+  .section-title .badge {
+    padding: 8px 11px;
+    font-size: .9rem;
+  }
+
+  .historial-table-wrap {
+    overflow-x: auto;
+  }
+
+  .historial-table {
+    min-width: 760px;
+    margin-bottom: 0;
+  }
+
+  .historial-table thead th {
+    border-top: 0;
+    color: #666;
+    font-size: .88rem;
+    white-space: nowrap;
+  }
+
+  .historial-producto {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 220px;
+  }
+
+  .historial-cover,
+  .historial-placeholder {
+    width: 62px;
+    height: 62px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .historial-cover {
+    object-fit: cover;
+  }
+
+  .historial-placeholder {
+    display: grid;
+    place-items: center;
+    background: #ffc107;
+    font-size: 1.7rem;
+  }
+
+  .tipo-badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: .82rem;
+    font-weight: 800;
+  }
+
+  .tipo-track {
+    background: #fff3cd;
+    color: #6b5200;
+  }
+
+  .tipo-suscripcion {
+    background: #212529;
+    color: #ffc107;
+  }
+
+  .historial-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .historial-acciones .btn {
+    border-radius: 8px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .liked-card {
+    height: 100%;
+    border-radius: 17px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #ececec;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .liked-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 25px rgba(0,0,0,.10);
+  }
+
+  .liked-cover {
+    height: 210px;
+    background: linear-gradient(135deg, #ffc107, #ffdc73);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .liked-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .liked-placeholder {
+    font-size: 4.8rem;
+  }
+
+  .liked-price {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 800;
+    padding: 6px 10px;
+    border-radius: 999px;
+  }
+
+  .liked-body {
+    padding: 18px;
+  }
+
+  .liked-body h3 {
+    font-size: 1.18rem;
+    font-weight: 800;
+    margin-bottom: 7px;
+  }
+
+  .liked-producer {
+    font-size: .92rem;
+    margin-bottom: 12px;
+    color: #666;
+  }
+
+  .liked-producer a {
+    color: #d99b00;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .liked-producer a:hover {
+    text-decoration: underline;
+  }
+
+  .liked-audio {
+    width: 100%;
+    margin-bottom: 13px;
+  }
+
+  .liked-actions {
+    display: grid;
+    gap: 8px;
+  }
+
+  .liked-actions .btn {
+    width: 100%;
+    border-radius: 9px;
+    font-weight: 800;
+  }
+
+  .empty-box {
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 40px 20px;
+  }
+
+  @media (max-width: 767.98px) {
+    .perfil-cover {
+      height: 230px;
+    }
+
+    .perfil-wrap {
+      margin-top: -58px;
+    }
+
+    .perfil-card {
+      padding: 20px;
+    }
+
+    .perfil-top {
+      align-items: center;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .perfil-name {
+      flex-basis: 100%;
+    }
+
+    .perfil-actions {
+      width: 100%;
+    }
+
+    .perfil-actions .btn {
+      width: 100%;
+    }
+
+    .perfil-redes {
+      justify-content: center;
+    }
+
+    .perfil-avatar,
+    .perfil-avatar-placeholder {
+      width: 120px;
+      height: 120px;
+    }
+  }
+</style>
+
+<div class="perfil-artista-page">
+
+  <!-- Portada -->
+  <section class="perfil-cover">
+    {% if user.usuario.foto_fondo %}
+      <img
+        src="{{ user.usuario.foto_fondo.url }}"
+        alt="Portada de {{ user.username }}"
+        class="cover-img"
+      >
+      <div class="perfil-cover-overlay"></div>
+    {% endif %}
+  </section>
+
+  <div class="container perfil-wrap">
+
+    <!-- Cabecera del perfil -->
+    <section class="perfil-card">
+      <div class="perfil-top">
+
+        {% if user.usuario.foto_perfil %}
+          <img
+            src="{{ user.usuario.foto_perfil.url }}"
+            alt="Foto de perfil de {{ user.username }}"
+            class="perfil-avatar"
+          >
+        {% else %}
+          <div class="perfil-avatar-placeholder">🎤</div>
+        {% endif %}
+
+        <div class="perfil-name">
+          <h1>{{ user.username|capfirst }}</h1>
+          <span class="perfil-role">🎤 Artista</span>
         </div>
-        <a href="{% url 'editar' %}"  class="btn btn-warning text-dark" style="margin-top:20px">Editar perfil</a>
+
+        <div class="perfil-actions">
+          <a href="{% url 'editar' %}" class="btn btn-warning">
+            Editar perfil
+          </a>
+        </div>
       </div>
-      <div class="col-md-9">
-        <h3>Historial de compras</h3>
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Tipo</th>
-              <th>Producto</th>
-              <th>Precio</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
 
-            {% for compra in historial_compras %}
+      {% if user.usuario.descripcion %}
+        <div class="perfil-description">{{ user.usuario.descripcion }}</div>
+      {% else %}
+        <div class="perfil-description text-muted">
+          Aún no has agregado una descripción a tu perfil.
+        </div>
+      {% endif %}
+
+      <!-- Redes -->
+      <div class="perfil-redes">
+
+        {% if user.usuario.youtube and user.usuario.youtube != "None" %}
+          <a
+            href="{{ user.usuario.youtube }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="YouTube"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de YouTube.');"
+            title="YouTube no configurado"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
+          </a>
+        {% endif %}
+
+        {% if user.usuario.spotify and user.usuario.spotify != "None" %}
+          <a
+            href="{{ user.usuario.spotify }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Spotify"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Spotify.');"
+            title="Spotify no configurado"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
+          </a>
+        {% endif %}
+
+        {% if user.usuario.instagram and user.usuario.instagram != "None" %}
+          <a
+            href="{{ user.usuario.instagram }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Instagram"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Instagram.');"
+            title="Instagram no configurado"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
+          </a>
+        {% endif %}
+      </div>
+    </section>
+
+
+    <!-- Historial de compras -->
+    <section class="section-card">
+      <div class="section-title">
+        <h2>Historial de compras</h2>
+      </div>
+
+      {% if historial_compras or historial_suscripciones %}
+        <div class="historial-table-wrap">
+          <table class="table historial-table">
+            <thead>
               <tr>
-                <td>{{ compra.fecha_compra }}</td>
-                <td>Track</td>
-                <td>
-                  {% if compra.track.foto %}
-                    <img src="{{ compra.track.foto.url }}"
-                         alt="Foto del track"
-                         class="img-fluid rounded"
-                         style="max-width: 100px; max-height: 100px;">
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Producto</th>
+                <th>Precio</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              {% for compra in historial_compras %}
+                <tr>
+                  <td>{{ compra.fecha_compra }}</td>
+
+                  <td>
+                    <span class="tipo-badge tipo-track">Track</span>
+                  </td>
+
+                  <td>
+                    <div class="historial-producto">
+                      {% if compra.track.foto %}
+                        <img
+                          src="{{ compra.track.foto.url }}"
+                          alt="Portada de {{ compra.track.nombre_track }}"
+                          class="historial-cover"
+                        >
+                      {% else %}
+                        <div class="historial-placeholder">🎵</div>
+                      {% endif %}
+
+                      <div>
+                        <strong>{{ compra.track.nombre_track }}</strong>
+                        <br>
+                        <small class="text-muted">
+                          {{ compra.track.usuario.user.username|capfirst }}
+                        </small>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    <strong>${{ compra.track.precio }}</strong>
+                  </td>
+
+                  <td>
+                    <div class="historial-acciones">
+                      <a
+                        href="{% url 'detalle' compra.track.id_track %}"
+                        class="btn btn-warning btn-sm"
+                      >
+                        Ver detalle
+                      </a>
+
+                      <a
+                        href="{% url 'descargar_track' compra.track.id_track %}"
+                        class="btn btn-success btn-sm"
+                      >
+                        Descargar
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+
+
+              {% for pago in historial_suscripciones %}
+                <tr>
+                  <td>{{ pago.timestamp }}</td>
+
+                  <td>
+                    <span class="tipo-badge tipo-suscripcion">
+                      Suscripción
+                    </span>
+                  </td>
+
+                  <td>
+                    <div>
+                      <strong>{{ pago.suscripcion.detalle }}</strong>
+                      <br>
+                      <small class="text-muted">
+                        Productor:
+                        {{ pago.suscripcion.user.user.username|capfirst }}
+                      </small>
+                    </div>
+                  </td>
+
+                  <td>
+                    <strong>${{ pago.amount|floatformat:0 }}</strong>
+                  </td>
+
+                  <td>
+                    <div class="historial-acciones">
+                      <a
+                        href="{% url 'perfil_productor1' pago.suscripcion.user.user.username %}"
+                        class="btn btn-warning btn-sm"
+                      >
+                        Ver productor
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-box">
+          <h4 class="font-weight-bold">Aún no tienes compras</h4>
+          <p class="text-muted">
+            Cuando compres un track o una suscripción, aparecerá aquí.
+          </p>
+          <a href="{% url 'catalogo' %}" class="btn btn-warning">
+            Explorar catálogo
+          </a>
+        </div>
+      {% endif %}
+    </section>
+
+
+    <!-- Tracks gustados -->
+    <section class="section-card">
+      <div class="section-title">
+        <h2>Tracks que te gustan</h2>
+
+        {% if tracks_gustados %}
+          <span class="badge badge-warning">
+            {{ tracks_gustados|length }}
+          </span>
+        {% endif %}
+      </div>
+
+      {% if tracks_gustados %}
+        <div class="row">
+          {% for track in tracks_gustados %}
+            <div class="col-sm-6 col-lg-4 mb-4">
+              <article class="liked-card">
+
+                <div class="liked-cover">
+                  {% if track.foto %}
+                    <img
+                      src="{{ track.foto.url }}"
+                      alt="Portada de {{ track.nombre_track }}"
+                    >
+                  {% else %}
+                    <div class="liked-placeholder">🎵</div>
                   {% endif %}
-                  {{ compra.track.nombre_track }}
-                </td>
-                <td>${{ compra.track.precio }}</td>
-                <td>
-                  <a href="{% url 'detalle' compra.track.id_track %}"
-                     class="btn btn-warning"
-                     style="margin-right:6px;">
-                    Ver detalle
-                  </a>
 
-                  <a href="{% url 'descargar_track' compra.track.id_track %}"
-                     class="btn btn-primary">
-                    Descargar
-                  </a>
-                </td>
-              </tr>
-            {% endfor %}
+                  <span class="liked-price">${{ track.precio }}</span>
+                </div>
 
-            {% for pago in historial_suscripciones %}
-              <tr>
-                <td>{{ pago.timestamp }}</td>
-                <td>Suscripción</td>
-                <td>
-                  {{ pago.suscripcion.detalle }}
-                  <br>
-                  <small>
-                    Productor: {{ pago.suscripcion.user.user.username|capfirst }}
-                  </small>
-                </td>
-                <td>${{ pago.amount|floatformat:0 }}</td>
-                <td>
-                  <a href="{% url 'perfil_productor1' pago.suscripcion.user.user.username %}"
-                     class="btn btn-warning">
-                    Ver productor
-                  </a>
-                </td>
-              </tr>
-            {% endfor %}
+                <div class="liked-body">
+                  <h3>{{ track.nombre_track }}</h3>
 
-            {% if not historial_compras and not historial_suscripciones %}
-              <tr>
-                <td colspan="5">No se encontraron compras</td>
-              </tr>
-            {% endif %}
+                  <div class="liked-producer">
+                    Por
+                    <a href="{% url 'perfil_productor1' track.usuario.user.username %}">
+                      {{ track.usuario.user.username|capfirst }}
+                    </a>
+                  </div>
 
-          </tbody>
-        </table>
+                  <audio
+                    class="liked-audio"
+                    controls
+                    controlsList="nodownload"
+                    preload="none"
+                  >
+                    <source src="{% url 'reproducir_track' track.id_track %}">
+                    Tu navegador no soporta la reproducción de audio.
+                  </audio>
 
-        <h3>Tracks gustados:</h3>
-{% if tracks_gustados %}
-  <ul>
-    {% for track in tracks_gustados %}
-      <li>
-        <div class="track-info">
-          <h4>{{ track.nombre_track }}</h4>
-          {% if track.foto %}<img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 100px; max-height: 100px;">{% endif %}
-          <audio controls controlsList="nodownload">
-            <source src="{% url 'reproducir_track' track.id_track %}" type="audio/mp3">
-            Tu navegador no soporta el elemento de audio.
-          </audio>
-          <div class="d-flex align-items-center">
-            <p class="mr-3">
-              <span style="color: black; font-size: 20px">Precio: </span>
-              <span style="color: orange; font-size: 20px">${{ track.precio }}</span>
-            </p>
-            <form method="post" action="{% url 'agregar_al_carrito' track.id_track %}">
-              {% csrf_token %}
-              <input type="hidden" name="track_id" value="{{ track.id_track }}">
-              <button type="submit" class="btn btn-warning">Agregar al carrito</button>
-            </form>
+                  <div class="liked-actions">
+                    <a
+                      href="{% url 'detalle' track.id_track %}"
+                      class="btn btn-outline-dark"
+                    >
+                      Ver detalle
+                    </a>
+
+                    <form
+                      method="post"
+                      action="{% url 'agregar_al_carrito' track.id_track %}"
+                    >
+                      {% csrf_token %}
+                      <input type="hidden" name="track_id" value="{{ track.id_track }}">
+
+                      <button type="submit" class="btn btn-warning">
+                        Agregar al carrito
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+              </article>
+            </div>
+          {% endfor %}
         </div>
-        <hr>
-      </li>
-    {% endfor %}
-  </ul>
-{% else %}
-  <p>No hay tracks gustados.</p>
-{% endif %}
-        
-      </div>
-    </div>
+      {% else %}
+        <div class="empty-box">
+          <h4 class="font-weight-bold">Aún no tienes tracks en Me gusta</h4>
+          <p class="text-muted">
+            Marca tus tracks favoritos y aparecerán en esta sección.
+          </p>
+          <a href="{% url 'catalogo' %}" class="btn btn-warning">
+            Descubrir tracks
+          </a>
+        </div>
+      {% endif %}
+    </section>
+
   </div>
+</div>
 
 {% endblock %}

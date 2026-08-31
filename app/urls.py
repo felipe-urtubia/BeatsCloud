@@ -1,4 +1,4 @@
-from django.contrib.auth import views as auth_views
+﻿from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from .views import (
@@ -46,14 +46,14 @@ urlpatterns = [
     # Recuperación segura de contraseña por correo + token de un solo uso.
     path('recuperar/', recuperar_contrasena, name='recuperar_contrasena'),
     path('recuperar/enviado/', auth_views.PasswordResetDoneView.as_view(
-        template_name='registration/password_reset_done.html'
+        template_name='app/password_reset_done.html'
     ), name='beatcloud_password_reset_done'),
     path('recuperar/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
-        template_name='registration/password_reset_confirm.html',
+        template_name='app/password_reset_confirm.html',
         success_url='/recuperar/completado/'
     ), name='beatcloud_password_reset_confirm'),
     path('recuperar/completado/', auth_views.PasswordResetCompleteView.as_view(
-        template_name='registration/password_reset_complete.html'
+        template_name='app/password_reset_complete.html'
     ), name='beatcloud_password_reset_complete'),
     path('recuperar/success/', recuperar_contrasena_success, name='recuperar_contrasena_success'),
 
@@ -69,3 +69,6 @@ urlpatterns = [
     path('suscripcion/<int:suscripcion_id>/', realizar_pago, name='realizar_pago'),
     path('sobre_nosotros/', sobre_nosotros, name='sobre_nosotros'),
 ]
+
+
+

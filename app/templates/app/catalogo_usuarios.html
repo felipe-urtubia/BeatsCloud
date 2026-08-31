@@ -2,40 +2,248 @@
 
 {% load static %}
 
+{% block titulo %}Usuarios{% endblock %}
+
 {% block contenido %}
+
 <style>
-    .card {
-        min-height: 350px; /* Ajusta la altura deseada para todas las tarjetas */
+    .usuarios-page {
+        padding: 32px 0 55px;
     }
-    .foto-perfil {
-        width: 280px; /* Ajusta el tamaño deseado para la foto de perfil */
-        height: 280px; /* Ajusta el tamaño deseado para la foto de perfil */
+
+    .usuarios-hero {
+        background: linear-gradient(135deg, #171717, #2b2b2b);
+        color: white;
+        border-radius: 22px;
+        padding: 34px 28px;
+        margin-bottom: 28px;
+        box-shadow: 0 14px 35px rgba(0,0,0,.12);
+    }
+
+    .usuarios-hero h1 {
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .usuarios-hero p {
+        color: rgba(255,255,255,.76);
+        margin-bottom: 0;
+    }
+
+    .usuarios-filtros {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 22px;
+    }
+
+    .usuarios-filtros .btn {
+        border-radius: 999px;
+        padding: 9px 17px;
+        font-weight: 700;
+    }
+
+    .usuario-buscador {
+        margin-bottom: 30px;
+    }
+
+    .usuario-buscador .form-control {
+        border-radius: 10px 0 0 10px;
+        min-height: 45px;
+    }
+
+    .usuario-buscador .btn {
+        border-radius: 0 10px 10px 0;
+        min-height: 45px;
+        font-weight: 700;
+    }
+
+    .usuario-card {
+        height: 100%;
+        border: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        background: white;
+        box-shadow: 0 8px 25px rgba(0,0,0,.08);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .usuario-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 14px 32px rgba(0,0,0,.12);
+    }
+
+    .usuario-foto-wrap {
+        padding: 25px 25px 10px;
+        text-align: center;
+    }
+
+    .usuario-foto {
+        width: 155px;
+        height: 155px;
         object-fit: cover;
+        border-radius: 50%;
+        border: 5px solid #ffc107;
+        background: #f1f1f1;
     }
-    .btn-orange {
-        background-color: orange;
-        color: black;
+
+    .usuario-sin-foto {
+        width: 155px;
+        height: 155px;
+        border-radius: 50%;
+        border: 5px solid #ffc107;
+        background: #f1f1f1;
+        display: grid;
+        place-items: center;
+        margin: 0 auto;
+        font-size: 4rem;
+    }
+
+    .usuario-card-body {
+        padding: 18px 24px 25px;
+        text-align: center;
+    }
+
+    .usuario-card-body h3 {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .usuario-rol {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 5px 12px;
+        margin-bottom: 15px;
+        font-size: .86rem;
+        font-weight: 700;
+    }
+
+    .rol-artista {
+        background: #fff3cd;
+        color: #6b5200;
+    }
+
+    .rol-productor {
+        background: #212529;
+        color: #ffc107;
+    }
+
+    .usuario-card .btn {
+        border-radius: 9px;
+        font-weight: 700;
+        width: 100%;
+    }
+
+    .usuarios-vacio {
+        text-align: center;
+        padding: 55px 20px;
+        background: #f8f9fa;
+        border-radius: 18px;
+    }
+
+    .usuarios-vacio h3 {
+        font-weight: 800;
+        margin-bottom: 8px;
     }
 </style>
 
+<div class="container usuarios-page">
 
-<div class="container">
+    <div class="usuarios-hero">
+        <h1>Usuarios de BeatsCloud</h1>
+        <p>
+            Descubre artistas y productores, visita sus perfiles y conoce a la comunidad.
+        </p>
+    </div>
+
+    <div class="usuarios-filtros">
+        <a href="{% url 'catalogo_usuarios' %}"
+           class="btn {% if tipo == 'todos' %}btn-warning{% else %}btn-outline-dark{% endif %}">
+            Todos
+        </a>
+
+        <a href="{% url 'catalogo_usuarios' %}?tipo=productores"
+           class="btn {% if tipo == 'productores' %}btn-warning{% else %}btn-outline-dark{% endif %}">
+            🎛️ Productores ({{ total_productores }})
+        </a>
+
+        <a href="{% url 'catalogo_usuarios' %}?tipo=artistas"
+           class="btn {% if tipo == 'artistas' %}btn-warning{% else %}btn-outline-dark{% endif %}">
+            🎤 Artistas ({{ total_artistas }})
+        </a>
+    </div>
+
+    <form method="get" action="{% url 'catalogo_usuarios' %}" class="usuario-buscador">
+        {% if tipo != 'todos' %}
+            <input type="hidden" name="tipo" value="{{ tipo }}">
+        {% endif %}
+
+        <div class="input-group">
+            <input
+                type="text"
+                name="q"
+                value="{{ query }}"
+                class="form-control"
+                placeholder="Buscar por nombre de usuario..."
+                aria-label="Buscar usuario"
+            >
+            <button type="submit" class="btn btn-warning">Buscar</button>
+        </div>
+    </form>
+
     <div class="row">
         {% for usuario in usuarios %}
-        <div class="col-md-4 d-flex align-items-center justify-content-center">
-            <div class="card mb-3">
-                {% if usuario.foto_perfil %}
-                    <img src="{{ usuario.foto_perfil.url }}" class="card-img-top rounded-circle foto-perfil" alt="Foto de perfil">
-                {% endif %}
-                <div class="card-body text-center">
-                    <h5 class="card-title">{{ usuario.user.username }}</h5>
-                    <a href="{% url 'perfil2' usuario.user.username %}" class="btn btn-orange">Ver perfil</a>
+            <div class="col-sm-6 col-lg-4 mb-4">
+                <div class="usuario-card">
+
+                    <div class="usuario-foto-wrap">
+                        {% if usuario.foto_perfil %}
+                            <img
+                                src="{{ usuario.foto_perfil.url }}"
+                                class="usuario-foto"
+                                alt="Foto de perfil de {{ usuario.user.username }}"
+                            >
+                        {% else %}
+                            <div class="usuario-sin-foto" aria-label="Sin foto de perfil">
+                                👤
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="usuario-card-body">
+                        <h3>{{ usuario.user.username|capfirst }}</h3>
+
+                        {% if usuario.tipo_usu == 2 %}
+                            <span class="usuario-rol rol-productor">🎛️ Productor</span>
+                        {% else %}
+                            <span class="usuario-rol rol-artista">🎤 Artista</span>
+                        {% endif %}
+
+                        <a
+                            href="{% url 'perfil2' usuario.user.username %}"
+                            class="btn btn-warning"
+                        >
+                            Ver perfil
+                        </a>
+                    </div>
                 </div>
             </div>
-        </div>
+        {% empty %}
+            <div class="col-12">
+                <div class="usuarios-vacio">
+                    <h3>No encontramos usuarios</h3>
+                    <p class="text-muted mb-3">
+                        Prueba con otro nombre o cambia el filtro seleccionado.
+                    </p>
+                    <a href="{% url 'catalogo_usuarios' %}" class="btn btn-warning">
+                        Ver todos
+                    </a>
+                </div>
+            </div>
         {% endfor %}
     </div>
-</div>
 
+</div>
 
 {% endblock %}

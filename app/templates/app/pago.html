@@ -2,18 +2,351 @@
 
 {% load static %}
 
+{% block titulo %}Confirmar pago{% endblock %}
+
 {% block contenido %}
 
-<form id="webpay-payment-form" method="post" action="{{ url_webpay }}">
-  {% csrf_token %}
-  <input type="hidden" name="token_ws" value="{{ token_ws }}">
-  <input type="hidden" name="url_return" value="{{ return_url }}">
-  <input type="hidden" name="TBK_ORDEN_COMPRA" value="{{ buy_order }}">
-  <input type="hidden" name="TBK_ID_SESION" value="{{ session_id }}">
-  <input type="hidden" name="TBK_MONTO" value="{{ amount }}">
-  <input type="hidden" name="TBK_URL_EXITO" value="{{ return_url }}">
-  <input type="hidden" name="TBK_URL_FRACASO" value="{{ return_url }}">
-  <input type="hidden" name="TBK_TIPO_TRANSACCION" value="TR_NORMAL">
-  <button type="submit" class="btn btn-primary" style="background-color: green; color: white; display: block; margin: 0 auto;">Pagar</button></form>
+<style>
+  .payment-page {
+    padding: 42px 0 70px;
+  }
+
+  .payment-shell {
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  .payment-hero {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.30), transparent 34%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    border-radius: 22px;
+    padding: 34px 30px;
+    margin-bottom: 28px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.12);
+    text-align: center;
+  }
+
+  .payment-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #ffc107;
+    color: #171717;
+    font-size: 2rem;
+    box-shadow: 0 8px 20px rgba(255,193,7,.18);
+  }
+
+  .payment-hero h1 {
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .payment-hero p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+    line-height: 1.6;
+  }
+
+  .payment-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 30px;
+  }
+
+  .payment-card h2 {
+    font-weight: 850;
+    margin-bottom: 22px;
+  }
+
+  .payment-product {
+    background: #f8f9fa;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 22px;
+  }
+
+  .payment-product strong {
+    display: block;
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+  }
+
+  .payment-product span {
+    color: #666;
+    line-height: 1.55;
+  }
+
+  .payment-summary {
+    border-top: 1px solid #ececec;
+    border-bottom: 1px solid #ececec;
+    padding: 8px 0;
+    margin-bottom: 22px;
+  }
+
+  .payment-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+    color: #555;
+  }
+
+  .payment-row strong {
+    color: #171717;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .payment-total {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    padding: 18px 0;
+  }
+
+  .payment-total span:first-child {
+    font-weight: 800;
+    color: #333;
+  }
+
+  .payment-total-value {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #171717;
+  }
+
+  .secure-box {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #fff8df;
+    border: 1px solid #ffe38a;
+    border-radius: 13px;
+    padding: 16px;
+    margin-bottom: 22px;
+  }
+
+  .secure-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  .secure-box strong {
+    display: block;
+    margin-bottom: 3px;
+  }
+
+  .secure-box p {
+    margin: 0;
+    color: #666;
+    font-size: .92rem;
+    line-height: 1.5;
+  }
+
+  .payment-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  .payment-actions .btn {
+    width: 100%;
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-weight: 850;
+  }
+
+  .webpay-button {
+    background: #ffc107;
+    color: #171717;
+    border: 1px solid #ffc107;
+  }
+
+  .webpay-button:hover {
+    background: #e0a800;
+    border-color: #d39e00;
+    color: #171717;
+  }
+
+  .cancel-payment-button {
+    background: #fff;
+    color: #333;
+    border: 1px solid #ced4da;
+  }
+
+  .cancel-payment-button:hover {
+    background: #f3f3f3;
+    color: #171717;
+    border-color: #adb5bd;
+  }
+
+  .payment-note {
+    color: #777;
+    text-align: center;
+    font-size: .84rem;
+    line-height: 1.5;
+    margin-top: 16px;
+    margin-bottom: 0;
+  }
+
+  .order-code {
+    font-family: monospace;
+    font-size: .92rem;
+  }
+
+  @media (max-width: 575.98px) {
+    .payment-page {
+      padding-top: 24px;
+    }
+
+    .payment-hero,
+    .payment-card {
+      border-radius: 16px;
+      padding: 22px;
+    }
+
+    .payment-total-value {
+      font-size: 1.65rem;
+    }
+
+    .payment-row,
+    .payment-total {
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<div class="container payment-page">
+  <div class="payment-shell">
+
+    <section class="payment-hero">
+      <div class="payment-icon">🔒</div>
+
+      <h1>Confirmar pago</h1>
+
+      <p>
+        Revisa los datos y continúa al sitio seguro de Webpay para finalizar
+        tu compra.
+      </p>
+    </section>
+
+    <section class="payment-card">
+
+      <h2>Resumen de la operación</h2>
+
+      {% if suscripcion %}
+        <div class="payment-product">
+          <strong>Suscripción</strong>
+          <span>{{ suscripcion.detalle }}</span>
+        </div>
+      {% elif ventas %}
+        <div class="payment-product">
+          <strong>Compra de tracks</strong>
+          <span>
+            {{ ventas|length }} producto{{ ventas|length|pluralize }}
+            en tu carrito.
+          </span>
+        </div>
+      {% else %}
+        <div class="payment-product">
+          <strong>Pago en BeatsCloud</strong>
+          <span>
+            Tu transacción está lista para continuar a Webpay.
+          </span>
+        </div>
+      {% endif %}
+
+      <div class="payment-summary">
+
+        {% if buy_order %}
+          <div class="payment-row">
+            <span>Orden de compra</span>
+            <strong class="order-code">{{ buy_order }}</strong>
+          </div>
+        {% endif %}
+
+        {% if session_id %}
+          <div class="payment-row">
+            <span>Sesión</span>
+            <strong>{{ session_id }}</strong>
+          </div>
+        {% endif %}
+
+      </div>
+
+      <div class="payment-total">
+        <span>Total a pagar</span>
+        <span class="payment-total-value">${{ amount|floatformat:0 }}</span>
+      </div>
+
+      <div class="secure-box">
+        <div class="secure-icon">🛡️</div>
+
+        <div>
+          <strong>Pago procesado por Webpay</strong>
+          <p>
+            Al continuar serás dirigido a la plataforma de Webpay para completar
+            la transacción. BeatsCloud registrará la compra solamente después de
+            recibir la confirmación del pago.
+          </p>
+        </div>
+      </div>
+
+      <div class="payment-actions">
+
+        <form
+          id="webpay-payment-form"
+          method="post"
+          action="{{ url_webpay }}"
+        >
+          {% csrf_token %}
+
+          <input type="hidden" name="token_ws" value="{{ token_ws }}">
+          <input type="hidden" name="url_return" value="{{ return_url }}">
+          <input type="hidden" name="TBK_ORDEN_COMPRA" value="{{ buy_order }}">
+          <input type="hidden" name="TBK_ID_SESION" value="{{ session_id }}">
+          <input type="hidden" name="TBK_MONTO" value="{{ amount }}">
+          <input type="hidden" name="TBK_URL_EXITO" value="{{ return_url }}">
+          <input type="hidden" name="TBK_URL_FRACASO" value="{{ return_url }}">
+          <input type="hidden" name="TBK_TIPO_TRANSACCION" value="TR_NORMAL">
+
+          <button type="submit" class="btn webpay-button">
+            Continuar a Webpay
+          </button>
+        </form>
+
+        {% if suscripcion %}
+          <a
+            href="{% url 'perfil_productor1' suscripcion.user.user.username %}"
+            class="btn cancel-payment-button"
+          >
+            Cancelar pago
+          </a>
+        {% elif ventas %}
+          <a href="{% url 'carrito' %}" class="btn cancel-payment-button">
+            Cancelar y volver al carrito
+          </a>
+        {% else %}
+          <a href="{% url 'inicio' %}" class="btn cancel-payment-button">
+            Cancelar pago
+          </a>
+        {% endif %}
+
+      </div>
+
+      <p class="payment-note">
+        Si decides cancelar en esta pantalla, no serás enviado a Webpay y no se realizará ningún cobro.
+      </p>
+
+    </section>
+
+  </div>
+</div>
 
 {% endblock %}

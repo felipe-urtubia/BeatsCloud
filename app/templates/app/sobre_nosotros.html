@@ -2,31 +2,391 @@
 
 {% load static %}
 
-{% block titulo %} Inicio {% endblock %}
-
-
+{% block titulo %}Sobre nosotros{% endblock %}
 
 {% block contenido %}
-<br>
 
-<h1> Sobre Nosotros</h1>
-<br>
-<p> Nuestra plataforma ofrece una amplia gama de recursos y herramientas para ambos grupos. Para los productores, 
-    brindamos un perfil personalizado donde pueden exhibir su experiencia, especialidades y muestras de trabajo. Además, 
-    facilitamos la comunicación directa con los artistas interesados, permitiéndoles establecer colaboraciones fructíferas y construir relaciones duraderas.
-    <br>
-    Por otro lado, los artistas pueden explorar una amplia base de datos de productores con diferentes estilos y enfoques musicales. 
-    Nuestra plataforma les permite buscar productores según sus preferencias, ya sea por género, estilo o experiencia previa. Además, 
-    proporcionamos un sistema de calificaciones y comentarios para ayudar a los artistas a tomar decisiones informadas al seleccionar a sus colaboradores musicales.
-    <br>
-    Además de la función principal de conectar productores y artistas, nuestra página web ofrece recursos adicionales para ambos grupos. 
-    Los productores pueden acceder a tutoriales, consejos de producción y noticias de la industria musical para mejorar sus habilidades y 
-    mantenerse actualizados con las últimas tendencias. Por otro lado, los artistas pueden encontrar información sobre la gestión de proyectos musicales, 
-    consejos de marketing y promoción, y asesoramiento profesional para llevar sus carreras al siguiente nivel.
-    <br>
-    Ya sea que seas un talentoso productor musical en busca de oportunidades emocionantes o un artista inspirado en busca de la ayuda perfecta para realizar tu visión musical, 
-    nuestra página web es el lugar ideal para conectar, colaborar y crear música increíble juntos. Únete a nuestra comunidad en línea y descubre un mundo de 
-    posibilidades para impulsar tu carrera musical".</p>
+<style>
+  .about-page {
+    padding: 38px 0 70px;
+  }
+
+  .about-hero {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 34%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    border-radius: 24px;
+    padding: 52px 34px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.12);
+    margin-bottom: 30px;
+    text-align: center;
+  }
+
+  .about-brand {
+    display: inline-block;
+    background: #ffc107;
+    color: #171717;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-weight: 900;
+    margin-bottom: 16px;
+  }
+
+  .about-hero h1 {
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    font-weight: 900;
+    margin-bottom: 14px;
+  }
+
+  .about-hero p {
+    max-width: 760px;
+    margin: 0 auto;
+    color: rgba(255,255,255,.78);
+    font-size: 1.06rem;
+    line-height: 1.7;
+  }
+
+  .about-intro {
+    background: #fff;
+    border-radius: 19px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 30px;
+    margin-bottom: 28px;
+  }
+
+  .about-intro h2 {
+    font-weight: 900;
+    margin-bottom: 13px;
+  }
+
+  .about-intro p {
+    color: #5d5d5d;
+    line-height: 1.75;
+    margin-bottom: 0;
+  }
+
+  .about-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+
+  .about-card {
+    background: #fff;
+    border-radius: 19px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 28px;
+    height: 100%;
+  }
+
+  .about-card-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: #ffc107;
+    font-size: 1.8rem;
+    margin-bottom: 18px;
+  }
+
+  .about-card h3 {
+    font-weight: 900;
+    margin-bottom: 11px;
+  }
+
+  .about-card p {
+    color: #626262;
+    line-height: 1.7;
+    margin-bottom: 0;
+  }
+
+  .about-flow {
+    background: #fff;
+    border-radius: 19px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    padding: 30px;
+    margin-bottom: 28px;
+  }
+
+  .about-flow h2 {
+    text-align: center;
+    font-weight: 900;
+    margin-bottom: 28px;
+  }
+
+  .flow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .flow-step {
+    text-align: center;
+    padding: 22px 18px;
+    background: #f8f9fa;
+    border-radius: 15px;
+  }
+
+  .flow-number {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 13px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 900;
+  }
+
+  .flow-step h4 {
+    font-weight: 850;
+    margin-bottom: 8px;
+  }
+
+  .flow-step p {
+    margin: 0;
+    color: #666;
+    font-size: .93rem;
+    line-height: 1.55;
+  }
+
+  .about-values {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+
+  .value-card {
+    background: #171717;
+    color: #fff;
+    border-radius: 17px;
+    padding: 23px;
+    text-align: center;
+  }
+
+  .value-card span {
+    display: block;
+    font-size: 2rem;
+    margin-bottom: 9px;
+  }
+
+  .value-card strong {
+    display: block;
+    color: #ffc107;
+    font-size: 1.05rem;
+    margin-bottom: 6px;
+  }
+
+  .value-card p {
+    margin: 0;
+    color: rgba(255,255,255,.68);
+    font-size: .9rem;
+    line-height: 1.5;
+  }
+
+  .about-cta {
+    background: linear-gradient(135deg, #fff7d6, #fff);
+    border: 1px solid #ffe28a;
+    border-radius: 19px;
+    padding: 32px;
+    text-align: center;
+  }
+
+  .about-cta h2 {
+    font-weight: 900;
+    margin-bottom: 10px;
+  }
+
+  .about-cta p {
+    max-width: 650px;
+    margin: 0 auto 20px;
+    color: #666;
+    line-height: 1.65;
+  }
+
+  .about-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .about-actions .btn {
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: 850;
+  }
+
+  @media (max-width: 767.98px) {
+    .about-grid,
+    .flow-grid,
+    .about-values {
+      grid-template-columns: 1fr;
+    }
+
+    .about-hero,
+    .about-intro,
+    .about-card,
+    .about-flow,
+    .about-cta {
+      border-radius: 16px;
+    }
+
+    .about-hero {
+      padding: 36px 22px;
+    }
+  }
+</style>
+
+<div class="container about-page">
+
+  <section class="about-hero">
+    <span class="about-brand">BeatsCloud</span>
+
+    <h1>Conectamos artistas y productores</h1>
+
+    <p>
+      BeatsCloud es una plataforma creada para facilitar el descubrimiento,
+      la colaboración y la compra de proyectos musicales entre artistas y
+      productores dentro de una misma comunidad.
+    </p>
+  </section>
 
 
-{% endblock %}    
+  <section class="about-intro">
+    <h2>Sobre nosotros</h2>
+
+    <p>
+      Nuestra plataforma busca entregar un espacio donde productores puedan
+      mostrar su trabajo y donde artistas puedan descubrir nuevas propuestas
+      musicales. A través de perfiles personalizados, catálogo de tracks,
+      reproducción de audio, comentarios, Me gusta y compras en línea,
+      BeatsCloud reúne distintas herramientas en una sola experiencia.
+    </p>
+  </section>
+
+
+  <div class="about-grid">
+
+    <section class="about-card">
+      <div class="about-card-icon">🎛️</div>
+
+      <h3>Para productores</h3>
+
+      <p>
+        Los productores pueden crear y personalizar su perfil, publicar tracks,
+        agregar portada, género, descripción y precio, mostrar sus redes
+        sociales, administrar sus proyectos y revisar su historial de ventas.
+        También pueden ofrecer una suscripción a otros usuarios.
+      </p>
+    </section>
+
+
+    <section class="about-card">
+      <div class="about-card-icon">🎤</div>
+
+      <h3>Para artistas</h3>
+
+      <p>
+        Los artistas pueden explorar el catálogo, buscar tracks por nombre,
+        productor o género, guardar pistas en Me gusta, comentar proyectos,
+        comprar tracks, descargarlos desde su historial y acceder a las
+        suscripciones disponibles de los productores.
+      </p>
+    </section>
+
+  </div>
+
+
+  <section class="about-flow">
+    <h2>¿Cómo funciona BeatsCloud?</h2>
+
+    <div class="flow-grid">
+
+      <article class="flow-step">
+        <div class="flow-number">1</div>
+        <h4>Crea tu perfil</h4>
+        <p>
+          Regístrate como artista o productor y personaliza tu presencia dentro
+          de la plataforma.
+        </p>
+      </article>
+
+      <article class="flow-step">
+        <div class="flow-number">2</div>
+        <h4>Descubre o publica</h4>
+        <p>
+          Los artistas exploran música y los productores publican sus proyectos
+          para mostrarlos a la comunidad.
+        </p>
+      </article>
+
+      <article class="flow-step">
+        <div class="flow-number">3</div>
+        <h4>Compra y conecta</h4>
+        <p>
+          Los tracks pueden adquirirse mediante Webpay y luego descargarse
+          desde el historial del usuario.
+        </p>
+      </article>
+
+    </div>
+  </section>
+
+
+  <div class="about-values">
+
+    <article class="value-card">
+      <span>🎵</span>
+      <strong>Creatividad</strong>
+      <p>
+        Un espacio pensado para compartir y descubrir propuestas musicales.
+      </p>
+    </article>
+
+    <article class="value-card">
+      <span>🤝</span>
+      <strong>Comunidad</strong>
+      <p>
+        Artistas y productores reunidos dentro de una misma plataforma.
+      </p>
+    </article>
+
+    <article class="value-card">
+      <span>🔒</span>
+      <strong>Confianza</strong>
+      <p>
+        Compras registradas únicamente después de una confirmación válida de pago.
+      </p>
+    </article>
+
+  </div>
+
+
+  <section class="about-cta">
+    <h2>Haz crecer tus proyectos musicales</h2>
+
+    <p>
+      Explora BeatsCloud, descubre nuevos productores, encuentra tracks para
+      tus proyectos o publica tu propio trabajo para llegar a más artistas.
+    </p>
+
+    <div class="about-actions">
+      <a href="{% url 'catalogo' %}" class="btn btn-warning">
+        Explorar catálogo
+      </a>
+
+      <a href="{% url 'catalogo_usuarios' %}" class="btn btn-outline-dark">
+        Ver usuarios
+      </a>
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}

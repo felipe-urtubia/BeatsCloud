@@ -1,47 +1,592 @@
 {% extends 'base.html' %}
 
+{% block titulo %}Editar perfil - Productor{% endblock %}
+
 {% block contenido %}
-<div class="container my-5">
-  <div class="row justify-content-center">
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-header">
-          <h3 class="mb-0">Editar perfil</h3>
+
+<style>
+  .edit-profile-page {
+    padding: 38px 0 65px;
+  }
+
+  .edit-profile-hero {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 35%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    border-radius: 22px;
+    padding: 34px 30px;
+    margin-bottom: 28px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.12);
+  }
+
+  .edit-profile-hero h1 {
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .edit-profile-hero p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+  }
+
+  .edit-profile-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 26px;
+    align-items: start;
+  }
+
+  .edit-profile-card,
+  .profile-preview-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+  }
+
+  .edit-profile-card {
+    padding: 28px;
+  }
+
+  .profile-preview-card {
+    overflow: hidden;
+    position: sticky;
+    top: 20px;
+  }
+
+  .preview-cover {
+    position: relative;
+    height: 150px;
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.30), transparent 36%),
+      linear-gradient(135deg, #171717, #333);
+    overflow: hidden;
+  }
+
+  .preview-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .preview-profile-body {
+    padding: 0 22px 22px;
+  }
+
+  .preview-avatar,
+  .preview-avatar-placeholder {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    border: 5px solid #fff;
+    margin-top: -46px;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 5px 14px rgba(0,0,0,.15);
+  }
+
+  .preview-avatar {
+    object-fit: cover;
+    background: #f1f1f1;
+  }
+
+  .preview-avatar-placeholder {
+    display: grid;
+    place-items: center;
+    background: #ffc107;
+    font-size: 2.8rem;
+  }
+
+  .preview-name {
+    margin-top: 12px;
+  }
+
+  .preview-name h3 {
+    font-weight: 900;
+    margin-bottom: 5px;
+  }
+
+  .preview-role {
+    display: inline-block;
+    background: #171717;
+    color: #ffc107;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: .82rem;
+    font-weight: 800;
+  }
+
+  .preview-description {
+    color: #666;
+    font-size: .92rem;
+    line-height: 1.55;
+    margin-top: 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .form-section {
+    margin-bottom: 30px;
+  }
+
+  .form-section:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 11px;
+    border-bottom: 1px solid #ececec;
+  }
+
+  .form-section-title h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 850;
+  }
+
+  .form-field {
+    margin-bottom: 21px;
+  }
+
+  .form-field:last-child {
+    margin-bottom: 0;
+  }
+
+  .form-field label {
+    display: block;
+    font-weight: 800;
+    margin-bottom: 7px;
+    color: #222;
+  }
+
+  .form-field textarea,
+  .form-field input[type="text"],
+  .form-field input[type="url"] {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 9px;
+    background: #fff;
+    color: #212529;
+  }
+
+  .form-field textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  .form-field textarea:focus,
+  .form-field input[type="text"]:focus,
+  .form-field input[type="url"]:focus {
+    outline: none;
+    border-color: #ffc107;
+    box-shadow: 0 0 0 .2rem rgba(255,193,7,.18);
+  }
+
+  .file-box {
+    border: 2px dashed #d7d7d7;
+    border-radius: 13px;
+    padding: 18px;
+    background: #fafafa;
+  }
+
+  .file-box input[type="file"] {
+    width: 100%;
+  }
+
+  .file-note {
+    display: block;
+    margin-top: 8px;
+    color: #6c757d;
+    font-size: .86rem;
+  }
+
+  .image-small-preview {
+    margin-top: 12px;
+    display: none;
+  }
+
+  .image-small-preview img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+  }
+
+  .cover-small-preview img {
+    width: 180px;
+    height: 90px;
+  }
+
+  .social-prefix {
+    position: relative;
+  }
+
+  .social-prefix span {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.05rem;
+    pointer-events: none;
+  }
+
+  .social-prefix input {
+    padding-left: 40px !important;
+  }
+
+  .edit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 32px;
+    padding-top: 22px;
+    border-top: 1px solid #ececec;
+  }
+
+  .edit-actions .btn {
+    border-radius: 9px;
+    font-weight: 800;
+    padding: 10px 19px;
+  }
+
+  @media (max-width: 991.98px) {
+    .edit-profile-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .profile-preview-card {
+      position: static;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .edit-profile-hero,
+    .edit-profile-card,
+    .profile-preview-card {
+      border-radius: 16px;
+    }
+
+    .edit-profile-hero,
+    .edit-profile-card {
+      padding: 22px;
+    }
+
+    .edit-actions .btn {
+      width: 100%;
+    }
+  }
+</style>
+
+<div class="container edit-profile-page">
+
+  <section class="edit-profile-hero">
+    <h1>Editar perfil de productor</h1>
+    <p>
+      Actualiza tu presentación, imágenes y redes sociales para mantener
+      tu perfil de BeatsCloud al día.
+    </p>
+  </section>
+
+  <div class="edit-profile-grid">
+
+    <section class="edit-profile-card">
+
+      <form method="post" enctype="multipart/form-data" id="edit-profile-form">
+        {% csrf_token %}
+
+        <!-- Información -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <span>📝</span>
+            <h3>Información del perfil</h3>
+          </div>
+
+          <div class="form-field">
+            <label for="descripcion">Descripción</label>
+            <textarea
+              id="descripcion"
+              name="descripcion"
+              maxlength="500"
+              placeholder="Cuéntales a los artistas sobre tu trabajo como productor..."
+            >{% if usuario.descripcion %}{{ usuario.descripcion }}{% endif %}</textarea>
+
+            <small class="file-note">
+              Puedes escribir hasta 500 caracteres.
+            </small>
+          </div>
         </div>
-        <div class="card-body">
-          <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="form-group">
-              <label for="descripcion">Descripción</label>
-              <textarea class="form-control" id="descripcion" name="descripcion" rows="3">{{ usuario.descripcion }}</textarea>
+
+
+        <!-- Imágenes -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <span>🖼️</span>
+            <h3>Imágenes del perfil</h3>
+          </div>
+
+          <div class="form-field">
+            <label for="foto_perfil">Foto de perfil</label>
+
+            <div class="file-box">
+              <input
+                type="file"
+                id="foto_perfil"
+                name="foto_perfil"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              >
+
+              <small class="file-note">
+                Si no seleccionas una imagen nueva, se mantendrá la actual.
+              </small>
+
+              <div id="perfil-preview-box" class="image-small-preview">
+                <img id="perfil-preview" alt="Vista previa de la nueva foto de perfil">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="foto_perfil">Foto de perfil</label>
-              <input type="file" class="form-control-file" id="foto_perfil" name="foto_perfil">
+          </div>
+
+          <div class="form-field">
+            <label for="foto_fondo">Foto de portada</label>
+
+            <div class="file-box">
+              <input
+                type="file"
+                id="foto_fondo"
+                name="foto_fondo"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              >
+
+              <small class="file-note">
+                Una imagen horizontal suele verse mejor como portada.
+              </small>
+
+              <div id="fondo-preview-box" class="image-small-preview cover-small-preview">
+                <img id="fondo-preview" alt="Vista previa de la nueva portada">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="foto_fondo">Foto de fondo</label>
-              <input type="file" class="form-control-file" id="foto_fondo" name="foto_fondo">
+          </div>
+        </div>
+
+
+        <!-- Redes sociales -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <span>🔗</span>
+            <h3>Redes sociales</h3>
+          </div>
+
+          <div class="form-field">
+            <label for="spotify">Spotify</label>
+
+            <div class="social-prefix">
+              <span>🎵</span>
+              <input
+                type="url"
+                id="spotify"
+                name="spotify"
+                value="{% if usuario.spotify and usuario.spotify != 'None' %}{{ usuario.spotify }}{% endif %}"
+                placeholder="https://open.spotify.com/..."
+              >
             </div>
-            <div class="form-group">
-              <label for="spotify">Spotify</label>
-              <input type="text" class="form-control" id="spotify" name="spotify" value="{{ usuario.spotify }}">
+          </div>
+
+          <div class="form-field">
+            <label for="youtube">YouTube</label>
+
+            <div class="social-prefix">
+              <span>▶️</span>
+              <input
+                type="url"
+                id="youtube"
+                name="youtube"
+                value="{% if usuario.youtube and usuario.youtube != 'None' %}{{ usuario.youtube }}{% endif %}"
+                placeholder="https://youtube.com/..."
+              >
             </div>
-            <div class="form-group">
-              <label for="youtube">Youtube</label>
-              <input type="text" class="form-control" id="youtube" name="youtube" value="{{ usuario.youtube }}">
+          </div>
+
+          <div class="form-field">
+            <label for="instagram">Instagram</label>
+
+            <div class="social-prefix">
+              <span>📷</span>
+              <input
+                type="url"
+                id="instagram"
+                name="instagram"
+                value="{% if usuario.instagram and usuario.instagram != 'None' %}{{ usuario.instagram }}{% endif %}"
+                placeholder="https://instagram.com/..."
+              >
             </div>
-            <div class="form-group">
-              <label for="instagram">Instagram</label>
-              <input type="text" class="form-control" id="instagram" name="instagram" value="{{ usuario.instagram }}">
-            </div>
-            
-            <button type="submit" class="btn btn-warning text-dark">Guardar cambios</button>
-            <a href="{% url 'perfil' %}" class="btn btn-secondary">Cancelar</a>
-          </form>
+          </div>
+        </div>
+
+        <div class="edit-actions">
+          <button type="submit" class="btn btn-warning">
+            Guardar cambios
+          </button>
+
+          <a href="{% url 'perfil' %}" class="btn btn-outline-dark">
+            Cancelar
+          </a>
+        </div>
+
+      </form>
+    </section>
+
+
+    <!-- Vista previa actual -->
+    <aside class="profile-preview-card">
+
+      <div class="preview-cover">
+        {% if usuario.foto_fondo %}
+          <img
+            id="current-cover-preview"
+            src="{{ usuario.foto_fondo.url }}"
+            alt="Portada actual"
+          >
+        {% else %}
+          <img
+            id="current-cover-preview"
+            alt="Vista previa de portada"
+            style="display:none;"
+          >
+        {% endif %}
+      </div>
+
+      <div class="preview-profile-body">
+
+        {% if usuario.foto_perfil %}
+          <img
+            id="current-avatar-preview"
+            src="{{ usuario.foto_perfil.url }}"
+            alt="Foto de perfil actual"
+            class="preview-avatar"
+          >
+          <div
+            id="avatar-placeholder"
+            class="preview-avatar-placeholder"
+            style="display:none;"
+          >
+            🎛️
+          </div>
+        {% else %}
+          <img
+            id="current-avatar-preview"
+            alt="Vista previa de perfil"
+            class="preview-avatar"
+            style="display:none;"
+          >
+          <div
+            id="avatar-placeholder"
+            class="preview-avatar-placeholder"
+          >
+            🎛️
+          </div>
+        {% endif %}
+
+        <div class="preview-name">
+          <h3>{{ user.username|capfirst }}</h3>
+          <span class="preview-role">🎛️ Productor</span>
+        </div>
+
+        <div id="description-preview" class="preview-description">
+          {% if usuario.descripcion %}
+            {{ usuario.descripcion }}
+          {% else %}
+            Tu descripción aparecerá aquí.
+          {% endif %}
         </div>
       </div>
-    </div>
+    </aside>
+
   </div>
 </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const descripcion = document.getElementById('descripcion');
+  const descriptionPreview = document.getElementById('description-preview');
+
+  const fotoPerfilInput = document.getElementById('foto_perfil');
+  const fotoFondoInput = document.getElementById('foto_fondo');
+
+  const perfilPreviewBox = document.getElementById('perfil-preview-box');
+  const perfilPreview = document.getElementById('perfil-preview');
+
+  const fondoPreviewBox = document.getElementById('fondo-preview-box');
+  const fondoPreview = document.getElementById('fondo-preview');
+
+  const currentAvatar = document.getElementById('current-avatar-preview');
+  const avatarPlaceholder = document.getElementById('avatar-placeholder');
+  const currentCover = document.getElementById('current-cover-preview');
+
+  if (descripcion && descriptionPreview) {
+    descripcion.addEventListener('input', function () {
+      const texto = descripcion.value.trim();
+      descriptionPreview.textContent = texto || 'Tu descripción aparecerá aquí.';
+    });
+  }
+
+  if (fotoPerfilInput) {
+    fotoPerfilInput.addEventListener('change', function () {
+      if (!fotoPerfilInput.files || fotoPerfilInput.files.length === 0) {
+        perfilPreviewBox.style.display = 'none';
+        return;
+      }
+
+      const archivo = fotoPerfilInput.files[0];
+
+      if (archivo.type && archivo.type.startsWith('image/')) {
+        const reader = new FileReader();
+
+        reader.onload = function (event) {
+          perfilPreview.src = event.target.result;
+          perfilPreviewBox.style.display = 'block';
+
+          currentAvatar.src = event.target.result;
+          currentAvatar.style.display = 'block';
+          avatarPlaceholder.style.display = 'none';
+        };
+
+        reader.readAsDataURL(archivo);
+      }
+    });
+  }
+
+  if (fotoFondoInput) {
+    fotoFondoInput.addEventListener('change', function () {
+      if (!fotoFondoInput.files || fotoFondoInput.files.length === 0) {
+        fondoPreviewBox.style.display = 'none';
+        return;
+      }
+
+      const archivo = fotoFondoInput.files[0];
+
+      if (archivo.type && archivo.type.startsWith('image/')) {
+        const reader = new FileReader();
+
+        reader.onload = function (event) {
+          fondoPreview.src = event.target.result;
+          fondoPreviewBox.style.display = 'block';
+
+          currentCover.src = event.target.result;
+          currentCover.style.display = 'block';
+        };
+
+        reader.readAsDataURL(archivo);
+      }
+    });
+  }
+});
+</script>
+
 {% endblock %}

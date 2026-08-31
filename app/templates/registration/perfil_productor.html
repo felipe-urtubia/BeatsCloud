@@ -1,142 +1,768 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static %}
-{% block titulo %} Perfil {% endblock %}
-{% block stylesheet %}
-<link rel="stylesheet" href="{% static 'app/css/perfil_productor.css' %}">
-{% endblock %}
+
+{% block titulo %}Mi perfil - Productor{% endblock %}
 
 {% block contenido %}
-<div class="container-fluid">
-  <div class="row">
-    <div class="profile-header">
-      {% if user.usuario.foto_fondo %}<img class="profile-background" src="{{ user.usuario.foto_fondo.url }}">{% endif %}
-      {% if user.usuario.foto_perfil %}<img class="profile-picture" src="{{ user.usuario.foto_perfil.url }}">{% endif %}
-    </div>
-  </div>
-</div>
 
-<div class="container mt-3">
-  <div class="row">
-    <div class="col-md-3 text-center">
-      <h2 class="username">{{ user.username | capfirst }}</h2>
-      <p class="desc" style="word-wrap: break-word;">{{ user.usuario.descripcion }}</p>
-      <div class="d-flex justify-content-center" id="redes">
-        <a href="{{ user.usuario.youtube }}"><img src="{% static 'app/img/youtube.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
-        <a href="{{ user.usuario.spotify }}"><img src="{% static 'app/img/spotify.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
-        <a href="{{ user.usuario.instagram }}"><img src="{% static 'app/img/instagram.png' %}" style="width: 50px; height: 50px; margin-right: 20px;"></a>
-      </div>
-      <a href="{% url 'editar_p' %}" class="btn btn-warning text-dark" style="margin-top:20px; margin-bottom: 20px;" id="boton">Editar perfil</a>
-      <div class="suscripcion-section">
-        <h4>Suscripción</h4>
-        {% if suscripcion %}
-        <p>Detalle: {{ suscripcion.detalle }}</p>
-        <p>Precio: {{ suscripcion.precio }}</p>
+<style>
+  .perfil-productor-page {
+    padding-bottom: 60px;
+  }
+
+  .perfil-cover {
+    position: relative;
+    height: 310px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 35%),
+      linear-gradient(135deg, #151515, #303030);
+  }
+
+  .perfil-cover img.cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .perfil-cover-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.58), rgba(0,0,0,.05));
+  }
+
+  .perfil-wrap {
+    position: relative;
+    margin-top: -78px;
+    z-index: 2;
+  }
+
+  .perfil-card,
+  .section-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.10);
+  }
+
+  .perfil-card {
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .perfil-top {
+    display: flex;
+    align-items: flex-end;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+
+  .perfil-avatar,
+  .perfil-avatar-placeholder {
+    width: 145px;
+    height: 145px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    box-shadow: 0 6px 18px rgba(0,0,0,.16);
+    flex-shrink: 0;
+  }
+
+  .perfil-avatar {
+    object-fit: cover;
+    background: #f1f1f1;
+  }
+
+  .perfil-avatar-placeholder {
+    background: #ffc107;
+    display: grid;
+    place-items: center;
+    font-size: 4.3rem;
+  }
+
+  .perfil-name {
+    flex: 1;
+    min-width: 220px;
+    padding-bottom: 8px;
+  }
+
+  .perfil-name h1 {
+    font-weight: 900;
+    margin-bottom: 5px;
+    line-height: 1.05;
+  }
+
+  .perfil-role {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 800;
+    font-size: .9rem;
+  }
+
+  .perfil-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    padding-bottom: 8px;
+  }
+
+  .perfil-actions .btn {
+    border-radius: 9px;
+    font-weight: 800;
+    padding: 10px 16px;
+  }
+
+  .perfil-description {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid #ececec;
+    color: #555;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+
+  .perfil-redes {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .social-link {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #f5f5f5;
+    display: grid;
+    place-items: center;
+    border: 1px solid #ececec;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .social-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgba(0,0,0,.10);
+  }
+
+  .social-link img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  .social-disabled {
+    opacity: .45;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 22px rgba(0,0,0,.07);
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-card strong {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #171717;
+    line-height: 1.1;
+    margin-bottom: 5px;
+  }
+
+  .stat-card span {
+    color: #6c757d;
+    font-size: .9rem;
+  }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, .35fr) minmax(0, .65fr);
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+
+  .section-card {
+    padding: 25px;
+  }
+
+  .section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .section-title h2,
+  .section-title h3 {
+    margin: 0;
+    font-weight: 850;
+  }
+
+  .section-title .badge {
+    padding: 8px 11px;
+    font-size: .9rem;
+  }
+
+  .subscription-box {
+    background: linear-gradient(135deg, #fff8df, #fff);
+    border: 1px solid #ffe38a;
+    border-radius: 15px;
+    padding: 20px;
+  }
+
+  .subscription-box .detail {
+    color: #555;
+    line-height: 1.5;
+  }
+
+  .subscription-price {
+    font-size: 1.8rem;
+    font-weight: 900;
+    margin: 10px 0 16px;
+  }
+
+  .subscription-box .btn {
+    width: 100%;
+    border-radius: 9px;
+    font-weight: 800;
+  }
+
+  .track-card {
+    height: 100%;
+    border-radius: 17px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #ececec;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .track-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 25px rgba(0,0,0,.10);
+  }
+
+  .track-cover {
+    height: 205px;
+    background: linear-gradient(135deg, #ffc107, #ffdc73);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .track-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .track-placeholder {
+    font-size: 4.8rem;
+  }
+
+  .track-price {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #171717;
+    color: #ffc107;
+    font-weight: 800;
+    padding: 6px 10px;
+    border-radius: 999px;
+  }
+
+  .track-body {
+    padding: 18px;
+  }
+
+  .track-body h3 {
+    font-size: 1.18rem;
+    font-weight: 800;
+    margin-bottom: 7px;
+  }
+
+  .track-genre {
+    display: inline-block;
+    background: #f2f2f2;
+    color: #444;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: .82rem;
+    font-weight: 700;
+    margin-bottom: 13px;
+  }
+
+  .track-audio {
+    width: 100%;
+    margin-bottom: 13px;
+  }
+
+  .track-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .track-actions .btn,
+  .track-actions form,
+  .track-actions form button {
+    width: 100%;
+  }
+
+  .track-actions .btn,
+  .track-actions button {
+    border-radius: 8px;
+    font-weight: 800;
+  }
+
+  .sales-table-wrap {
+    overflow-x: auto;
+  }
+
+  .sales-table {
+    min-width: 700px;
+    margin-bottom: 0;
+  }
+
+  .sales-table thead th {
+    border-top: 0;
+    color: #666;
+    font-size: .88rem;
+    white-space: nowrap;
+  }
+
+  .sale-product {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sale-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: #ffc107;
+    flex-shrink: 0;
+    font-size: 1.3rem;
+  }
+
+  .empty-box {
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 40px 20px;
+  }
+
+  @media (max-width: 991.98px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 767.98px) {
+    .perfil-cover {
+      height: 230px;
+    }
+
+    .perfil-wrap {
+      margin-top: -58px;
+    }
+
+    .perfil-top {
+      align-items: center;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .perfil-name {
+      flex-basis: 100%;
+    }
+
+    .perfil-actions {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .perfil-actions .btn {
+      flex: 1;
+    }
+
+    .perfil-redes {
+      justify-content: center;
+    }
+
+    .perfil-avatar,
+    .perfil-avatar-placeholder {
+      width: 120px;
+      height: 120px;
+    }
+
+    .stats-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="perfil-productor-page">
+
+  <!-- Portada -->
+  <section class="perfil-cover">
+    {% if user.usuario.foto_fondo %}
+      <img
+        src="{{ user.usuario.foto_fondo.url }}"
+        alt="Portada de {{ user.username }}"
+        class="cover-img"
+      >
+      <div class="perfil-cover-overlay"></div>
+    {% endif %}
+  </section>
+
+  <div class="container perfil-wrap">
+
+    <!-- Cabecera -->
+    <section class="perfil-card">
+      <div class="perfil-top">
+
+        {% if user.usuario.foto_perfil %}
+          <img
+            src="{{ user.usuario.foto_perfil.url }}"
+            alt="Foto de perfil de {{ user.username }}"
+            class="perfil-avatar"
+          >
         {% else %}
-        <p>No tienes una suscripción ingresada</p>
+          <div class="perfil-avatar-placeholder">🎛️</div>
         {% endif %}
-        <a href="{% url 'ingresar_suscripcion' %}" class="btn btn-warning text-dark">Ingresar suscripción</a>
+
+        <div class="perfil-name">
+          <h1>{{ user.username|capfirst }}</h1>
+          <span class="perfil-role">🎛️ Productor</span>
+        </div>
+
+        <div class="perfil-actions">
+          <a href="{% url 'editar_p' %}" class="btn btn-outline-dark">
+            Editar perfil
+          </a>
+
+          <a href="{% url 'upload_file' %}" class="btn btn-warning">
+            + Subir track
+          </a>
+        </div>
+      </div>
+
+      {% if user.usuario.descripcion %}
+        <div class="perfil-description">{{ user.usuario.descripcion }}</div>
+      {% else %}
+        <div class="perfil-description text-muted">
+          Aún no has agregado una descripción a tu perfil.
+        </div>
+      {% endif %}
+
+      <!-- Redes sociales -->
+      <div class="perfil-redes">
+
+        {% if user.usuario.youtube and user.usuario.youtube != "None" %}
+          <a
+            href="{{ user.usuario.youtube }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="YouTube"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de YouTube.');"
+            title="YouTube no configurado"
+          >
+            <img src="{% static 'app/img/youtube.png' %}" alt="YouTube">
+          </a>
+        {% endif %}
+
+        {% if user.usuario.spotify and user.usuario.spotify != "None" %}
+          <a
+            href="{{ user.usuario.spotify }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Spotify"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Spotify.');"
+            title="Spotify no configurado"
+          >
+            <img src="{% static 'app/img/spotify.png' %}" alt="Spotify">
+          </a>
+        {% endif %}
+
+        {% if user.usuario.instagram and user.usuario.instagram != "None" %}
+          <a
+            href="{{ user.usuario.instagram }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link"
+            title="Instagram"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
+          </a>
+        {% else %}
+          <a
+            href="#"
+            class="social-link social-disabled"
+            onclick="event.preventDefault(); alert('Aún no has agregado tu enlace de Instagram.');"
+            title="Instagram no configurado"
+          >
+            <img src="{% static 'app/img/instagram.png' %}" alt="Instagram">
+          </a>
+        {% endif %}
+
+      </div>
+    </section>
+
+
+    <!-- Resumen -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <strong>{{ tracks|length }}</strong>
+        <span>Tracks publicados</span>
+      </div>
+
+      <div class="stat-card">
+        <strong>{{ ventas|length }}</strong>
+        <span>Ventas registradas</span>
+      </div>
+
+      <div class="stat-card">
+        {% if suscripcion %}
+          <strong>✓</strong>
+          <span>Suscripción activa</span>
+        {% else %}
+          <strong>—</strong>
+          <span>Sin suscripción</span>
+        {% endif %}
       </div>
     </div>
-    <div class="col-md-9">
-      <h3>Historial de compras</h3>
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Producto</th>
-            <th>Precio</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for venta in ventas %}
-          <tr>
-            <td>{{ venta.fecha_venta }}</td>
-            <td>{{ venta.track.nombre_track }}</td>
-            <td>{{ venta.precio }}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="3">No se encontraron compras</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      <a href="{% url 'upload_file' %}" class="btn btn-warning text-dark" style="margin-bottom:20px">Sube tus Proyectos</a>
-      <h3>Proyectos</h3>
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>Foto</th>
-            <th>Nombre</th>
-            <th>Precio</th>
-            <th>Reproducir</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for track in tracks %}
-          <tr>
-            <td>{% if track.foto %}<img src="{{ track.foto.url }}" style="max-height: 100px;">{% endif %}</td>
-            <td>{{ track.nombre_track }}</td>
-            <td>{{ track.precio }}</td>
-            <td>
-              <audio controls controlsList="nodownload">
-                <source src="{% url 'reproducir_track' track.id_track %}" type="{{ track.track.content_type }}">
-                Tu navegador no soporta la reproducción de audio.
-              </audio>
-            </td>
-            <td>
-              <a href="{% url 'editar_track' track.id_track %}"
-                 class="btn btn-primary"
-                 style="margin-right:6px;">
-                Editar
-              </a>
 
-              <form method="post"
-                    action="{% url 'eliminar_track' track.id_track %}"
-                    style="display:inline;">
-                {% csrf_token %}
-                <button type="submit"
-                        class="btn btn-danger"
-                        onclick="return confirm('¿Deseas eliminar el track &quot;{{ track.nombre_track|escapejs }}&quot;? Esta acción no se puede deshacer.');">
-                  Eliminar
-                </button>
-              </form>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5">No se encontraron proyectos</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      <h3>Historial de ventas</h3>
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Comprador</th>
-            <th>Producto</th>
-            <th>Precio</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for venta in ventas %}
-          <tr>
-            <td>{{ venta.fecha_venta }}</td>
-            <td>{{ venta.comprador.username }}</td>
-            <td>{{ venta.track.nombre_track }}</td>
-            <td>{{ venta.precio }}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="4">No se encontraron ventas</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+
+    <div class="dashboard-grid">
+
+      <!-- Suscripción -->
+      <section class="section-card">
+        <div class="section-title">
+          <h3>Mi suscripción</h3>
+        </div>
+
+        {% if suscripcion %}
+          <div class="subscription-box">
+            <div class="detail">
+              {{ suscripcion.detalle }}
+            </div>
+
+            <div class="subscription-price">
+              ${{ suscripcion.precio }}
+            </div>
+
+            <a href="{% url 'ingresar_suscripcion' %}" class="btn btn-warning">
+              Configurar suscripción
+            </a>
+          </div>
+        {% else %}
+          <div class="empty-box">
+            <h5 class="font-weight-bold">No tienes una suscripción publicada</h5>
+            <p class="text-muted">
+              Puedes crear una propuesta de suscripción para los artistas.
+            </p>
+
+            <a href="{% url 'ingresar_suscripcion' %}" class="btn btn-warning">
+              Ingresar suscripción
+            </a>
+          </div>
+        {% endif %}
+      </section>
+
+
+      <!-- Proyectos -->
+      <section class="section-card">
+        <div class="section-title">
+          <h2>Mis proyectos</h2>
+
+          <a href="{% url 'upload_file' %}" class="btn btn-warning btn-sm">
+            + Nuevo track
+          </a>
+        </div>
+
+        {% if tracks %}
+          <div class="row">
+            {% for track in tracks %}
+              <div class="col-md-6 mb-4">
+                <article class="track-card">
+
+                  <div class="track-cover">
+                    {% if track.foto %}
+                      <img
+                        src="{{ track.foto.url }}"
+                        alt="Portada de {{ track.nombre_track }}"
+                      >
+                    {% else %}
+                      <div class="track-placeholder">🎵</div>
+                    {% endif %}
+
+                    <span class="track-price">${{ track.precio }}</span>
+                  </div>
+
+                  <div class="track-body">
+                    <h3>{{ track.nombre_track }}</h3>
+
+                    <span class="track-genre">
+                      {{ track.genero.descripcion }}
+                    </span>
+
+                    <audio
+                      class="track-audio"
+                      controls
+                      controlsList="nodownload"
+                      preload="none"
+                    >
+                      <source src="{% url 'reproducir_track' track.id_track %}">
+                      Tu navegador no soporta la reproducción de audio.
+                    </audio>
+
+                    <div class="track-actions">
+                      <a
+                        href="{% url 'editar_track' track.id_track %}"
+                        class="btn btn-outline-dark"
+                      >
+                        Editar
+                      </a>
+
+                      <form
+                        method="post"
+                        action="{% url 'eliminar_track' track.id_track %}"
+                      >
+                        {% csrf_token %}
+                        <button
+                          type="submit"
+                          class="btn btn-outline-danger"
+                          onclick="return confirm('¿Deseas eliminar el track &quot;{{ track.nombre_track|escapejs }}&quot;? Esta acción no se puede deshacer.');"
+                        >
+                          Eliminar
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+
+                </article>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-box">
+            <h4 class="font-weight-bold">Aún no has publicado tracks</h4>
+            <p class="text-muted">
+              Sube tu primer proyecto para comenzar a mostrar tu trabajo.
+            </p>
+
+            <a href="{% url 'upload_file' %}" class="btn btn-warning">
+              Subir mi primer track
+            </a>
+          </div>
+        {% endif %}
+      </section>
+
     </div>
+
+
+    <!-- Historial de ventas -->
+    <section class="section-card">
+      <div class="section-title">
+        <h2>Historial de ventas</h2>
+
+        {% if ventas %}
+          <span class="badge badge-warning">
+            {{ ventas|length }}
+          </span>
+        {% endif %}
+      </div>
+
+      {% if ventas %}
+        <div class="sales-table-wrap">
+          <table class="table sales-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Comprador</th>
+                <th>Producto</th>
+                <th>Precio</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for venta in ventas %}
+                <tr>
+                  <td>{{ venta.fecha_venta }}</td>
+
+                  <td>
+                    {% if venta.comprador %}
+                      <a href="{% url 'perfil2' venta.comprador.username %}">
+                        {{ venta.comprador.username|capfirst }}
+                      </a>
+                    {% else %}
+                      <span class="text-muted">No disponible</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    <div class="sale-product">
+                      <div class="sale-icon">🎵</div>
+
+                      <div>
+                        <strong>{{ venta.track.nombre_track }}</strong>
+                        <br>
+                        <small class="text-muted">Track vendido</small>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    <strong>${{ venta.precio }}</strong>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-box">
+          <h4 class="font-weight-bold">Aún no tienes ventas</h4>
+          <p class="text-muted mb-0">
+            Cuando un artista compre uno de tus tracks, la venta aparecerá aquí.
+          </p>
+        </div>
+      {% endif %}
+    </section>
+
   </div>
 </div>
+
 {% endblock %}

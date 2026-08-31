@@ -1,119 +1,517 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% load static %}
 
-<head>
-  <!-- Otros elementos del encabezado -->
-  <link rel="stylesheet" href="{% static 'css/detalle.css' %}">
-</head>
+{% block titulo %}{{ track.nombre_track }}{% endblock %}
 
 {% block contenido %}
 
-<div class="row">
-  <div class="col-md-6">
-    <div class="track-info">
-      <h3 class="track-name">Cancion: {{ track.nombre_track }}</h3>
-      <div class="user-info" >
-        {% if track.usuario.foto_perfil %}
-          <img src="{{ track.usuario.foto_perfil.url }}" alt="Foto de perfil" class="user-photo" style = "width: 40px; height: 40px; border-radius: 50%;">
-        {% endif %}
-        <a href="{% url 'perfil_productor1' track.usuario.user.username %}" class="user-name" style = "display: inline-block; vertical-align: middle; color: orange;">{{ track.usuario.user.username | capfirst }}</a>
-        <hr>
-      </div>
-      <h3 style="margin-top: 40px"> Genero: </h3>
-      <h6 class="genre">{{ track.genero.descripcion }}</h6>
-      <hr>
-      <div class="comments">
-        <h2 style= "margin-top: 40px" >Comentarios:</h2>
-        <ul>
-            {% for comentario in comentarios %}
-              <li>
-                <div class="comment">
-                  <div class="user-info">
-                    <a class="username" href="{% url 'perfil2' comentario.usuario.username %}" style="color: orange;">{{ comentario.usuario.username }}</a>
-                    <p class="comment-content" style="font-size: 20px">{{ comentario.contenido }}</p>
+<style>
+  .detalle-page {
+    padding: 32px 0 60px;
+  }
 
-                    {% if user.is_authenticated and comentario.usuario == user %}
-                      <form method="post" action="{% url 'eliminar_comentario' comentario.pk %}" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit"
-                                class="btn btn-danger btn-sm"
-                                onclick="return confirm('¿Seguro que quieres eliminar este comentario?');">
-                          Eliminar comentario
-                        </button>
-                      </form>
-                    {% endif %}
-                  </div>
-                </div>
-                <hr>
-              </li>
-            {% empty %}
-              <li>No hay comentarios.</li>
-            {% endfor %}
-          </ul>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="track-image">
-      {% if track.foto %}
-        <img src="{{ track.foto.url }}" alt="Foto del track" class="img-fluid rounded" style="max-width: 300px; max-height: 300px;">
-      {% endif %}
-      <div class="audio-player">
-        <audio id="audio-player" controls controlsList="nodownload">
-          <source src="{% url 'reproducir_track' track.id_track %}" type="audio/mp3" >
-          Your browser does not support the audio element.
-        </audio>
-        <div class="buttons">
-            <p class="price">
-                <span style="color: black; font-size: 20px">Precio: </span>
-                <span style="color: orange; font-size: 20px">${{ track.precio }}</span>
-            </p>
-            {% if ya_comprado %}
-              <div class="alert alert-success" style="margin-top:20px;">
-                ✅ Ya compraste este track. Puedes descargarlo cuando quieras.
-              </div>
-              <a href="{% url 'descargar_track' track.id_track %}"
-                 class="btn btn-success"
-                 style="margin-top:10px;">
-                Descargar track
-              </a>
-            {% else %}
-              <form method="post" action="{% url 'agregar_al_carrito' track.id_track %}">
-                {% csrf_token %}
-                <input type="hidden" name="track_id" value="{{ track.id_track }}">
-                <button type="submit" class="btn btn-warning" style="margin-top:20px;">
-                  Agregar al carrito
-                </button>
-              </form>
-            {% endif %}
-              <form method="post" action="{% url 'dar_like' track.id_track %}">
-                {% csrf_token %}
-                {% if le_gusta %}
-                  <button type="submit" class="btn btn-success" style="margin-top:20px">
-                    ♥ Te gusta
-                  </button>
-                {% else %}
-                  <button type="submit" class="btn btn-warning" style="margin-top:20px">
-                    ♡ Me gusta
-                  </button>
-                {% endif %}
-              </form>
-            </div>
+  .detalle-hero {
+    background: linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    border-radius: 22px;
+    padding: 30px;
+    margin-bottom: 28px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.12);
+  }
+
+  .detalle-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 30px;
+    align-items: start;
+  }
+
+  .detalle-main,
+  .detalle-side,
+  .comentarios-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+  }
+
+  .detalle-main {
+    padding: 28px;
+  }
+
+  .detalle-side {
+    overflow: hidden;
+    position: sticky;
+    top: 20px;
+  }
+
+  .track-cover {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(135deg, #ffc107, #ffdc73);
+    overflow: hidden;
+  }
+
+  .track-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .track-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    min-height: 340px;
+    display: grid;
+    place-items: center;
+    font-size: 7rem;
+  }
+
+  .track-status {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  }
+
+  .track-status-comprado {
+    background: #198754;
+    color: #fff;
+  }
+
+  .detalle-side-body {
+    padding: 24px;
+  }
+
+  .detalle-title {
+    font-weight: 800;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    line-height: 1.08;
+    margin-bottom: 10px;
+  }
+
+  .detalle-subtitle {
+    color: rgba(255,255,255,.75);
+    margin-bottom: 0;
+  }
+
+  .productor-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 20px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid #ececec;
+  }
+
+  .productor-foto,
+  .productor-placeholder {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #ffc107;
+  }
+
+  .productor-placeholder {
+    display: grid;
+    place-items: center;
+    background: #f1f1f1;
+    font-size: 1.5rem;
+  }
+
+  .productor-box small {
+    display: block;
+    color: #6c757d;
+  }
+
+  .productor-box a {
+    color: #d99b00;
+    font-weight: 800;
+    text-decoration: none;
+    font-size: 1.05rem;
+  }
+
+  .productor-box a:hover {
+    text-decoration: underline;
+  }
+
+  .track-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .meta-pill {
+    background: #f4f4f4;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-weight: 700;
+    color: #333;
+  }
+
+  .track-description {
+    margin-bottom: 0;
+    color: #555;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .audio-title {
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+
+  .audio-player {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .price-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid #ececec;
+    border-bottom: 1px solid #ececec;
+    margin-bottom: 18px;
+  }
+
+  .price-box span:first-child {
+    color: #6c757d;
+    font-weight: 700;
+  }
+
+  .price-value {
+    font-size: 1.65rem;
+    font-weight: 900;
+    color: #171717;
+  }
+
+  .detalle-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  .detalle-actions .btn {
+    width: 100%;
+    border-radius: 9px;
+    padding: 11px 16px;
+    font-weight: 800;
+  }
+
+  .comprado-info {
+    border-radius: 12px;
+    margin-bottom: 14px;
+  }
+
+  .comentarios-card {
+    margin-top: 30px;
+    padding: 28px;
+  }
+
+  .comentarios-card h2 {
+    font-weight: 800;
+    margin-bottom: 22px;
+  }
+
+  .comentario {
+    padding: 18px 0;
+    border-bottom: 1px solid #ececec;
+  }
+
+  .comentario:last-child {
+    border-bottom: 0;
+  }
+
+  .comentario-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 7px;
+  }
+
+  .comentario-user {
+    font-weight: 800;
+    color: #d99b00;
+    text-decoration: none;
+  }
+
+  .comentario-user:hover {
+    text-decoration: underline;
+  }
+
+  .comentario-content {
+    margin: 0;
+    color: #444;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+
+  .comentario-form {
+    margin-top: 26px;
+    padding-top: 24px;
+    border-top: 1px solid #ececec;
+  }
+
+  .comentario-form textarea {
+    border-radius: 10px;
+    resize: vertical;
+  }
+
+  .comentario-form .btn {
+    border-radius: 9px;
+    font-weight: 800;
+  }
+
+  .sin-comentarios {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 22px;
+    text-align: center;
+    color: #6c757d;
+  }
+
+  @media (max-width: 991.98px) {
+    .detalle-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .detalle-side {
+      position: static;
+    }
+
+    .track-cover {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .detalle-hero,
+    .detalle-main,
+    .comentarios-card {
+      padding: 22px;
+    }
+
+    .detalle-hero,
+    .detalle-main,
+    .detalle-side,
+    .comentarios-card {
+      border-radius: 16px;
+    }
+  }
+</style>
+
+<div class="container detalle-page">
+
+  <section class="detalle-hero">
+    <h1 class="detalle-title">{{ track.nombre_track }}</h1>
+    <p class="detalle-subtitle">
+      Track publicado en BeatsCloud
+    </p>
+  </section>
+
+  <div class="detalle-grid">
+
+    <!-- Información principal -->
+    <section class="detalle-main">
+
+      <div class="productor-box">
+        {% if track.usuario.foto_perfil %}
+          <img
+            src="{{ track.usuario.foto_perfil.url }}"
+            alt="Foto de {{ track.usuario.user.username }}"
+            class="productor-foto"
+          >
+        {% else %}
+          <div class="productor-placeholder">👤</div>
+        {% endif %}
+
+        <div>
+          <small>Productor</small>
+          <a href="{% url 'perfil_productor1' track.usuario.user.username %}">
+            {{ track.usuario.user.username|capfirst }}
+          </a>
         </div>
       </div>
-      
-    </div>
-  </div>
-</div>
 
-<!-- Formulario para agregar un comentario -->
-<form method="post" action="{% url 'agregar_comentario' track.id_track %}" class="mt-4">
-  {% csrf_token %}
-  <div class="form-group">
-    <textarea name="contenido" class="form-control" rows="3" placeholder="Escribe tu comentario"></textarea>
+      <div class="track-meta">
+        <span class="meta-pill">🎵 {{ track.genero.descripcion }}</span>
+
+        {% if ya_comprado %}
+          <span class="meta-pill">✓ Ya lo compraste</span>
+        {% else %}
+          <span class="meta-pill">Disponible</span>
+        {% endif %}
+      </div>
+
+      {% if track.descripcion %}
+        <h4 class="font-weight-bold">Descripción</h4>
+        <p class="track-description">{{ track.descripcion }}</p>
+      {% else %}
+        <p class="text-muted mb-0">
+          Este track no tiene una descripción agregada.
+        </p>
+      {% endif %}
+
+    </section>
+
+    <!-- Portada, audio y acciones -->
+    <aside class="detalle-side">
+
+      <div class="track-cover">
+        {% if track.foto %}
+          <img src="{{ track.foto.url }}" alt="Portada de {{ track.nombre_track }}">
+        {% else %}
+          <div class="track-cover-placeholder">🎵</div>
+        {% endif %}
+
+        {% if ya_comprado %}
+          <span class="track-status track-status-comprado">✓ Comprado</span>
+        {% endif %}
+      </div>
+
+      <div class="detalle-side-body">
+
+        <div class="audio-title">Escuchar track</div>
+
+        <audio
+          class="audio-player"
+          controls
+          controlsList="nodownload"
+          preload="metadata"
+        >
+          <source src="{% url 'reproducir_track' track.id_track %}">
+          Tu navegador no soporta la reproducción de audio.
+        </audio>
+
+        <div class="price-box">
+          <span>Precio</span>
+          <span class="price-value">${{ track.precio }}</span>
+        </div>
+
+        {% if ya_comprado %}
+          <div class="alert alert-success comprado-info">
+            Ya compraste este track y puedes descargarlo cuando quieras.
+          </div>
+        {% endif %}
+
+        <div class="detalle-actions">
+
+          {% if ya_comprado %}
+            <a
+              href="{% url 'descargar_track' track.id_track %}"
+              class="btn btn-success"
+            >
+              Descargar track
+            </a>
+          {% else %}
+            <form method="post" action="{% url 'agregar_al_carrito' track.id_track %}">
+              {% csrf_token %}
+              <input type="hidden" name="track_id" value="{{ track.id_track }}">
+              <button type="submit" class="btn btn-warning">
+                Agregar al carrito
+              </button>
+            </form>
+          {% endif %}
+
+          <form method="post" action="{% url 'dar_like' track.id_track %}">
+            {% csrf_token %}
+
+            {% if le_gusta %}
+              <button type="submit" class="btn btn-dark">
+                ♥ Te gusta
+              </button>
+            {% else %}
+              <button type="submit" class="btn btn-outline-dark">
+                ♡ Me gusta
+              </button>
+            {% endif %}
+          </form>
+
+        </div>
+      </div>
+    </aside>
+
   </div>
-  <button type="submit" class="btn btn-warning">Enviar</button>
-</form>
+
+  <!-- Comentarios -->
+  <section class="comentarios-card">
+    <h2>Comentarios</h2>
+
+    {% for comentario in comentarios %}
+      <article class="comentario">
+
+        <div class="comentario-top">
+          <a
+            class="comentario-user"
+            href="{% url 'perfil2' comentario.usuario.username %}"
+          >
+            {{ comentario.usuario.username|capfirst }}
+          </a>
+
+          {% if user.is_authenticated and comentario.usuario == user %}
+            <form
+              method="post"
+              action="{% url 'eliminar_comentario' comentario.pk %}"
+              class="mb-0"
+            >
+              {% csrf_token %}
+              <button
+                type="submit"
+                class="btn btn-outline-danger btn-sm"
+                onclick="return confirm('¿Seguro que quieres eliminar este comentario?');"
+              >
+                Eliminar
+              </button>
+            </form>
+          {% endif %}
+        </div>
+
+        <p class="comentario-content">{{ comentario.contenido }}</p>
+
+      </article>
+    {% empty %}
+      <div class="sin-comentarios">
+        Aún no hay comentarios en este track.
+      </div>
+    {% endfor %}
+
+    <form
+      method="post"
+      action="{% url 'agregar_comentario' track.id_track %}"
+      class="comentario-form"
+    >
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="contenido" class="font-weight-bold">
+          Escribe un comentario
+        </label>
+        <textarea
+          id="contenido"
+          name="contenido"
+          class="form-control"
+          rows="3"
+          maxlength="500"
+          required
+          placeholder="Comparte tu opinión sobre este track..."
+        ></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-warning">
+        Publicar comentario
+      </button>
+    </form>
+  </section>
+
+</div>
 
 {% endblock %}

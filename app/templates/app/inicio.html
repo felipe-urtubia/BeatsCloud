@@ -2,56 +2,444 @@
 
 {% load static %}
 
-{% block titulo %} Inicio {% endblock %}
-
-
+{% block titulo %}Inicio{% endblock %}
 
 {% block contenido %}
-<br>
 
+<style>
+  .bc-home {
+    --bc-dark: #171717;
+    --bc-muted: #6c757d;
+    --bc-soft: #f7f7f7;
+    --bc-yellow: #ffc107;
+    --bc-yellow-dark: #e0a800;
+  }
 
-<div class=>
-  <div class=>
-    <h5>¡Bienvenidos a BeatsCloud!</h5><br>
-    <p>"¡Bienvenido a Beatscloud dedicada a conectar productores musicales con artistas en busca de apoyo para sus proyectos musicales! 
-      En nuestra página web, creamos un espacio de encuentro donde los talentosos productores pueden promocionar sus servicios y los artistas 
-      pueden encontrar el acompañamiento ideal para dar vida a sus creaciones musicales.
-      
+  .bc-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    padding: 72px 42px;
+    margin-top: 28px;
+    background:
+      radial-gradient(circle at top right, rgba(255, 193, 7, .30), transparent 35%),
+      linear-gradient(135deg, #111 0%, #242424 100%);
+    color: #fff;
+    box-shadow: 0 18px 45px rgba(0,0,0,.16);
+  }
+
+  .bc-hero::after {
+    content: "♫";
+    position: absolute;
+    right: 34px;
+    bottom: -68px;
+    font-size: 270px;
+    line-height: 1;
+    color: rgba(255,255,255,.04);
+    transform: rotate(-10deg);
+    pointer-events: none;
+  }
+
+  .bc-brand {
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #ffc107;
+    margin-bottom: 12px;
+  }
+
+  .bc-badge {
+    display: inline-block;
+    background: rgba(255,193,7,.15);
+    border: 1px solid rgba(255,193,7,.55);
+    color: #ffd75e;
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: .9rem;
+    font-weight: 600;
+    margin-bottom: 18px;
+  }
+
+  .bc-hero h1 {
+    font-size: clamp(2.3rem, 5vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    margin-bottom: 18px;
+    letter-spacing: -1.5px;
+  }
+
+  .bc-hero .lead {
+    max-width: 760px;
+    font-size: 1.13rem;
+    color: rgba(255,255,255,.82);
+    margin-bottom: 30px;
+  }
+
+  .bc-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .bc-btn-main {
+    background: var(--bc-yellow);
+    border-color: var(--bc-yellow);
+    color: #171717;
+    font-weight: 700;
+    padding: 12px 22px;
+    border-radius: 10px;
+  }
+
+  .bc-btn-main:hover {
+    background: var(--bc-yellow-dark);
+    border-color: var(--bc-yellow-dark);
+    color: #171717;
+  }
+
+  .bc-btn-outline {
+    border: 1px solid rgba(255,255,255,.45);
+    color: #fff;
+    font-weight: 600;
+    padding: 12px 22px;
+    border-radius: 10px;
+  }
+
+  .bc-btn-outline:hover {
+    background: #fff;
+    color: #171717;
+  }
+
+  .bc-section {
+    padding: 68px 0 10px;
+  }
+
+  .bc-section-title {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  .bc-section-title h2 {
+    font-weight: 800;
+    color: var(--bc-dark);
+    margin-bottom: 10px;
+  }
+
+  .bc-section-title p {
+    color: var(--bc-muted);
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .bc-card {
+    height: 100%;
+    border: 0;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    overflow: hidden;
+    transition: transform .2s ease, box-shadow .2s ease;
+    background: #fff;
+  }
+
+  .bc-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 16px 36px rgba(0,0,0,.12);
+  }
+
+  .bc-card-top {
+    min-height: 175px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      linear-gradient(135deg, rgba(255,193,7,.95), rgba(255,221,99,.95));
+    font-size: 5rem;
+  }
+
+  .bc-card-body {
+    padding: 28px;
+  }
+
+  .bc-card-body h3 {
+    font-weight: 800;
+    font-size: 1.45rem;
+    margin-bottom: 12px;
+  }
+
+  .bc-card-body p {
+    color: var(--bc-muted);
+    margin-bottom: 22px;
+  }
+
+  .bc-role {
+    border-radius: 20px;
+    padding: 34px;
+    height: 100%;
+    background: var(--bc-soft);
+    border: 1px solid #ececec;
+  }
+
+  .bc-role-icon {
+    width: 62px;
+    height: 62px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: var(--bc-yellow);
+    font-size: 2rem;
+    margin-bottom: 20px;
+  }
+
+  .bc-role h3 {
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .bc-role p {
+    color: var(--bc-muted);
+    margin-bottom: 0;
+  }
+
+  .bc-step {
+    text-align: center;
+    padding: 24px 18px;
+  }
+
+  .bc-step-number {
+    width: 54px;
+    height: 54px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--bc-dark);
+    color: var(--bc-yellow);
+    font-weight: 800;
+    font-size: 1.2rem;
+  }
+
+  .bc-step h4 {
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .bc-step p {
+    color: var(--bc-muted);
+    margin-bottom: 0;
+  }
+
+  .bc-final-cta {
+    margin: 70px 0 35px;
+    padding: 48px 28px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #ffc107, #ffda64);
+    text-align: center;
+    color: #171717;
+  }
+
+  .bc-final-cta h2 {
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .bc-final-cta p {
+    max-width: 700px;
+    margin: 0 auto 24px;
+  }
+
+  .bc-final-cta .btn-dark {
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+
+  @media (max-width: 767.98px) {
+    .bc-hero {
+      padding: 48px 24px;
+      border-radius: 18px;
+    }
+
+    .bc-section {
+      padding-top: 50px;
+    }
+  }
+</style>
+
+<div class="bc-home">
+
+  <!-- Portada principal -->
+  <section class="bc-hero">
+    <div class="bc-brand">BeatsCloud</div>
+
+    <span class="bc-badge">Plataforma musical para artistas y productores</span>
+
+    <h1>Haz que tu música<br>llegue más lejos.</h1>
+
+    <p class="lead">
+      BeatsCloud conecta productores musicales con artistas que buscan nuevas pistas,
+      colaboración y apoyo para llevar sus proyectos al siguiente nivel.
     </p>
-  </div>
-</div>
 
-<br>
-<br>
+    <div class="bc-hero-actions">
+      <a href="{% url 'catalogo' %}" class="btn bc-btn-main">
+        Explorar catálogo
+      </a>
 
-<div class="container">
-  <div class="row">
-    <div class="col-sm-6">
-      <div class="card">
-        <img class="card-img-top" src="https://play-lh.googleusercontent.com/3wReLLObI6rQP0QEut9h_9qR2AVBpZ7iBptTmnDH-Z3gpwTOtK-ZddV2oo6-ZUX4yhQ" alt="Card image cap" style="width: 100%; height: 500px;">
-        <div class="card-body">
-          <h5 class="card-title">Catálogo</h5>
-          <p class="card-text">Entra a nuestro catálogo y descubre toda la música que tenemos para ti.</p>
-          <a href="{% url 'catalogo'%}" class="btn btn-warning btn-block">Catálogo</a>
+      <a href="{% url 'catalogo_usuarios' %}" class="btn bc-btn-outline">
+        Descubrir usuarios
+      </a>
+
+      {% if not user.is_authenticated %}
+        <a href="{% url 'registro' %}" class="btn bc-btn-outline">
+          Crear cuenta
+        </a>
+      {% endif %}
+    </div>
+  </section>
+
+
+  <!-- Accesos principales -->
+  <section class="bc-section">
+    <div class="bc-section-title">
+      <h2>Descubre BeatsCloud</h2>
+      <p>
+        Encuentra nuevas pistas, conoce productores y artistas, y forma parte
+        de una comunidad enfocada en crear y compartir música.
+      </p>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 mb-4">
+        <div class="bc-card">
+          <div class="bc-card-top">🎧</div>
+          <div class="bc-card-body">
+            <h3>Catálogo musical</h3>
+            <p>
+              Explora los tracks publicados por productores, escucha sus propuestas
+              y encuentra el sonido que mejor se adapte a tu proyecto.
+            </p>
+            <a href="{% url 'catalogo' %}" class="btn btn-warning">
+              Ir al catálogo
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-4">
+        <div class="bc-card">
+          <div class="bc-card-top">👥</div>
+          <div class="bc-card-body">
+            <h3>Comunidad</h3>
+            <p>
+              Descubre artistas y productores, visita sus perfiles y conoce
+              a las personas que forman parte de BeatsCloud.
+            </p>
+            <a href="{% url 'catalogo_usuarios' %}" class="btn btn-warning">
+              Ver usuarios
+            </a>
+          </div>
         </div>
       </div>
     </div>
-    <div class="col-sm-6">
-      <div class="card">
-        <img class="card-img-top" src="https://i.pinimg.com/564x/8d/bb/ff/8dbbffb62b8412208748b3198c24d150.jpg" alt="Card image cap" style="width: 100%; height: 500px;">
-        <div class="card-body">
-          <h5 class="card-title">Usuarios</h5>
-          <p class="card-text">Descubre las personas que estan aqui y compartan sus gustos musicales.</p>
-          <a href="{% url 'catalogo_usuarios'%}" class="btn btn-warning btn-block">Usuarios</a>
+  </section>
+
+
+  <!-- Roles -->
+  <section class="bc-section">
+    <div class="bc-section-title">
+      <h2>Una plataforma para crear oportunidades</h2>
+      <p>
+        BeatsCloud ofrece herramientas distintas según el rol de cada usuario.
+      </p>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 mb-4">
+        <div class="bc-role">
+          <div class="bc-role-icon">🎤</div>
+          <h3>Para artistas</h3>
+          <p>
+            Busca nuevas pistas, escucha el trabajo de productores, compra tracks,
+            guarda tus favoritos y encuentra nuevas oportunidades para tus proyectos musicales.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-4">
+        <div class="bc-role">
+          <div class="bc-role-icon">🎛️</div>
+          <h3>Para productores</h3>
+          <p>
+            Publica tus pistas, presenta tu trabajo, vende tracks, administra
+            tu perfil y ofrece suscripciones a artistas interesados en tu contenido.
+          </p>
         </div>
       </div>
     </div>
-  </div>
+  </section>
+
+
+  <!-- Cómo funciona -->
+  <section class="bc-section">
+    <div class="bc-section-title">
+      <h2>¿Cómo funciona?</h2>
+      <p>
+        Comenzar en BeatsCloud es sencillo.
+      </p>
+    </div>
+
+    <div class="row">
+      <div class="col-md-4">
+        <div class="bc-step">
+          <div class="bc-step-number">1</div>
+          <h4>Crea tu cuenta</h4>
+          <p>
+            Regístrate como artista o productor y confirma tu cuenta por correo electrónico.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="bc-step">
+          <div class="bc-step-number">2</div>
+          <h4>Descubre o publica</h4>
+          <p>
+            Los artistas pueden explorar música y los productores pueden publicar sus pistas.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="bc-step">
+          <div class="bc-step-number">3</div>
+          <h4>Conecta y crece</h4>
+          <p>
+            Compra, vende, interactúa con otros usuarios y desarrolla nuevos proyectos musicales.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- Llamado final -->
+  <section class="bc-final-cta">
+    <h2>Tu próximo proyecto puede comenzar aquí.</h2>
+    <p>
+      Explora BeatsCloud y encuentra nuevas pistas, productores y oportunidades
+      para seguir desarrollando tu música.
+    </p>
+
+    {% if user.is_authenticated %}
+      <a href="{% url 'catalogo' %}" class="btn btn-dark">
+        Explorar BeatsCloud
+      </a>
+    {% else %}
+      <a href="{% url 'registro' %}" class="btn btn-dark">
+        Crear mi cuenta
+      </a>
+    {% endif %}
+  </section>
+
 </div>
 
-
-<br>
-
-
-
-{% endblock %}    
+{% endblock %}

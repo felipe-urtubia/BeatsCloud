@@ -2,9 +2,228 @@
 
 {% load static %}
 
-{% block contenido %}
-<h1>Gracias Por Tu Compra</h1>
+{% block titulo %}Pago exitoso{% endblock %}
 
-<p>Tu compra ha sido registrada en tu historial de compra, revísalo para descargar tu producto.</p>
+{% block contenido %}
+
+<style>
+  .success-page {
+    padding: 55px 0 75px;
+  }
+
+  .success-card {
+    max-width: 760px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.10);
+    overflow: hidden;
+  }
+
+  .success-header {
+    background:
+      radial-gradient(circle at top right, rgba(255,193,7,.28), transparent 34%),
+      linear-gradient(135deg, #171717, #2b2b2b);
+    color: #fff;
+    padding: 42px 30px 36px;
+    text-align: center;
+  }
+
+  .success-icon {
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #198754;
+    color: #fff;
+    font-size: 2.8rem;
+    font-weight: 900;
+    box-shadow: 0 10px 24px rgba(25,135,84,.25);
+  }
+
+  .success-header h1 {
+    font-weight: 900;
+    margin-bottom: 9px;
+  }
+
+  .success-header p {
+    color: rgba(255,255,255,.76);
+    margin-bottom: 0;
+  }
+
+  .success-body {
+    padding: 30px;
+  }
+
+  .success-message {
+    text-align: center;
+    margin-bottom: 26px;
+  }
+
+  .success-message h2 {
+    font-weight: 850;
+    margin-bottom: 10px;
+  }
+
+  .success-message p {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 0;
+  }
+
+  .transaction-box {
+    background: #f8f9fa;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 24px;
+  }
+
+  .transaction-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 9px 0;
+    border-bottom: 1px solid #e8e8e8;
+  }
+
+  .transaction-row:last-child {
+    border-bottom: 0;
+  }
+
+  .transaction-row span {
+    color: #666;
+  }
+
+  .transaction-row strong {
+    color: #171717;
+    text-align: right;
+  }
+
+  .transaction-total {
+    font-size: 1.35rem;
+    font-weight: 900;
+  }
+
+  .success-info {
+    background: #eaf7ef;
+    border: 1px solid #b8dfc7;
+    border-radius: 13px;
+    padding: 16px;
+    margin-bottom: 24px;
+    color: #245b38;
+    line-height: 1.55;
+  }
+
+  .success-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .success-actions .btn {
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-weight: 850;
+  }
+
+  @media (max-width: 575.98px) {
+    .success-page {
+      padding-top: 28px;
+    }
+
+    .success-card {
+      border-radius: 16px;
+    }
+
+    .success-header,
+    .success-body {
+      padding: 24px 20px;
+    }
+
+    .success-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .transaction-row {
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .transaction-row strong {
+      text-align: left;
+    }
+  }
+</style>
+
+<div class="container success-page">
+
+  <section class="success-card">
+
+    <div class="success-header">
+      <div class="success-icon">✓</div>
+
+      <h1>¡Pago realizado con éxito!</h1>
+
+      <p>
+        Tu transacción fue confirmada correctamente.
+      </p>
+    </div>
+
+    <div class="success-body">
+
+      <div class="success-message">
+        <h2>Gracias por tu compra</h2>
+
+        <p>
+          La compra ya fue registrada en BeatsCloud.
+          Si compraste un track, podrás descargarlo desde tu historial de compras.
+          Si adquiriste una suscripción, quedará registrada en tu perfil.
+        </p>
+      </div>
+
+      {% if buy_order or monto_pagado %}
+        <div class="transaction-box">
+
+          {% if buy_order %}
+            <div class="transaction-row">
+              <span>Orden de compra</span>
+              <strong>{{ buy_order }}</strong>
+            </div>
+          {% endif %}
+
+          {% if monto_pagado %}
+            <div class="transaction-row">
+              <span>Monto pagado</span>
+              <strong class="transaction-total">
+                ${{ monto_pagado|floatformat:0 }}
+              </strong>
+            </div>
+          {% endif %}
+
+        </div>
+      {% endif %}
+
+      <div class="success-info">
+        <strong>Compra registrada.</strong><br>
+        Puedes revisar tus compras y descargas desde tu perfil.
+      </div>
+
+      <div class="success-actions">
+        <a href="{% url 'perfil' %}" class="btn btn-warning">
+          Ir a mi perfil
+        </a>
+
+        <a href="{% url 'catalogo' %}" class="btn btn-outline-dark">
+          Volver al catálogo
+        </a>
+      </div>
+
+    </div>
+
+  </section>
+
+</div>
 
 {% endblock %}
