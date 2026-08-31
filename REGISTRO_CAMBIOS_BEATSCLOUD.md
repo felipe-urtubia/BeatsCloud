@@ -173,23 +173,37 @@ Se mantuvo el sistema oficial de Django para generar tokens y cambiar contraseñ
 | Crear suscripción | Se modernizó `ingresar_suscripcion.html` conservando `detalle`, `precio`, POST y CSRF. | Probado |
 | Confirmar suscripción | Se modernizó `suscripcion.html` con resumen antes de crear el pago. | Probado |
 | Pantalla de Webpay | Se modernizó `pago.html`, corrigiendo codificación y conservando `token_ws` y campos necesarios para Transbank. | Probado |
-| Cancelar antes de Webpay | Se agregó un botón que permite salir sin enviar el formulario a Webpay. | Probado |
+| Cancelar antes de Webpay | El botón cancela de forma segura la transacción local: si está `PENDING`, pasa a `CANCELLED` mediante una vista POST protegida con login y CSRF. | Probado |
 | Retorno al cancelar | En suscripciones vuelve al perfil del productor; en carrito vuelve al carrito. | Probado |
+| Cancelar desde Webpay | Si Webpay retorna `TBK_ORDEN_COMPRA` y `TBK_ID_SESION` sin `token_ws`, la transacción `PENDING` correspondiente se marca localmente como `CANCELLED`. | Probado |
+| Validación de cancelación | La cancelación verifica usuario, orden, sesión, estado pendiente y diferencia entre carrito y suscripción. | Probado |
 | Estado `CANCELLED` | Se añadió `ESTADO_CANCELADO = 'CANCELLED'` al modelo `WebpayTransaction` y se aplicó la migración. | Implementado |
 
-### Pendiente inmediato del flujo de cancelación
+### Flujo de cancelación de Webpay completado
 
-El modelo ya admite:
+El modelo utiliza los estados:
 
 - `PENDING`
 - `AUTHORIZED`
 - `CANCELLED`
 
-Sin embargo, todavía falta conectar el botón **Cancelar pago** con una vista segura que cambie la transacción creada de `PENDING` a `CANCELLED`.
+Se implementó una vista segura `POST` para cancelar transacciones pendientes antes de entrar a Webpay. La operación solo puede afectar transacciones pertenecientes al usuario autenticado y únicamente cambia el estado cuando todavía se encuentra en `PENDING`.
 
-Actualmente el botón evita entrar a Webpay, pero la transacción creada antes de mostrar `pago.html` todavía puede quedar en estado `PENDING`.
+También se corrigió el retorno desde Webpay cuando el usuario cancela dentro de la plataforma de pago. Cuando Transbank devuelve `TBK_ORDEN_COMPRA` y `TBK_ID_SESION` sin `token_ws`, BeatsCloud identifica la transacción pendiente correspondiente y la cambia a `CANCELLED`.
 
-Este es el siguiente cambio técnico a realizar.
+Pruebas realizadas:
+
+- Cancelación de suscripción antes de Webpay: `CANCELLED`.
+- Cancelación de carrito antes de Webpay: `CANCELLED`.
+- Cancelación de carrito desde Webpay: `CANCELLED`, con `suscripcion_id = None`.
+- Confirmación en servidor: `TRANSACCION_CANCELADA_LOCALMENTE: True`.
+- `python manage.py check`: sin problemas detectados.
+
+El cambio fue guardado en Git con el commit:
+
+`5242ae0 - Implementa cancelacion segura de pagos pendientes`
+
+y subido correctamente a la rama `main`.
 
 ## Limpieza de archivos temporales
 
@@ -222,8 +236,9 @@ Los scripts eran herramientas temporales y no forman parte de la aplicación en 
 - Validación de orden, sesión, monto y autorización.
 - Registro de suscripciones mediante `WebpayTransaction`.
 - Estados disponibles: `PENDING`, `AUTHORIZED` y `CANCELLED`.
-- Botón para abandonar el pago antes de entrar a Webpay.
-- Pendiente: marcar automáticamente `CANCELLED` al usar ese botón.
+- Cancelación segura antes de entrar a Webpay, cambiando `PENDING` a `CANCELLED`.
+- Cancelación registrada también cuando el usuario cancela dentro de Webpay y retorna sin `token_ws`.
+- Diferenciación entre transacciones de carrito y suscripción durante la cancelación.
 
 ## Tracks
 
