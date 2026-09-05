@@ -185,7 +185,12 @@ class WebpayTransaction(models.Model):
         return f"{self.buy_order} - {self.amount} - {self.status}"
     
 class HistorialVenta(models.Model):
-    comprador = models.ForeignKey(User, on_delete=models.CASCADE)
+    comprador = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     precio = models.DecimalField(max_digits=10, decimal_places=2)
     track = models.ForeignKey(Track, on_delete=models.CASCADE)
     fecha_venta = models.DateTimeField(auto_now_add=True)

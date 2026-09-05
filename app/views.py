@@ -12,6 +12,7 @@ from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import authenticate, login
+from django.contrib.auth.hashers import make_password, check_password
 from django.shortcuts import render, redirect,  HttpResponseRedirect
 from django.contrib.auth.views import PasswordResetView
 from django.urls import reverse
@@ -61,6 +62,430 @@ from .models import WebpayTransaction
 
 import uuid
 import mimetypes
+import secrets
+
+ANON_USER_USERNAME = 'UsuarioAnonimo'
+
+
+def _obtener_perfil_anonimo():
+    """Perfil técnico para conservar contenido comprado de cuentas eliminadas."""
+    user_anonimo, creado = User.objects.get_or_create(
+        username=ANON_USER_USERNAME,
+        defaults={
+            'first_name': 'Usuario',
+            'last_name': 'Anónimo',
+            'email': '',
+            'is_active': False,
+        },
+    )
+
+    cambios = []
+    if user_anonimo.is_active:
+        user_anonimo.is_active = False
+        cambios.append('is_active')
+    if user_anonimo.email:
+        user_anonimo.email = ''
+        cambios.append('email')
+    if user_anonimo.first_name != 'Usuario':
+        user_anonimo.first_name = 'Usuario'
+        cambios.append('first_name')
+    if user_anonimo.last_name != 'Anónimo':
+        user_anonimo.last_name = 'Anónimo'
+        cambios.append('last_name')
+    if creado or user_anonimo.has_usable_password():
+        user_anonimo.set_unusable_password()
+        cambios.append('password')
+    if cambios:
+        user_anonimo.save(update_fields=list(dict.fromkeys(cambios)))
+
+    perfil_anonimo, _ = Usuario.objects.get_or_create(
+        user=user_anonimo,
+        defaults={
+            'tipo_usu': Usuario.PRODUCTOR,
+            'descripcion': 'Contenido conservado para compradores de una cuenta eliminada.',
+        },
+    )
+
+    cambios_perfil = []
+    if perfil_anonimo.tipo_usu != Usuario.PRODUCTOR:
+        perfil_anonimo.tipo_usu = Usuario.PRODUCTOR
+        cambios_perfil.append('tipo_usu')
+    descripcion_anonima = 'Contenido conservado para compradores de una cuenta eliminada.'
+    if perfil_anonimo.descripcion != descripcion_anonima:
+        perfil_anonimo.descripcion = descripcion_anonima
+        cambios_perfil.append('descripcion')
+    for campo in ('spotify', 'youtube', 'instagram'):
+        if getattr(perfil_anonimo, campo):
+            setattr(perfil_anonimo, campo, None)
+            cambios_perfil.append(campo)
+    if cambios_perfil:
+        perfil_anonimo.save(update_fields=cambios_perfil)
+
+    return perfil_anonimo
+
+
+def _programar_borrado_archivo(campo_archivo):
+    if not campo_archivo or not campo_archivo.name:
+        return
+
+    storage = campo_archivo.storage
+    nombre = campo_archivo.name
+
+    def borrar():
+        try:
+            if storage.exists(nombre):
+                storage.delete(nombre)
+        except Exception:
+            pass
+
+    transaction.on_commit(borrar)
+
+
+
+@login_required
+def eliminar_cuenta(request):
+    usuario = get_object_or_404(Usuario, user=request.user)
+
+    if request.method == 'GET':
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+        )
+
+    password = request.POST.get('password', '')
+
+    if not request.user.check_password(password):
+        messages.error(
+            request,
+            'La contraseña no es correcta. Tu cuenta no fue eliminada.'
+        )
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+            status=400,
+        )
+
+    if not request.user.email:
+        messages.error(
+            request,
+            'Tu cuenta no tiene un correo registrado. No fue posible iniciar '
+            'la verificación de eliminación.'
+        )
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+            status=400,
+        )
+
+    codigo = f"{secrets.randbelow(1000000):06d}"
+
+    request.session['eliminar_cuenta_codigo_hash'] = make_password(codigo)
+    request.session['eliminar_cuenta_usuario_id'] = request.user.pk
+    request.session['eliminar_cuenta_codigo_creado'] = timezone.now().timestamp()
+    request.session['eliminar_cuenta_intentos'] = 0
+
+    nombre_correo = request.user.first_name or request.user.username
+    text_content = (
+        f'Hola {nombre_correo},\n\n'
+        'Recibimos una solicitud para eliminar definitivamente tu cuenta '
+        'de BeatsCloud.\n\n'
+        f'Tu código de verificación es: {codigo}\n\n'
+        'Este código vence en 15 minutos. No lo compartas con nadie.\n\n'
+        'Si tú no solicitaste eliminar tu cuenta, ignora este correo. '
+        'Tu cuenta seguirá activa.\n\n'
+        'Equipo BeatsCloud'
+    )
+
+    html_content = render_to_string(
+        'emails/confirmar_eliminacion_cuenta.html',
+        {
+            'usuario': request.user,
+            'codigo': codigo,
+        },
+    )
+
+    email = EmailMultiAlternatives(
+        subject='Confirma la eliminación de tu cuenta | BeatsCloud',
+        body=text_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[request.user.email],
+    )
+    email.attach_alternative(html_content, 'text/html')
+
+    try:
+        email.send(fail_silently=False)
+    except Exception:
+        _limpiar_verificacion_eliminacion(request)
+        messages.error(
+            request,
+            'No pudimos enviar el código de verificación. '
+            'Tu cuenta no fue eliminada.'
+        )
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+            status=503,
+        )
+
+    messages.success(
+        request,
+        'Te enviamos un código de verificación a tu correo. '
+        'Tu cuenta todavía no ha sido eliminada.'
+    )
+
+    return render(
+        request,
+        'app/eliminar_cuenta.html',
+        {
+            'usuario': usuario,
+            'verificacion_enviada': True,
+        },
+    )
+
+
+def _limpiar_verificacion_eliminacion(request):
+    for clave in (
+        'eliminar_cuenta_codigo_hash',
+        'eliminar_cuenta_usuario_id',
+        'eliminar_cuenta_codigo_creado',
+        'eliminar_cuenta_intentos',
+    ):
+        request.session.pop(clave, None)
+
+
+@login_required
+@require_POST
+def confirmar_eliminacion_cuenta(request):
+    usuario = get_object_or_404(Usuario, user=request.user)
+
+    codigo_hash = request.session.get('eliminar_cuenta_codigo_hash')
+    usuario_id = request.session.get('eliminar_cuenta_usuario_id')
+    creado = request.session.get('eliminar_cuenta_codigo_creado')
+    intentos = int(request.session.get('eliminar_cuenta_intentos', 0))
+
+    if (
+        not codigo_hash
+        or not usuario_id
+        or creado is None
+        or usuario_id != request.user.pk
+    ):
+        _limpiar_verificacion_eliminacion(request)
+        messages.error(
+            request,
+            'La verificación no es válida o ya terminó. '
+            'Solicita un nuevo código.'
+        )
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+            status=400,
+        )
+
+    try:
+        segundos_transcurridos = (
+            timezone.now().timestamp() - float(creado)
+        )
+    except (TypeError, ValueError):
+        segundos_transcurridos = 901
+
+    if segundos_transcurridos > 900:
+        _limpiar_verificacion_eliminacion(request)
+        messages.error(
+            request,
+            'El código venció. Solicita uno nuevo para continuar.'
+        )
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+            status=400,
+        )
+
+    if intentos >= 5:
+        _limpiar_verificacion_eliminacion(request)
+        messages.error(
+            request,
+            'Superaste el máximo de intentos. Solicita un nuevo código.'
+        )
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+            status=400,
+        )
+
+    codigo = (request.POST.get('codigo') or '').strip()
+
+    if not check_password(codigo, codigo_hash):
+        intentos += 1
+        request.session['eliminar_cuenta_intentos'] = intentos
+
+        if intentos >= 5:
+            _limpiar_verificacion_eliminacion(request)
+            messages.error(
+                request,
+                'Código incorrecto. Superaste el máximo de intentos; '
+                'solicita un nuevo código.'
+            )
+            return render(
+                request,
+                'app/eliminar_cuenta.html',
+                {
+                    'usuario': usuario,
+                    'verificacion_enviada': False,
+                },
+                status=400,
+            )
+
+        messages.error(
+            request,
+            f'Código incorrecto. Te quedan {5 - intentos} intento(s).'
+        )
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': True,
+            },
+            status=400,
+        )
+
+    _limpiar_verificacion_eliminacion(request)
+    return _ejecutar_eliminacion_cuenta(request, usuario)
+
+
+def _ejecutar_eliminacion_cuenta(request, usuario):
+    user_original = request.user
+    perfil_anonimo = None
+    email_destino = user_original.email
+    nombre_destino = user_original.first_name or user_original.username
+
+    with transaction.atomic():
+        _programar_borrado_archivo(usuario.foto_perfil)
+        _programar_borrado_archivo(usuario.foto_fondo)
+
+        tracks_propios = list(Track.objects.filter(usuario=usuario))
+
+        for track in tracks_propios:
+            tiene_compras = (
+                HistorialCompra.objects.filter(track=track).exists()
+                or HistorialVenta.objects.filter(track=track).exists()
+                or Compra.objects.filter(track=track).exists()
+                or Venta.objects.filter(track=track, completada=True).exists()
+            )
+
+            Venta.objects.filter(
+                track=track,
+                completada=False,
+            ).delete()
+            Carrito.objects.filter(track=track).delete()
+            track.usuarios_en_carrito.clear()
+
+            if tiene_compras:
+                if perfil_anonimo is None:
+                    perfil_anonimo = _obtener_perfil_anonimo()
+
+                track.usuario = perfil_anonimo
+                track.descripcion = (
+                    'Track conservado para compradores anteriores. '
+                    'El creador original eliminó su cuenta.'
+                )
+                track.save(update_fields=['usuario', 'descripcion'])
+            else:
+                _programar_borrado_archivo(track.track)
+                _programar_borrado_archivo(track.foto)
+                track.delete()
+
+        Venta.objects.filter(usuario_id=usuario).delete()
+        Carrito.objects.filter(usuario=usuario).delete()
+        Compra.objects.filter(usuario=usuario).delete()
+        HistorialCompra.objects.filter(usuario=usuario).delete()
+
+        usuario.tracks_gustados.clear()
+        usuario.carrito1.clear()
+        usuario.sus.clear()
+
+        for suscripcion in list(Suscripcion.objects.filter(user=usuario)):
+            if WebpayTransaction.objects.filter(
+                suscripcion=suscripcion
+            ).exists():
+                if perfil_anonimo is None:
+                    perfil_anonimo = _obtener_perfil_anonimo()
+
+                suscripcion.user = perfil_anonimo
+                suscripcion.detalle = 'Suscripción de usuario eliminado'
+                suscripcion.save(update_fields=['user', 'detalle'])
+            else:
+                suscripcion.delete()
+
+        # HistorialVenta.comprador usa SET_NULL:
+        # la venta permanece, pero ya no conserva los datos del comprador.
+
+        def enviar_correo_cuenta_eliminada():
+            if not email_destino:
+                return
+
+            text_content = (
+                f'Hola {nombre_destino},\n\n'
+                'Te confirmamos que tu cuenta de BeatsCloud fue eliminada '
+                'correctamente.\n\n'
+                'Tu perfil y acceso ya no se encuentran activos. '
+                'Los registros que deban conservarse para compradores o historial '
+                'de ventas permanecen únicamente de forma anonimizada.\n\n'
+                'Si no reconoces esta acción, comunícate con el equipo de soporte '
+                'de BeatsCloud.\n\n'
+                'Equipo BeatsCloud'
+            )
+
+            html_content = render_to_string(
+                'emails/cuenta_eliminada.html',
+                {
+                    'nombre_usuario': nombre_destino,
+                },
+            )
+
+            email = EmailMultiAlternatives(
+                subject='Tu cuenta fue eliminada | BeatsCloud',
+                body=text_content,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[email_destino],
+            )
+            email.attach_alternative(html_content, 'text/html')
+            email.send(fail_silently=True)
+
+        transaction.on_commit(enviar_correo_cuenta_eliminada)
+        user_original.delete()
+
+    auth_logout(request)
+    return render(request, 'app/cuenta_eliminada.html')
+
 
 def inicio(request):
     return render(request, 'app/inicio.html')
@@ -447,7 +872,9 @@ def catalogo(request):
     tracks = Track.objects.select_related(
         'usuario__user',
         'genero',
-    ).all()
+    ).exclude(
+        usuario__user__username=ANON_USER_USERNAME,
+    )
 
     generos = Genero_Musical.objects.all().order_by('descripcion')
 
@@ -1156,6 +1583,13 @@ def agregar_al_carrito(request, track_id):
     track = get_object_or_404(Track, id_track=track_id)
     usuario = get_object_or_404(Usuario, user=request.user)
 
+    if track.usuario.user.username == ANON_USER_USERNAME:
+        messages.info(
+            request,
+            'Este track se conserva únicamente para compradores anteriores.'
+        )
+        return redirect('detalle', track_id=track_id)
+
     # Impedir recomprar un track que ya fue adquirido.
     # Se revisan ambos historiales para cubrir compras antiguas y actuales.
     ya_comprado = (
@@ -1253,8 +1687,13 @@ def recuperar_contrasena(request):
 
 
 def catalogo_usuarios(request):
-    # Todos los perfiles, ordenados por nombre de usuario.
-    usuarios = Usuario.objects.select_related('user').all().order_by('user__username')
+    # Todos los perfiles reales; la cuenta técnica anónima no se lista.
+    usuarios = (
+        Usuario.objects
+        .select_related('user')
+        .exclude(user__username=ANON_USER_USERNAME)
+        .order_by('user__username')
+    )
 
     tipo = (request.GET.get('tipo') or 'todos').strip().lower()
     query = (request.GET.get('q') or '').strip()
@@ -1277,8 +1716,8 @@ def catalogo_usuarios(request):
         'usuarios': usuarios,
         'tipo': tipo,
         'query': query,
-        'total_artistas': Usuario.objects.filter(tipo_usu=Usuario.ARTISTA).count(),
-        'total_productores': Usuario.objects.filter(tipo_usu=Usuario.PRODUCTOR).count(),
+        'total_artistas': Usuario.objects.filter(tipo_usu=Usuario.ARTISTA).exclude(user__username=ANON_USER_USERNAME).count(),
+        'total_productores': Usuario.objects.filter(tipo_usu=Usuario.PRODUCTOR).exclude(user__username=ANON_USER_USERNAME).count(),
     }
 
     return render(request, 'app/catalogo_usuarios.html', context)

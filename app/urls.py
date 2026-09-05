@@ -1,4 +1,4 @@
-﻿from django.contrib.auth import views as auth_views
+from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from .views import (
@@ -9,7 +9,7 @@ from .views import (
     agregar_al_carrito, eliminar_del_carrito, dar_like, recuperar_contrasena,
     recuperar_contrasena_success, exito, exito_carrito, pago, cancelado, catalogo_usuarios,
     ingresar_suscripcion_view, editar_track, eliminar_track, realizar_pago,
-    cancelar_pago_pendiente, sobre_nosotros,
+    cancelar_pago_pendiente, eliminar_cuenta, confirmar_eliminacion_cuenta, sobre_nosotros,
 )
 
 urlpatterns = [
@@ -18,6 +18,8 @@ urlpatterns = [
     path('registro/', registro, name='registro'),
     path('activar/<uidb64>/<token>/', activar_cuenta, name='activar_cuenta'),
     path('perfil/', perfil, name='perfil'),
+    path('cuenta/eliminar/', eliminar_cuenta, name='eliminar_cuenta'),
+    path('cuenta/eliminar/confirmar/', confirmar_eliminacion_cuenta, name='confirmar_eliminacion_cuenta'),
     path('perfil/artista/', perfil_artista, name='perfil_artista'),
     path('perfil/productor/', perfil_productor, name='perfil_productor'),
     path('perfil/artista/editar/', editar_perfil, name='editar'),
