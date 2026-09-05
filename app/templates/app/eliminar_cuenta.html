@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Eliminar mi cuenta - BeatsCloud{% endblock %}
+
+{% block contenido %}
+<style>
+  .delete-account-page {
+    max-width: 760px;
+    margin: 48px auto 70px;
+  }
+
+  .delete-account-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 12px 34px rgba(0,0,0,.10);
+    border-top: 5px solid #dc3545;
+  }
+
+  .delete-account-card h1 {
+    font-weight: 900;
+    margin-bottom: 12px;
+  }
+
+  .delete-warning {
+    background: #fff3f3;
+    border: 1px solid #f4b7bd;
+    border-radius: 14px;
+    padding: 18px;
+    margin: 22px 0;
+  }
+
+  .delete-warning ul {
+    margin-bottom: 0;
+  }
+
+  .delete-account-card label {
+    font-weight: 800;
+    margin-bottom: 7px;
+  }
+
+  .delete-account-card input {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 9px;
+    padding: 11px 12px;
+  }
+
+  .delete-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .verification-box {
+    background: #fff8df;
+    border: 1px solid #ffe08a;
+    border-radius: 14px;
+    padding: 18px;
+    margin: 22px 0;
+  }
+
+  @media (max-width: 575.98px) {
+    .delete-account-card {
+      padding: 22px;
+      border-radius: 16px;
+    }
+
+    .delete-actions .btn {
+      width: 100%;
+    }
+  }
+</style>
+
+<div class="container">
+  <section class="delete-account-page">
+    <div class="delete-account-card">
+      <h1>Eliminar mi cuenta</h1>
+
+      {% if verificacion_enviada %}
+        <div class="verification-box">
+          <strong>Revisa tu correo electrónico</strong>
+          <p class="mb-0 mt-2">
+            Enviamos un código de 6 dígitos a
+            <strong>{{ request.user.email }}</strong>.
+            El código vence en 15 minutos.
+          </p>
+        </div>
+
+        <form method="post" action="{% url 'confirmar_eliminacion_cuenta' %}">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label for="codigo">Código de verificación</label>
+            <input
+              type="text"
+              id="codigo"
+              name="codigo"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              minlength="6"
+              pattern="[0-9]{6}"
+              placeholder="000000"
+              required
+            >
+          </div>
+
+          <div class="delete-actions">
+            <button type="submit" class="btn btn-danger">
+              Verificar y eliminar definitivamente
+            </button>
+
+            <a href="{% url 'perfil' %}" class="btn btn-outline-dark">
+              Cancelar
+            </a>
+          </div>
+        </form>
+
+      {% else %}
+        <p>
+          Esta acción es permanente. Primero confirma tu contraseña.
+          Después enviaremos un código a tu correo para autorizar
+          la eliminación definitiva.
+        </p>
+
+        <div class="delete-warning">
+          <strong>¿Qué ocurrirá?</strong>
+          <ul class="mt-2">
+            <li>Tu cuenta y tus datos personales serán eliminados.</li>
+            <li>Se eliminarán tus comentarios, Me gusta y carrito.</li>
+            <li>
+              Si compraste contenido, el productor conservará únicamente
+              el registro de la venta como <strong>Usuario eliminado</strong>,
+              sin tu nombre, correo ni perfil.
+            </li>
+            {% if usuario.tipo_usu == 2 %}
+              <li>Los tracks sin compras serán eliminados.</li>
+              <li>
+                Los tracks ya comprados se conservarán bajo
+                <strong>Usuario Anónimo</strong> para mantener la descarga
+                de quienes los adquirieron.
+              </li>
+            {% endif %}
+          </ul>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label for="password">Contraseña actual</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+
+          <div class="delete-actions">
+            <button type="submit" class="btn btn-danger">
+              Enviar código de verificación
+            </button>
+
+            <a href="{% url 'perfil' %}" class="btn btn-outline-dark">
+              Cancelar
+            </a>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

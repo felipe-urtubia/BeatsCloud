@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block titulo %}Cuenta eliminada - BeatsCloud{% endblock %}
+{% block contenido %}
+<style>.deleted-page{max-width:720px;margin:65px auto 85px}.deleted-card{text-align:center;background:#fff;border-radius:20px;padding:42px 30px;box-shadow:0 12px 34px rgba(0,0,0,.10)}.deleted-card h1{font-weight:900}</style>
+<div class="container"><section class="deleted-page"><div class="deleted-card"><h1>Tu cuenta fue eliminada</h1><p class="text-muted mt-3">Tus datos personales fueron retirados de BeatsCloud. El contenido que debía conservarse para compradores anteriores quedó asociado a Usuario Anónimo.</p><a href="{% url 'inicio' %}" class="btn btn-warning mt-3">Volver al inicio</a></div></section></div>
+{% endblock %}
