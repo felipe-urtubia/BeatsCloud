@@ -63,6 +63,7 @@ from .models import WebpayTransaction
 import uuid
 import mimetypes
 import secrets
+from .audio_utils import generar_preview_audio
 
 ANON_USER_USERNAME = 'UsuarioAnonimo'
 
@@ -765,6 +766,28 @@ def editar_perfil_p(request):
 
 
 
+
+def reproducir_preview_track(request, track_id):
+    # Entrega únicamente el archivo de vista previa del track.
+    import mimetypes
+    from django.http import FileResponse, Http404
+
+    track = get_object_or_404(Track, id_track=track_id)
+
+    if not track.preview:
+        raise Http404("Este track todavía no tiene una vista previa disponible.")
+
+    archivo = track.preview.open("rb")
+    content_type, _ = mimetypes.guess_type(track.preview.name)
+
+    response = FileResponse(
+        archivo,
+        content_type=content_type or "audio/mpeg",
+    )
+    nombre = track.preview.name.replace("\\", "/").rsplit("/", 1)[-1]
+    response["Content-Disposition"] = f'inline; filename="{nombre}"'
+    return response
+
 @login_required
 def upload_file(request):
     # Solo los productores pueden acceder a la subida de tracks.
@@ -857,6 +880,7 @@ def upload_file(request):
             track = form.save(commit=False)
             track.usuario = usuario
             track.save()
+            generar_preview_audio(track)
 
             messages.success(request, 'Track subido correctamente.')
             return redirect('perfil')
@@ -1026,6 +1050,13 @@ def detalle_track(request, track_id):
         'tipo_usuario': track.usuario.tipo_usu,
         'ya_comprado': ya_comprado,
         'le_gusta': le_gusta,
+        'audio_completo': (
+            ya_comprado
+            or (
+                request.user.is_authenticated
+                and track.usuario.user_id == request.user.id
+            )
+        ),
     }
 
     return render(request, 'app/detalle_track.html', context)
@@ -1038,6 +1069,32 @@ def reproducir_track(request, track_id):
     directamente la ruta física /media/canciones/...
     """
     track = get_object_or_404(Track, id_track=track_id)
+
+    puede_escuchar_completo = False
+
+    if request.user.is_authenticated:
+        if track.usuario.user_id == request.user.id:
+            puede_escuchar_completo = True
+        else:
+            usuario = Usuario.objects.filter(user=request.user).first()
+
+            if usuario is not None:
+                puede_escuchar_completo = (
+                    HistorialCompra.objects.filter(
+                        usuario=usuario,
+                        track=track,
+                    ).exists()
+                    or HistorialVenta.objects.filter(
+                        comprador=request.user,
+                        track=track,
+                    ).exists()
+                )
+
+    if not puede_escuchar_completo:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden(
+            'Debes comprar este track para escuchar el audio completo.'
+        )
 
     if not track.track:
         from django.http import Http404

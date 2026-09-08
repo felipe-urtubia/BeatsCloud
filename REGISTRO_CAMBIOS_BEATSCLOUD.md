@@ -1094,3 +1094,58 @@ El registro anterior llegaba hasta el 31-08-2026. En esta actualización se inco
 16. prueba manual completa del flujo de eliminación.
 
 Con esto el documento queda actualizado al estado probado del proyecto al **04-09-2026**.
+
+
+---
+
+# Actualización 08-09-2026 — previews de audio de 30 segundos
+
+Se implementó un sistema de vista previa de audio para evitar que usuarios sin compra reciban el archivo completo del track durante la reproducción pública.
+
+Cambios realizados:
+
+1. se agregó el campo `preview` al modelo `Track`;
+2. se creó la migración `0015_track_preview`;
+3. se agregó `FFMPEG_PATH` a la configuración, utilizando `.env` para la ruta local y `FFMPEG_PATH=ffmpeg` en `.env.example`;
+4. se creó `app/audio_utils.py` para generar automáticamente un MP3 de hasta 30 segundos mediante FFmpeg;
+5. los tracks nuevos generan su preview automáticamente al ser subidos;
+6. se agregó el comando `python manage.py generar_previews` para crear previews faltantes de tracks existentes;
+7. se creó una ruta pública separada para reproducir únicamente el archivo preview;
+8. la ruta de audio completo quedó restringida a:
+   - productor dueño del track;
+   - usuario que ya compró el track;
+9. usuarios no autenticados y artistas sin compra reciben únicamente el preview;
+10. `detalle_track.html` selecciona automáticamente entre preview y audio completo;
+11. `catalogo.html` aplica la misma regla de reproducción;
+12. el reproductor permite pausar, repetir, adelantar y retroceder dentro del archivo disponible, pero el preview físico no contiene más de los primeros 30 segundos;
+13. se generaron previews para los tracks existentes;
+14. se reinició la numeración de tracks de prueba después de limpiar tracks antiguos asociados al usuario técnico eliminado;
+15. se verificó manualmente el comportamiento del preview tanto en detalle como en catálogo.
+
+Reglas finales de reproducción:
+
+- visitante sin sesión: preview de hasta 30 segundos;
+- artista sin compra: preview de hasta 30 segundos;
+- comprador: audio completo;
+- productor dueño: audio completo.
+
+La protección implementada corresponde a control de acceso y separación física entre el preview y el archivo original; no se considera DRM.
+
+Verificaciones realizadas:
+
+```powershell
+python manage.py test app
+python manage.py check
+python manage.py makemigrations --check
+git diff --check
+```
+
+Resultados verificados:
+
+- 22 pruebas automatizadas: `OK`;
+- `manage.py check`: sin problemas;
+- `makemigrations --check`: `No changes detected`;
+- `git diff --check`: sin errores de espacios o formato, solo advertencias normales de conversión LF/CRLF en Windows;
+- prueba manual del preview de 30 segundos: correcta.
+
+Con esta actualización, BeatsCloud dispone de previews públicos separados del audio original y mantiene el acceso completo únicamente para compradores y propietarios del track.

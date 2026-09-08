@@ -71,6 +71,11 @@ class Track(models.Model):
     nombre_track = models.CharField(max_length=200)
     precio = models.IntegerField()
     track = models.FileField(upload_to="canciones")
+    preview = models.FileField(
+        upload_to="previews/",
+        null=True,
+        blank=True,
+    )
     descripcion = models.TextField(max_length=500, null=True, blank=True)
     foto = models.ImageField(upload_to="tracks", null=True, blank=True)
     genero = models.ForeignKey(Genero_Musical, on_delete=models.PROTECT)

@@ -380,7 +380,13 @@
 
               <audio
                 class="track-audio"
+                {% if request.user.is_authenticated and request.user == track.usuario.user %}
                 src="{% url 'reproducir_track' track.id_track %}"
+                {% elif track.id_track in tracks_comprados %}
+                src="{% url 'reproducir_track' track.id_track %}"
+                {% else %}
+                src="{% url 'reproducir_preview_track' track.id_track %}"
+                {% endif %}
                 controls
                 controlsList="nodownload"
                 preload="none"

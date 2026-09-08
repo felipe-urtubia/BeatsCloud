@@ -388,7 +388,11 @@
           controlsList="nodownload"
           preload="metadata"
         >
+          {% if audio_completo %}
           <source src="{% url 'reproducir_track' track.id_track %}">
+          {% else %}
+          <source src="{% url 'reproducir_preview_track' track.id_track %}">
+          {% endif %}
           Tu navegador no soporta la reproducción de audio.
         </audio>
 

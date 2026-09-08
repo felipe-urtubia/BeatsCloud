@@ -4,7 +4,7 @@ from django.urls import path
 from .views import (
     inicio, logout, registro, activar_cuenta, perfil_artista, perfil_productor, perfil,
     editar_perfil, upload_file, editar_perfil_p, catalogo, perfil_artista1,
-    perfil_productor1, detalle_track, descargar_track, reproducir_track,
+    perfil_productor1, detalle_track, descargar_track, reproducir_track, reproducir_preview_track,
     agregar_comentario, eliminar_comentario, perfil2, carrito,
     agregar_al_carrito, eliminar_del_carrito, dar_like, recuperar_contrasena,
     recuperar_contrasena_success, exito, exito_carrito, pago, cancelado, catalogo_usuarios,
@@ -36,6 +36,11 @@ urlpatterns = [
         'track/<int:track_id>/reproducir/',
         reproducir_track,
         name='reproducir_track'
+    ),
+    path(
+        'track/<int:track_id>/preview/',
+        reproducir_preview_track,
+        name='reproducir_preview_track'
     ),
 
     path('detalle/<int:track_id>/descargar/', descargar_track, name='descargar_track'),
