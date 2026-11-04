@@ -83,5 +83,6 @@ urlpatterns = [
     path('sobre_nosotros/', sobre_nosotros, name='sobre_nosotros'),
 ]
 
-
-
+# API JSON para el frontend React.
+from . import api_shim
+urlpatterns += api_shim.urlpatterns

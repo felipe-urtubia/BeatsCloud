@@ -738,3 +738,93 @@ Todos pueden trabajar con el mismo código, pero cada integrante mantiene:
 Los datos de las bases locales no se sincronizan mediante Git.
 
 **Nunca copies el `.env` de otra persona a GitHub ni envíes secretos en commits, capturas o mensajes.**
+
+---
+
+# 24. Frontend React
+
+El frontend está ubicado en `frontend/client/` y se comunica con Django
+mediante la API JSON implementada en `app/api_shim.py`.
+
+## Requisitos
+
+- Node.js y npm.
+- Backend Django configurado.
+- PostgreSQL iniciado y con la base de datos configurada.
+
+## Configurar el frontend
+
+Desde la raíz del proyecto:
+
+Linux/macOS:
+
+```bash
+cd frontend/client
+cp .env.example .env
+npm ci
+```
+
+Windows PowerShell:
+
+```powershell
+cd frontend/client
+Copy-Item .env.example .env
+npm ci
+```
+
+El modo recomendado es:
+
+```env
+VITE_API_MODE=hybrid
+VITE_DJANGO_URL=
+```
+
+No colocar claves de Django, PostgreSQL ni Transbank en variables
+`VITE_*`, porque quedan expuestas en el código del navegador.
+
+## Iniciar los servicios
+
+Primero, desde la raíz del proyecto, iniciar Django después de configurar
+PostgreSQL, completar el archivo `.env` y ejecutar las migraciones:
+
+```bash
+python manage.py migrate
+python manage.py runserver 127.0.0.1:8000
+```
+
+En una segunda terminal:
+
+```bash
+cd frontend/client
+npm run dev
+```
+
+Abrir http://localhost:3000.
+
+Durante el desarrollo, Vite reenvía las solicitudes de `/api` y `/media`
+al backend Django en `127.0.0.1:8000`.
+
+## Modos de funcionamiento
+
+- `hybrid`: utiliza la API de Django para sesión, catálogo y operaciones del usuario.
+  Si el backend falla, informa el error y permite reintentar la sincronización.
+- `mock`: utiliza datos locales de demostración y no valida la integración real.
+
+## Comprobaciones
+
+Desde `frontend/client`:
+
+```bash
+npm run lint
+npm run build
+npm audit
+```
+
+Desde la raíz del proyecto:
+
+```bash
+python manage.py check
+python manage.py test app.test_api_shim
+```
+
+Las pruebas de la API requieren PostgreSQL correctamente configurado y disponible.
