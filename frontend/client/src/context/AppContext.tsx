@@ -22,6 +22,8 @@ import {
 import { audioEngine } from '../utils/audioEngine';
 import DjangoApi from '../api/django.service';
 import { mapTrack, mapUser, djangoId } from '../api/mappers';
+import { startWebpayCheckout, submitWebpayForm } from '../api/webpayCheckout.mjs';
+import type { WebpayCheckoutResult } from '../api/webpayCheckout.mjs';
 
 /**
  * MODO DE INTEGRACIÓN — "punto medio" para el Sprint 1 (ver docs/INTEGRACION_BACKEND.md):
@@ -64,10 +66,7 @@ interface AppContextType {
   addToCart: (track: Track) => boolean;
   removeFromCart: (trackId: string) => void;
   clearCart: () => void;
-  // buyOrderOpcional: en modo real el buy_order lo emite el servidor al crear la
-  // WebpayTransaction (create) y el SPA lo reenvía al confirmar (commit). En mock
-  // se genera aquí si no se informa, imitando ese orden.
-  checkoutCart: (buyOrderOpcional?: string) => { success: boolean; buyOrder: string; amount: number };
+  checkoutCart: () => Promise<WebpayCheckoutResult>;
   uploadTrack: (data: {
     title: string;
     resourceType: ResourceType;
@@ -532,98 +531,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cartVentaIds.current = {};
   };
 
-  const checkoutCart = (buyOrderOpcional?: string) => {
+  const checkoutCart = async (): Promise<WebpayCheckoutResult> => {
     if (!currentUser || cart.length === 0) {
-      return { success: false, buyOrder: '', amount: 0 };
+      return { status: 'error', message: 'Inicia sesión y agrega productos antes de continuar.' };
     }
 
-    // ==== Modo real (Sprint 1): iniciar Webpay PLUS contra Django ====
-    // El SPA SOLO inicia la transacción; el commit y toda la validación
-    // (response_code==0, AUTHORIZED, buy_order, monto, session_id) viven en la
-    // vista exito_carrito() de Felipe. Aquí redirigimos el navegador a url_webpay.
-    if (modeRef.current === 'hybrid') {
-      withSync(() => DjangoApi.initPago())
-        .then((pago) => {
-          window.location.href = pago.url_webpay;
-        })
-        .catch((e) => {
-          console.warn('[BeatsCloud] No se pudo iniciar el pago Webpay:', e);
-          alert(`No fue posible iniciar el pago: ${(e as Error).message}`);
-        });
-      // Transacción pendiente en servidor; al volver del retorno se re-hidrata todo.
-      return { success: true, buyOrder: 'WEBPAY-PENDING', amount: 0 };
+    if (modeRef.current !== 'hybrid') {
+      return {
+        status: 'error',
+        message: 'El pago Webpay requiere el modo hybrid conectado a Django.',
+      };
     }
 
-    const subtotal = cart.reduce((acc, item) => acc + item.track.price, 0);
-    const iva = Math.round(subtotal * 0.19);
-    const totalAmount = subtotal + iva;
-    // Espejo del flujo real: el buy_order nace con la transacción Webpay (create)
-    // y se reutiliza idéntico en compras, ventas y recibo (commit).
-    const buyOrder = buyOrderOpcional || 'BC-' + Math.floor(100000 + Math.random() * 900000);
-    const today = new Date().toISOString().split('T')[0];
-
-    const purchasedIds = cart.map((item) => item.track.id);
-
-    // Alineado con HistorialVenta de Django: precio neto del track (sin IVA),
-    // igual que views.py -> HistorialVenta.objects.create(precio=venta.track.precio)
-    const newSales: SaleRecord[] = cart.map((item) => {
-      const code = 'LIC-' + buyOrder;
-      const hash = 'SHA256:' + Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-      return {
-        id: 'sale_' + Math.random().toString(36).substr(2, 9),
-        buyerId: currentUser.id,
-        buyerName: currentUser.artistName || currentUser.username,
-        trackId: item.track.id,
-        trackTitle: item.track.title,
-        amount: item.track.price,
-        date: today,
-        status: 'AUTHORIZED',
-        buyOrder,
-        licenseCode: code,
-        verificationHash: hash,
-        licenseType: 'comercial_wav_stems',
-      };
-    });
-
-    // Alineado con HistorialCompra de Django: precio neto del track (sin IVA).
-    // El monto TOTAL cobrado a Webpay (subtotal + IVA) se reporta aparte en
-    // WebpayTransaction.amount y queda disponible como webpayAmount en el recibo.
-    const newPurchases: PurchaseRecord[] = cart.map((item) => {
-      const code = 'LIC-' + buyOrder;
-      const hash = 'SHA256:' + Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-      return {
-        id: 'pur_' + Math.random().toString(36).substr(2, 9),
-        userId: currentUser.id,
-        trackId: item.track.id,
-        trackTitle: item.track.title,
-        producerName: item.track.producerName,
-        amount: item.track.price,
-        buyOrder,
-        date: today,
-        licenseCode: code,
-        verificationHash: hash,
-        licenseType: 'comercial_wav_stems',
-        webpayAmount: totalAmount, // lo que efectivamente autorizó Transbank
-      };
-    });
-
-    setSales((prev) => [...newSales, ...prev]);
-    setPurchases((prev) => [...newPurchases, ...prev]);
-
-    // Update user's purchased tracks
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === currentUser.id
-          ? { ...u, purchasedTrackIds: Array.from(new Set([...u.purchasedTrackIds, ...purchasedIds])) }
-          : u
-      )
+    return startWebpayCheckout(
+      () => withSync(() => DjangoApi.initPago()),
+      submitWebpayForm,
     );
-
-    // Empty cart
-    setCart([]);
-    cartVentaIds.current = {};
-
-    return { success: true, buyOrder, amount: totalAmount };
   };
 
   const uploadTrack = (data: {

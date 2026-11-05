@@ -111,7 +111,6 @@ export const App: React.FC = () => {
             <CartPage
               onNavigateCatalog={() => setCurrentTab('catalogo')}
               onOpenTrackDetail={(id) => setSelectedTrackId(id)}
-              onNavigateProfile={() => setCurrentTab('perfil')}
             />
           )}
 
