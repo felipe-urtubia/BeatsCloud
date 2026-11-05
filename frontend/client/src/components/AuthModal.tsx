@@ -16,14 +16,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onSwitchMode,
 }) => {
-  const { login, registerUser, switchUser, users, configuredMode } = useApp();
+  const { login, registerUser, registerAccount, switchUser, users, configuredMode } = useApp();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [artistName, setArtistName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<UserType>('artista');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -32,6 +35,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     if (isSubmitting) return;
     setError(null);
+    setSuccessMessage(null);
 
     if (mode === 'login') {
       setIsSubmitting(true);
@@ -47,18 +51,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } finally {
         setIsSubmitting(false);
       }
-    } else {
-      if (configuredMode === 'hybrid') {
-        setError('El registro local no puede iniciar una sesión híbrida.');
-        return;
-      }
-      if (!username.trim() || !email.trim()) {
-        setError('Por favor completa todos los campos requeridos.');
-        return;
-      }
-      registerUser(username, email, artistName, role);
-      onClose();
+      return;
     }
+
+    if (configuredMode === 'hybrid') {
+      if (!username.trim() || !email.trim() || !artistName.trim() || !password || !confirmPassword) {
+        setError('Completa los campos obligatorios del registro.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError('Las contraseñas no coinciden.');
+        return;
+      }
+
+      const form = new FormData();
+      form.set('username', username.trim());
+      form.set('email', email.trim());
+      form.set('first_name', artistName.trim());
+      form.set('last_name', lastName.trim());
+      form.set('password1', password);
+      form.set('password2', confirmPassword);
+      form.set('tipo_usu', role === 'productor' ? '2' : '1');
+
+      setIsSubmitting(true);
+      try {
+        const result = await registerAccount(form);
+        if (!result.success) {
+          const fieldErrors = result.errors
+            ? Object.entries(result.errors)
+                .map(([field, messages]) => `${field}: ${messages.join(' ')}`)
+                .join(' ')
+            : '';
+          setError([result.error, fieldErrors].filter(Boolean).join(' '));
+          return;
+        }
+
+        setSuccessMessage(result.message);
+        setUsername('');
+        setEmail('');
+        setArtistName('');
+        setLastName('');
+        setPassword('');
+        setConfirmPassword('');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Registro de demostración: se conserva el comportamiento anterior.
+    if (!username.trim() || !email.trim()) {
+      setError('Por favor completa todos los campos requeridos.');
+      return;
+    }
+
+    const displayName = [artistName.trim(), lastName.trim()].filter(Boolean).join(' ');
+    registerUser(username, email, displayName, role);
+    onClose();
   };
 
   return (
@@ -93,6 +143,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
+        {successMessage ? (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
+            <p className="font-bold">Registro recibido</p>
+            <p className="mt-2">{successMessage}</p>
+            <p className="mt-2 text-xs text-emerald-200/80">
+              La cuenta permanecerá inactiva hasta que confirmes el correo.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSuccessMessage(null);
+                onSwitchMode('login');
+              }}
+              className="mt-4 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-bold text-zinc-950"
+            >
+              Volver a iniciar sesión
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
             <>
@@ -141,12 +210,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-zinc-300 block mb-1">Nombre Artístico</label>
+                <label className="text-xs font-bold text-zinc-300 block mb-1">Nombre / nombre artístico *</label>
                 <input
                   type="text"
-                  placeholder="Ej: MC Flow, Trap Lord"
+                  required={configuredMode === 'hybrid'}
+                  placeholder="Ej: MC Flow"
                   value={artistName}
                   onChange={(e) => setArtistName(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-zinc-300 block mb-1">Apellido</label>
+                <input
+                  type="text"
+                  placeholder="Tu apellido"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
@@ -183,13 +264,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <label className="text-xs font-bold text-zinc-300 block mb-1">Contraseña</label>
             <input
               type="password"
-              required={mode === 'login' && configuredMode === 'hybrid'}
+              required={configuredMode === 'hybrid'}
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
             />
           </div>
+
+          {mode === 'register' && configuredMode === 'hybrid' && (
+            <div>
+              <label className="text-xs font-bold text-zinc-300 block mb-1">
+                Confirmar contraseña *
+              </label>
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
+              />
+            </div>
+          )}
 
           <button
             type="submit"
@@ -199,6 +296,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {isSubmitting ? 'Autenticando…' : mode === 'login' ? 'Iniciar Sesión' : 'Registrar Cuenta'}
           </button>
         </form>
+        )}
 
         {/* Quick Demo Login Shortcut */}
         {configuredMode === 'mock' && <div className="mt-6 pt-5 border-t border-zinc-800">

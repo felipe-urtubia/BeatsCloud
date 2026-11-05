@@ -35,14 +35,34 @@ export const TopBar: React.FC<TopBarProps> = ({
     users,
     switchUser,
     configuredMode,
+    logout,
     cart,
     globalSearchQuery,
     setGlobalSearchQuery,
   } = useApp();
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.track.price, 0);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setLogoutError(null);
+    setIsLoggingOut(true);
+
+    try {
+      const result = await logout();
+      if (!result.success) {
+        setLogoutError(result.error);
+        return;
+      }
+      setShowUserDropdown(false);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const handleSearchChange = (val: string) => {
     setGlobalSearchQuery(val);
@@ -210,6 +230,24 @@ export const TopBar: React.FC<TopBarProps> = ({
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Crear nueva cuenta</span>
+                  </button>
+                </div>
+
+                {logoutError && (
+                  <p role="alert" className="px-4 py-2 text-xs text-rose-400">
+                    {logoutError}
+                  </p>
+                )}
+
+                <div className="border-t border-[#23283a] pt-1">
+                  <button
+                    type="button"
+                    disabled={isLoggingOut}
+                    onClick={() => void handleLogout()}
+                    className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-zinc-800 flex items-center gap-2 font-semibold disabled:opacity-50"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{isLoggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}</span>
                   </button>
                 </div>
               </div>

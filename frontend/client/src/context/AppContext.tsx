@@ -101,6 +101,10 @@ interface AppContextType {
   login: (username: string, password?: string) => Promise<{ success: true } | { success: false; error: string }>;
   logout: () => Promise<{ success: true } | { success: false; error: string }>;
   registerUser: (username: string, email: string, artistName: string, role: UserType) => User;
+  registerAccount: (form: FormData) => Promise<
+    | { success: true; message: string }
+    | { success: false; error: string; errors?: Record<string, string[]> }
+  >;
   updateProfile: (data: Partial<User>) => void;
   subscribeToProducer: (sub: ProducerSubscription) => boolean;
   // ---- Integración backend (Sprint 1, modo hybrid) ----
@@ -881,6 +885,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
+  const registerAccount: AppContextType['registerAccount'] = async (form) => {
+    if (CONFIGURED_MODE !== 'hybrid') {
+      return { success: false, error: 'El registro del backend no está disponible en modo mock.' };
+    }
+
+    try {
+      const response = await withSync(() => DjangoApi.registro(form));
+      return { success: true, message: response.detail };
+    } catch (e) {
+      const error = e as Error & { errors?: Record<string, string[]> };
+      return {
+        success: false,
+        error: error.message || 'No fue posible completar el registro.',
+        ...(error.errors ? { errors: error.errors } : {}),
+      };
+    }
+  };
+
   const registerUser = (
     username: string,
     email: string,
@@ -1128,6 +1150,7 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
         login,
         logout,
         registerUser,
+        registerAccount,
         updateProfile,
         subscribeToProducer,
         apiMode,

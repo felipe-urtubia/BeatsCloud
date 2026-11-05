@@ -749,12 +749,40 @@ mediante la API JSON implementada en `app/api_shim.py`.
 ## Requisitos
 
 - Node.js y npm.
-- Backend Django configurado.
-- PostgreSQL iniciado y con la base de datos configurada.
+- Python y dependencias instaladas según los pasos anteriores.
+- PostgreSQL iniciado y con la base `beatsbd` configurada.
+- Archivo `.env` de Django creado desde `.env.example` y configurado.
 
-## Configurar el frontend
+## Configuración de Django para React
 
-Desde la raíz del proyecto:
+En el `.env` de la raíz, permite los dos orígenes locales que usa Vite para
+las solicitudes protegidas por CSRF:
+
+```env
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+El proyecto utiliza SMTP para los correos de registro y activación. Configura
+en el `.env` de la raíz las variables `EMAIL_BACKEND`, `EMAIL_HOST`,
+`EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`,
+`DEFAULT_FROM_EMAIL` y `EMAIL_TIMEOUT`, cuyos nombres y valores de ejemplo
+están en `.env.example`. Para Gmail se necesita una contraseña de aplicación;
+no uses la contraseña normal de la cuenta.
+
+Para pruebas locales sin SMTP, configura en el `.env`:
+
+```env
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+```
+
+Con esta alternativa, Django muestra en su terminal los correos y enlaces de
+activación. La activación de cuentas todavía usa la vista HTML existente de
+Django; la interfaz de confirmación integrada en React queda pendiente.
+
+## Configuración del frontend
+
+Desde la raíz del proyecto, crea el archivo local del frontend e instala las
+dependencias bloqueadas:
 
 Linux/macOS:
 
@@ -782,7 +810,10 @@ VITE_DJANGO_URL=
 No colocar claves de Django, PostgreSQL ni Transbank en variables
 `VITE_*`, porque quedan expuestas en el código del navegador.
 
-## Iniciar los servicios
+`VITE_DJANGO_URL` vacío usa el proxy de desarrollo de Vite. No es necesario
+agregar credenciales privadas al `.env` del frontend.
+
+## Inicio de los servicios
 
 Primero, desde la raíz del proyecto, iniciar Django después de configurar
 PostgreSQL, completar el archivo `.env` y ejecutar las migraciones:
@@ -792,23 +823,32 @@ python manage.py migrate
 python manage.py runserver 127.0.0.1:8000
 ```
 
-En una segunda terminal:
+En una segunda terminal, desde la raíz:
 
 ```bash
 cd frontend/client
 npm run dev
 ```
 
-Abrir http://localhost:3000.
-
-Durante el desarrollo, Vite reenvía las solicitudes de `/api` y `/media`
-al backend Django en `127.0.0.1:8000`.
+Abre http://localhost:3000. Vite escucha en el puerto 3000 y reenvía las
+solicitudes de `/api` y `/media` a Django en `127.0.0.1:8000`.
 
 ## Modos de funcionamiento
 
 - `hybrid`: utiliza la API de Django para sesión, catálogo y operaciones del usuario.
   Si el backend falla, informa el error y permite reintentar la sincronización.
 - `mock`: utiliza datos locales de demostración y no valida la integración real.
+
+## Funcionalidades integradas y limitaciones conocidas
+
+Los flujos probados manualmente son inicio de sesión con Django, persistencia
+de sesión al recargar React, cierre de sesión, registro, consulta del catálogo,
+agregar productos al carrito y cargar/eliminar productos del carrito. La
+activación sigue completándose mediante el enlace y la vista HTML de Django.
+
+La confirmación de activación en React queda pendiente. Pagos, subida de
+tracks, comentarios, likes y descargas no forman parte de los flujos verificados
+para esta integración y no se presentan aquí como funcionalidades integradas.
 
 ## Comprobaciones
 
