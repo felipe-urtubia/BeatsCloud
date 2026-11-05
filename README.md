@@ -159,7 +159,7 @@ Ejemplo de estructura:
 DJANGO_SECRET_KEY=TU_CLAVE_SECRETA
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
-DJANGO_CSRF_TRUSTED_ORIGINS=
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 # Stripe (opcional mientras no se use)
 STRIPE_PUBLIC_KEY=
@@ -207,7 +207,7 @@ Para trabajar solo en localhost:
 ```env
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
-DJANGO_CSRF_TRUSTED_ORIGINS=
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
 `settings.py` construye `DEBUG`, `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS` desde variables de entorno.
@@ -746,12 +746,98 @@ Los datos de las bases locales no se sincronizan mediante Git.
 El frontend está ubicado en `frontend/client/` y se comunica con Django
 mediante la API JSON implementada en `app/api_shim.py`.
 
+Esta sección permite preparar una instalación local desde cero. La aplicación
+Django original sigue disponible en `http://127.0.0.1:8000/`; React se sirve
+por separado en `http://localhost:3000/`.
+
 ## Requisitos
 
-- Node.js y npm.
-- Python y dependencias instaladas según los pasos anteriores.
-- PostgreSQL iniciado y con la base `beatsbd` configurada.
-- Archivo `.env` de Django creado desde `.env.example` y configurado.
+- Git.
+- Python 3.12 o superior, PostgreSQL y Node.js con npm.
+- Un archivo `.env` de Django configurado desde `.env.example`.
+- En Windows, ejecuta los comandos Python en PowerShell; en Linux/macOS, usa
+  los comandos indicados para esos sistemas.
+
+## Configuración local desde cero
+
+Clona la rama de integración:
+
+```bash
+git clone --branch integration/react-frontend https://github.com/felipe-urtubia/BeatsCloud.git
+cd BeatsCloud
+```
+
+Crea y activa un entorno virtual, e instala las dependencias del backend:
+
+Linux/macOS:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+Copia `.env.example` a `.env` en la raíz. En Linux/macOS usa `cp .env.example .env`;
+en Windows PowerShell usa `Copy-Item .env.example .env`. Genera tu propia clave
+Django y rellena la configuración local de PostgreSQL; no copies secretos de
+otra persona:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+Pon el resultado en `DJANGO_SECRET_KEY` de `.env`. La configuración de base
+de datos usada por el proyecto es PostgreSQL; los nombres por defecto del
+ejemplo son `DB_NAME=beatsbd`, `DB_USER=postgres`, `DB_HOST=localhost` y
+`DB_PORT=5432`. Asigna `DB_PASSWORD` según tu PostgreSQL local. Crea la base
+si aún no existe (por ejemplo, desde `psql` como usuario con permisos):
+
+```sql
+CREATE DATABASE beatsbd;
+```
+
+En `.env`, asegúrate de que existan estas variables para React y el correo
+local:
+
+```env
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+```
+
+El backend de consola imprime en la terminal de Django los correos de registro
+y sus enlaces de activación. Para usar SMTP en lugar de la consola, las
+variables `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`,
+`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` y
+`EMAIL_TIMEOUT` están documentadas en `.env.example`. Gmail requiere una
+contraseña de aplicación. No se necesitan credenciales de SMTP para la
+demostración con backend de consola.
+
+Para probar Webpay además se requieren credenciales de integración TEST de
+Transbank en las variables `TRANSBANK_*` del `.env`; sin ellas se puede recorrer
+el carrito, pero no completar el inicio de pago.
+
+Aplica las migraciones y, si necesitas entrar al administrador Django, crea
+un superusuario:
+
+```bash
+python manage.py migrate
+python manage.py createsuperuser
+```
+
+La base y los archivos `media/` de cada desarrollador son locales y no vienen
+incluidos en Git. Por eso, una instalación limpia puede mostrar un catálogo
+vacío hasta que se carguen datos por las herramientas existentes de Django.
+No se crean tracks ficticios automáticamente.
 
 ## Configuración de Django para React
 
@@ -782,7 +868,7 @@ Django; la interfaz de confirmación integrada en React queda pendiente.
 ## Configuración del frontend
 
 Desde la raíz del proyecto, crea el archivo local del frontend e instala las
-dependencias bloqueadas:
+dependencias bloqueadas con `npm ci`:
 
 Linux/macOS:
 
@@ -832,6 +918,13 @@ npm run dev
 
 Abre http://localhost:3000. Vite escucha en el puerto 3000 y reenvía las
 solicitudes de `/api` y `/media` a Django en `127.0.0.1:8000`.
+La aplicación Django original y el administrador siguen accesibles,
+respectivamente, en http://127.0.0.1:8000/ y http://127.0.0.1:8000/admin/.
+
+Para recorrer autenticación: registra una cuenta desde React, copia el enlace
+que Django imprime en su terminal y ábrelo. La activación sigue usando la
+vista HTML existente de Django; la pantalla de confirmación integrada en
+React está pendiente.
 
 ## Modos de funcionamiento
 
@@ -839,16 +932,39 @@ solicitudes de `/api` y `/media` a Django en `127.0.0.1:8000`.
   Si el backend falla, informa el error y permite reintentar la sincronización.
 - `mock`: utiliza datos locales de demostración y no valida la integración real.
 
+Para la demostración integrada, conserva `VITE_API_MODE=hybrid`. Usa `mock`
+solo para recorrer la interfaz sin conexión real con Django.
+
 ## Funcionalidades integradas y limitaciones conocidas
 
-Los flujos probados manualmente son inicio de sesión con Django, persistencia
-de sesión al recargar React, cierre de sesión, registro, consulta del catálogo,
-agregar productos al carrito y cargar/eliminar productos del carrito. La
-activación sigue completándose mediante el enlace y la vista HTML de Django.
+**Conectadas y verificadas manualmente:** inicio y cierre de sesión con Django,
+persistencia de sesión al recargar React, registro (activación mediante enlace
+de Django), consulta del catálogo, agregar productos al carrito y cargar o
+eliminar productos del carrito. Estas comprobaciones manuales no son pruebas
+automatizadas de navegador.
 
-La confirmación de activación en React queda pendiente. Pagos, subida de
-tracks, comentarios, likes y descargas no forman parte de los flujos verificados
-para esta integración y no se presentan aquí como funcionalidades integradas.
+**Parcialmente integradas:** detalle de track, perfiles y paneles muestran
+pantallas de React, pero algunos datos y acciones no están sincronizados con
+Django. El reproductor puede usar el endpoint de medios cuando hay un archivo
+disponible. El inicio del pago envía al usuario a Webpay; la validación y el
+resultado final ocurren en la vista HTML de Django, no en React.
+
+**Demostrativas o simuladas:** el modo `mock` usa datos locales. Algunas
+acciones de panel, suscripción, certificados/licencias y descargas usan estado
+local o contenido generado para la interfaz; no equivalen a operaciones
+persistidas o validadas por el backend.
+
+**Pendientes de integración o validación:** confirmación de activación dentro
+de React, confirmación final de Webpay dentro de React, pagos probados de punta
+a punta, y sincronización completa de subida/edición de tracks, perfiles,
+comentarios, likes, suscripciones, compras, descargas y certificados. No se
+deben interpretar sus pantallas como evidencia de que esas operaciones están
+conectadas.
+
+La aplicación Django original conserva sus vistas HTML y administración. En
+una instalación limpia, el administrador y los flujos de React que requieren
+contenido dependen de que cada integrante cree usuarios y cargue sus propios
+tracks/medios; esos datos no se incluyen en el repositorio.
 
 ## Comprobaciones
 
@@ -856,6 +972,7 @@ Desde `frontend/client`:
 
 ```bash
 npm run lint
+npm run test
 npm run build
 npm audit
 ```
@@ -864,7 +981,27 @@ Desde la raíz del proyecto:
 
 ```bash
 python manage.py check
-python manage.py test app.test_api_shim
+python manage.py makemigrations --check --dry-run
+python manage.py test
 ```
 
-Las pruebas de la API requieren PostgreSQL correctamente configurado y disponible.
+El chequeo y las pruebas de Django requieren dependencias instaladas y
+PostgreSQL configurado y disponible. `npm run test` ejecuta las pruebas
+automatizadas del flujo de inicialización de Webpay; no simula una aprobación.
+
+## Problemas habituales
+
+- **No conecta a PostgreSQL:** revisa que el servicio esté activo, que la base
+  `beatsbd` exista y que `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` y
+  `DB_PORT` en `.env` correspondan a tu instalación.
+- **Error 403 CSRF al usar React:** confirma que el `.env` de la raíz contenga
+  `DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000` y
+  reinicia Django.
+- **El registro no envía correo:** con el backend de consola, revisa la
+  terminal de Django y abre allí el enlace impreso. Para SMTP, configura las
+  variables de correo descritas arriba; Gmail exige contraseña de aplicación.
+- **El catálogo está vacío o faltan imágenes/audio:** la base y `media/` no
+  están incluidos en el clon. Añade contenido local desde Django; no se
+  descargan datos de prueba automáticamente.
+- **El puerto ya está ocupado:** detén el proceso que usa `8000` o `3000` y
+  vuelve a iniciar el servicio correspondiente.
