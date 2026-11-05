@@ -97,7 +97,7 @@ export const DjangoApi = {
     ),
   logout: () => request<{ ok: boolean }>('/api/auth/logout/', { method: 'POST' }),
   registro: (form: FormData) =>
-    ensureCsrf().then(() => request<unknown>('/api/auth/registro/', { method: 'POST', body: form })),
+    ensureCsrf().then(() => request<{ detail: string }>('/api/auth/registro/', { method: 'POST', body: form })),
 
   // Catálogo / tracks
   catalogo: (p: CatalogoParams = {}) => request<DCatalogoPage>(`/api/catalogo/${qsp(p as Record<string, string | number>)}`),
