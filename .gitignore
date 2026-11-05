@@ -11,3 +11,10 @@ staticfiles/
 
 # Local tooling
 .qodo/
+
+# Frontend: dependencias y artefactos generados
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+**/.DS_Store
+**/Thumbs.db
