@@ -50,6 +50,8 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
     addToCart,
     claimFreeTrack,
     downloadAuditionDemo,
+    downloadPurchasedTrack,
+    configuredMode,
     generateLicenseForTrack,
     addComment,
     deleteComment,
@@ -58,6 +60,8 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
 
   const [commentText, setCommentText] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
   const [auditionSuccess, setAuditionSuccess] = useState(false);
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
 
@@ -113,7 +117,21 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
     setTimeout(() => setDownloadSuccess(false), 3000);
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    setDownloadError('');
+    if (configuredMode === 'hybrid' && track.id.startsWith('dj-')) {
+      setIsDownloading(true);
+      try {
+        await downloadPurchasedTrack(track);
+        setDownloadSuccess(true);
+      } catch (error) {
+        setDownloadError((error as Error).message || 'No fue posible descargar el track.');
+      } finally {
+        setIsDownloading(false);
+      }
+      setTimeout(() => setDownloadSuccess(false), 3000);
+      return;
+    }
     setDownloadSuccess(true);
     const blob = new Blob(
       [
@@ -227,10 +245,12 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   track.isFree || track.price === 0 ? (
                     <button
                       onClick={handleDownloadFree}
-                      className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black px-5 py-3 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 hover:scale-102"
+                      disabled={configuredMode !== 'mock'}
+                      title={configuredMode === 'mock' ? 'Descarga de demostración local' : 'El backend no ofrece descarga gratuita'}
+                      className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-black px-5 py-3 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 hover:scale-102"
                     >
                       <Download className="w-4 h-4 stroke-[2.5]" />
-                      <span>{downloadSuccess ? '¡Descargado!' : 'Descargar Beat Gratis'}</span>
+                      <span>{configuredMode === 'mock' ? downloadSuccess ? '¡Descargado!' : 'Descargar demo' : 'Descarga no disponible'}</span>
                     </button>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2.5">
@@ -243,7 +263,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                       </button>
 
                       {/* Sweet spot action: Writing / Audition demo (solo si el productor la habilitó) */}
-                      {canDownloadAuditionDemo && (
+                      {canDownloadAuditionDemo && configuredMode === 'mock' && (
                         <button
                           onClick={() => {
                             setAuditionSuccess(true);
@@ -262,11 +282,12 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                 ) : (
                   <div className="flex flex-wrap items-center gap-2.5">
                     <button
-                      onClick={handleDownload}
-                      className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black px-5 py-3 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20"
+                      onClick={() => void handleDownload()}
+                      disabled={isDownloading}
+                      className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-wait text-zinc-950 font-black px-5 py-3 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20"
                     >
                       <Download className="w-4 h-4" />
-                      <span>{downloadSuccess ? '¡Descargado!' : 'Descargar Master WAV + Stems'}</span>
+                      <span>{isDownloading ? 'Descargando…' : downloadSuccess ? '¡Descargado!' : 'Descargar archivo comprado'}</span>
                     </button>
 
                     <button
@@ -278,6 +299,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                     </button>
                   </div>
                 )}
+                {downloadError && <p role="alert" className="w-full text-sm text-red-400">{downloadError}</p>}
 
                 <button
                   onClick={() => toggleLike(track.id)}

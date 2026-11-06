@@ -10,7 +10,7 @@ import type { DTrack, DUser, DVenta, DHistorialVenta, DHistorialCompra, DComenta
 
 const DJANGO_BASE: string = (((import.meta as any).env?.VITE_DJANGO_URL as string | undefined) ?? '').replace(/\/$/, ''); // '' = mismo origen (proxy de Vite)
 
-/** Rutas protegidas confirmadas en app/urls.py — el <audio> apunta aquí, no a /media/. */
+/** Rutas protegidas confirmadas en server/app/urls.py — el <audio> apunta aquí, no a /media/. */
 export const audioFullUrl = (idTrack: number) => `${DJANGO_BASE}/track/${idTrack}/reproducir/`;
 export const audioPreviewUrl = (idTrack: number) => `${DJANGO_BASE}/track/${idTrack}/preview/`;
 // Espejo de las rutas que expone api_shim.py para el SPA (prefijo /api/)

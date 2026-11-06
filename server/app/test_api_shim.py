@@ -1,8 +1,12 @@
 import json
+from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
-from .models import Genero_Musical, Track, Usuario, WebpayTransaction
+from django.urls import reverse
+from django.utils import timezone
+from .models import Genero_Musical, HistorialCompra, Track, Usuario, Venta, WebpayTransaction
 
 
 class ApiShimSecurityTests(TestCase):
@@ -115,3 +119,110 @@ class ApiShimSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
         self.assertIsNone(self.client.get("/api/session/").json())
+
+    def create_pending_cart_payment(self):
+        venta = Venta.objects.create(
+            detalle=self.track.nombre_track,
+            fecha=timezone.localdate(),
+            precio=1000,
+            iva=190,
+            precio_total=1190,
+            usuario_id=self.profile,
+            track=self.track,
+        )
+        payment = WebpayTransaction.objects.create(
+            user=self.user,
+            buy_order="cart-order",
+            session_id=self.user.username,
+            amount="1190.00",
+            status=WebpayTransaction.ESTADO_PENDIENTE,
+        )
+        return venta, payment
+
+    def test_cart_return_without_token_is_abandoned_and_preserves_cart(self):
+        venta, _ = self.create_pending_cart_payment()
+
+        response = self.client.post(reverse("exito_carrito"))
+
+        self.assertRedirects(
+            response,
+            f"{settings.SPA_URL}/?pago=abandoned",
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(Venta.objects.filter(pk=venta.pk).exists())
+
+    def test_cart_return_cancellation_is_cancelled_and_preserves_cart(self):
+        venta, payment = self.create_pending_cart_payment()
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("exito_carrito"),
+            {"TBK_ORDEN_COMPRA": payment.buy_order, "TBK_ID_SESION": payment.session_id},
+        )
+
+        self.assertRedirects(
+            response,
+            f"{settings.SPA_URL}/?pago=cancelled",
+            fetch_redirect_response=False,
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, WebpayTransaction.ESTADO_CANCELADO)
+        self.assertTrue(Venta.objects.filter(pk=venta.pk).exists())
+
+    def test_cart_cancellation_callback_works_without_session_cookie(self):
+        _, payment = self.create_pending_cart_payment()
+
+        response = self.client.post(
+            reverse("exito_carrito"),
+            {"TBK_ORDEN_COMPRA": payment.buy_order, "TBK_ID_SESION": payment.session_id},
+        )
+
+        self.assertRedirects(
+            response,
+            f"{settings.SPA_URL}/?pago=cancelled",
+            fetch_redirect_response=False,
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, WebpayTransaction.ESTADO_CANCELADO)
+
+    def test_cart_return_rejection_preserves_cart_and_does_not_create_purchase(self):
+        venta, payment = self.create_pending_cart_payment()
+        commit = {"response_code": 1, "status": "FAILED"}
+        with patch("app.views.Transaction") as transaction_class:
+            transaction_class.return_value.commit.return_value = commit
+
+            response = self.client.post(reverse("exito_carrito"), {"token_ws": "test-token"})
+
+        self.assertRedirects(
+            response,
+            f"{settings.SPA_URL}/?pago=rejected",
+            fetch_redirect_response=False,
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, WebpayTransaction.ESTADO_PENDIENTE)
+        self.assertTrue(Venta.objects.filter(pk=venta.pk).exists())
+        self.assertFalse(HistorialCompra.objects.filter(usuario=self.profile, track=self.track).exists())
+
+    def test_cart_return_approval_clears_cart_and_grants_purchase(self):
+        venta, payment = self.create_pending_cart_payment()
+        commit = {
+            "response_code": 0,
+            "status": "AUTHORIZED",
+            "buy_order": payment.buy_order,
+            "session_id": payment.session_id,
+            "amount": 1190,
+        }
+        with patch("app.views.Transaction") as transaction_class:
+            transaction_class.return_value.commit.return_value = commit
+
+            response = self.client.post(reverse("exito_carrito"), {"token_ws": "test-token"})
+
+        self.assertRedirects(
+            response,
+            f"{settings.SPA_URL}/?pago=approved",
+            fetch_redirect_response=False,
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, WebpayTransaction.ESTADO_AUTORIZADO)
+        self.assertFalse(Venta.objects.filter(pk=venta.pk).exists())
+        self.assertTrue(HistorialCompra.objects.filter(usuario=self.profile, track=self.track).exists())

@@ -12,38 +12,71 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def _load_local_env(path):
-    """Carga un archivo .env local sin dependencias externas y sin sobrescribir variables del sistema."""
+    """Carga las variables del archivo .env sin dependencias externas."""
     if not path.exists():
         return
+
     for raw_line in path.read_text(encoding='utf-8').splitlines():
         line = raw_line.strip()
+
         if not line or line.startswith('#') or '=' not in line:
             continue
+
         key, value = line.split('=', 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
+
         os.environ.setdefault(key, value)
 
 
 _load_local_env(BASE_DIR / '.env')
+
+SPA_URL = os.getenv('SPA_URL', 'http://localhost:3000').rstrip('/')
+
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'REDACTED_HISTORICAL_DEFAULT')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        'DJANGO_SECRET_KEY debe configurarse en el entorno o en server/.env.'
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv(
+    'DJANGO_DEBUG',
+    'False'
+).strip().lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        'DJANGO_ALLOWED_HOSTS',
+        '127.0.0.1,localhost'
+    ).split(',')
+    if host.strip()
+]
+
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        'DJANGO_CSRF_TRUSTED_ORIGINS',
+        ''
+    ).split(',')
+    if origin.strip()
+]
 
 
 # Application definition
@@ -96,20 +129,29 @@ WSGI_APPLICATION = 'beatcloud.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
-        'NAME': os.getenv('DB_NAME', 'beatsbd'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'REDACTED_HISTORICAL_DEFAULT'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            'options': '-c search_path=public',
-            'client_encoding': 'UTF8',
+DB_ENGINE = os.getenv('DB_ENGINE', 'django.db.backends.sqlite3')
+if DB_ENGINE.endswith('sqlite3'):
+    DATABASES = {
+        'default': {
+            'ENGINE': DB_ENGINE,
+            'NAME': os.getenv('DB_NAME', str(BASE_DIR / 'db.sqlite3')),
         }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': DB_ENGINE,
+            'NAME': os.getenv('DB_NAME', 'beatsbd'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                'options': '-c search_path=public',
+                'client_encoding': 'UTF8',
+            }
+        }
+    }
 
 
 
@@ -159,6 +201,8 @@ import os
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
+FFMPEG_PATH = os.getenv('FFMPEG_PATH', 'ffmpeg')
+
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 
@@ -173,6 +217,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Sesión expira al cerrar el navegador
 SESSION_COOKIE_SECURE = not DEBUG  # HTTPS en producción; HTTP local durante el desarrollo
 
 
+TRANSBANK_COMMERCE_CODE = os.getenv('TRANSBANK_COMMERCE_CODE', '')
 TRANSBANK_API_KEY = os.getenv('TRANSBANK_API_KEY', '')
 TRANSBANK_SHARED_SECRET = os.getenv('TRANSBANK_SHARED_SECRET', '')
 TRANSBANK_INTEGRATION_TYPE = os.getenv('TRANSBANK_INTEGRATION_TYPE', 'TEST')
@@ -180,11 +225,18 @@ TRANSBANK_INTEGRATION_TYPE = os.getenv('TRANSBANK_INTEGRATION_TYPE', 'TEST')
 # -----------------------------------------------------------------------------
 # Correo SMTP - confirmación de cuenta y recuperación de contraseña
 # -----------------------------------------------------------------------------
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.smtp.EmailBackend',
+)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'BeatCloud <no-reply@beatcloud.local>')
+DEFAULT_FROM_EMAIL = os.getenv(
+    'DEFAULT_FROM_EMAIL',
+    EMAIL_HOST_USER or 'BeatCloud <no-reply@beatcloud.local>'
+)
 EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))
+

@@ -23,6 +23,7 @@ import {
   Mic2,
   ShieldCheck,
   Lock,
+  LoaderCircle,
 } from 'lucide-react';
 
 interface CatalogPageProps {
@@ -72,6 +73,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     claimFreeTrack,
     downloadAuditionDemo,
     currentUser,
+    configuredMode,
+    backendStatus,
+    backendError,
+    refreshFromBackend,
     globalSearchQuery,
     setGlobalSearchQuery,
     activeResourceFilter,
@@ -395,26 +400,40 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
       {/* Content Rendering: TABLE / DAW VIEW vs GRID VIEW */}
       {filteredTracks.length === 0 ? (
-        <div className="p-12 text-center bg-[#0d0f17] border border-[#1b2030] rounded-3xl">
-          <Disc3 className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-white mb-1">No se encontraron resultados</h3>
-          <p className="text-xs text-zinc-500 mb-4">
-            Prueba ajustando los filtros de BPM, tonalidad o género musical.
-          </p>
-          <button
-            onClick={() => {
-              setSelectedGenre('Todos');
-              setSelectedKey('Todas');
-              setSelectedMood('Todos');
-              setOnlyWithStems(false);
-              setGlobalSearchQuery('');
-              setActiveResourceFilter('all');
-            }}
-            className="px-4 py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300"
-          >
-            Restablecer todos los filtros
-          </button>
-        </div>
+        backendStatus === 'checking' ? (
+          <div role="status" className="p-12 text-center bg-[#0d0f17] border border-[#1b2030] rounded-3xl text-sky-200">
+            <LoaderCircle className="w-8 h-8 animate-spin mx-auto mb-3" /> Cargando catálogo…
+          </div>
+        ) : backendStatus === 'offline' ? (
+          <div role="alert" className="p-12 text-center bg-[#0d0f17] border border-rose-400/20 rounded-3xl">
+            <h3 className="text-base font-bold text-white mb-1">No se pudo cargar el catálogo</h3>
+            <p className="text-xs text-zinc-400 mb-4">{backendError?.message ?? 'Conéctate a Django y vuelve a intentarlo.'}</p>
+            <button onClick={() => void refreshFromBackend().catch(() => {})} className="px-4 py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300">
+              Reintentar
+            </button>
+          </div>
+        ) : (
+          <div className="p-12 text-center bg-[#0d0f17] border border-[#1b2030] rounded-3xl">
+            <Disc3 className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-white mb-1">{tracks.length === 0 ? 'El catálogo está vacío' : 'No se encontraron resultados'}</h3>
+            <p className="text-xs text-zinc-500 mb-4">
+              {tracks.length === 0 ? 'Todavía no hay pistas publicadas.' : 'Prueba ajustando los filtros de BPM, tonalidad o género musical.'}
+            </p>
+            {tracks.length > 0 && <button
+              onClick={() => {
+                setSelectedGenre('Todos');
+                setSelectedKey('Todas');
+                setSelectedMood('Todos');
+                setOnlyWithStems(false);
+                setGlobalSearchQuery('');
+                setActiveResourceFilter('all');
+              }}
+              className="px-4 py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300"
+            >
+              Restablecer todos los filtros
+            </button>}
+          </div>
+        )
       ) : viewMode === 'table' ? (
         /* DAW Compact Table Layout */
         <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl overflow-hidden shadow-lg">
@@ -571,14 +590,16 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
                           {!isPurchased ? (
                             track.isFree || track.price === 0 ? (
-                              <button
-                                onClick={(e) => handleDownloadFree(e, track)}
-                                className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black rounded-lg text-xs flex items-center gap-1 shadow-sm transition-transform active:scale-95"
-                                title="Descargar demo libre (Non-Profit)"
-                              >
-                                <Download className="w-3 h-3 stroke-[2.5]" />
-                                <span>Descargar</span>
-                              </button>
+                              configuredMode === 'mock' ? (
+                                <button
+                                  onClick={(e) => handleDownloadFree(e, track)}
+                                  className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black rounded-lg text-xs flex items-center gap-1 shadow-sm transition-transform active:scale-95"
+                                  title="Descargar demo local"
+                                >
+                                  <Download className="w-3 h-3 stroke-[2.5]" />
+                                  <span>Demo</span>
+                                </button>
+                              ) : <span className="text-[10px] text-zinc-500" title="El backend no ofrece descarga gratuita">Sin descarga</span>
                             ) : (
                               <div className="flex items-center gap-1.5">
                                 <button
@@ -589,7 +610,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                                   <ShoppingCart className="w-3 h-3" />
                                   <span>Comprar</span>
                                 </button>
-                                {track.allowFreeDownload && (
+                                {track.allowFreeDownload && configuredMode === 'mock' && (
                                   <button
                                     onClick={(e) => handleDownloadAudition(e, track)}
                                     className="px-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-lg text-xs border border-zinc-700 flex items-center gap-1 transition-colors"
@@ -712,14 +733,16 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
                     {!isPurchased ? (
                       track.isFree || track.price === 0 ? (
-                        <button
-                          onClick={(e) => handleDownloadFree(e, track)}
-                          className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black rounded-lg text-xs flex items-center gap-1 shadow-sm transition-transform active:scale-95"
-                          title="Descargar demo libre (Non-Profit)"
-                        >
-                          <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>Descargar</span>
-                        </button>
+                        configuredMode === 'mock' ? (
+                          <button
+                            onClick={(e) => handleDownloadFree(e, track)}
+                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black rounded-lg text-xs flex items-center gap-1 shadow-sm transition-transform active:scale-95"
+                            title="Descargar demo local"
+                          >
+                            <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Demo</span>
+                          </button>
+                        ) : <span className="text-[10px] text-zinc-500" title="El backend no ofrece descarga gratuita">Sin descarga</span>
                       ) : (
                         <div className="flex items-center gap-1.5">
                           <button
@@ -729,7 +752,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                             <ShoppingCart className="w-3.5 h-3.5" />
                             <span>Comprar</span>
                           </button>
-                          {track.allowFreeDownload && (
+                          {track.allowFreeDownload && configuredMode === 'mock' && (
                             <button
                               onClick={(e) => handleDownloadAudition(e, track)}
                               className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg border border-zinc-700 flex items-center transition-colors"

@@ -1,7 +1,7 @@
 /**
- * django.service.ts — Cliente tipado de la API JSON del backend Django (api_shim.py).
+ * Cliente tipado de la API JSON del backend Django (server/app/api_shim.py).
  *
- * Contrato verificado contra `backend-integration/api_shim.py` (Fase B):
+ * Contrato verificado contra `server/app/api_shim.py`:
  *   GET    /api/csrf/                      -> {detail: token}
  *   GET    /api/session/                   -> DUser | null
  *   POST   /api/auth/login/                -> DUser (401 credenciales, 403 sin activar)
@@ -39,6 +39,11 @@ import type {
 const BASE = ((import.meta.env.VITE_DJANGO_URL as string | undefined) ?? '').replace(/\/$/, '');
 
 let csrfToken: string | null = null;
+let sessionExpiredHandler: (() => void) | null = null;
+
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  sessionExpiredHandler = handler;
+}
 
 async function parse(res: Response): Promise<any> {
   const data = await res.json().catch(() => ({}));
@@ -59,6 +64,12 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   if (!(opts.body instanceof FormData) && opts.body != null) headers.set('Content-Type', 'application/json');
   if (csrfToken && opts.method && opts.method !== 'GET') headers.set('X-CSRFToken', csrfToken);
   const res = await fetch(`${BASE}${path}`, { ...opts, headers, credentials: 'same-origin' });
+  if (res.status === 401 && !path.startsWith('/api/auth/login/') && !path.startsWith('/api/auth/registro/')) {
+    sessionExpiredHandler?.();
+  }
+  if (res.status === 403 && path.includes('/descargar/') && /inicia sesión|sesión requerida/i.test(await res.clone().text())) {
+    sessionExpiredHandler?.();
+  }
   return parse(res) as Promise<T>;
 }
 
@@ -135,6 +146,22 @@ export const DjangoApi = {
     request<DUser & { tracks: DTrack[] }>(`/api/perfil/${encodeURIComponent(username)}/`),
   suscripciones: (userId?: string | number) =>
     request<DSuscripcion[]>(`/api/suscripciones/${userId ? qsp({ user: userId }) : ''}`),
+
+  downloadTrack: async (trackId: number): Promise<{ blob: Blob; filename: string }> => {
+    const res = await fetch(`${BASE}/api/track/${trackId}/descargar/`, { credentials: 'same-origin' });
+    if (!res.ok) {
+      const message = await res.text();
+      if (res.status === 401 || (res.status === 403 && /inicia sesión|sesión requerida/i.test(message))) {
+        sessionExpiredHandler?.();
+      }
+      const err = new Error(message || `Error ${res.status}: ${res.statusText}`) as Error & { status?: number };
+      err.status = res.status;
+      throw err;
+    }
+    const disposition = res.headers.get('Content-Disposition') ?? '';
+    const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? `track-${trackId}`;
+    return { blob: await res.blob(), filename };
+  },
 };
 
 export default DjangoApi;

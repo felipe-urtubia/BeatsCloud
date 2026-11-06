@@ -66,6 +66,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleTabChange = (tab: string) => {
+    const requiresSession = ['perfil', 'ventas', 'favoritos'].includes(tab);
+    if (configuredMode !== 'mock' && !currentUser && requiresSession) {
+      onOpenAuth('login');
+      onCloseMobile?.();
+      return;
+    }
     setCurrentTab(tab);
     onCloseMobile?.();
   };

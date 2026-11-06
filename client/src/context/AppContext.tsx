@@ -21,31 +21,35 @@ import {
 } from '../data/mockData';
 import { audioEngine } from '../utils/audioEngine';
 import DjangoApi from '../api/django.service';
+import { setSessionExpiredHandler } from '../api/django.service';
 import { mapTrack, mapUser, djangoId } from '../api/mappers';
 import { startWebpayCheckout, submitWebpayForm } from '../api/webpayCheckout.mjs';
 import type { WebpayCheckoutResult } from '../api/webpayCheckout.mjs';
 
 /**
- * MODO DE INTEGRACIÓN — "punto medio" para el Sprint 1 (ver docs/INTEGRACION_BACKEND.md):
+ * MODO DE INTEGRACIÓN:
  *   mock   → todo localStorage (demo sin backend, plan de respaldo si falla la red)
  *   hybrid → DATOS REALES del backend Django (catálogo, sesión y carrito) sobre la UI
  *            existente. Las colecciones no confirmadas comienzan vacías; un fallo
  *            de sincronización no cambia el modo efectivo a mock.
- * Se selecciona con VITE_API_MODE (default: 'hybrid'). Si el backend no responde
- * al arrancar, la UI conserva hybrid y permite reintentar la sincronización.
+ * VITE_API_MODE=real conecta Django; mock conserva la demo. "hybrid" es alias legacy.
+ * Si Django no responde, se conserva el modo real y se puede reintentar.
  */
 export type ApiMode = 'mock' | 'hybrid';
 const CONFIGURED_MODE: ApiMode =
-  ((import.meta.env.VITE_API_MODE as string | undefined) || 'hybrid') === 'mock' ? 'mock' : 'hybrid';
+  ((import.meta.env.VITE_API_MODE as string | undefined) || 'real') === 'mock' ? 'mock' : 'hybrid';
 
 // Extensión interna del Track para URLs de audio real (la inyecta mappers.mapTrack)
 type TrackWithSrc = Track & { previewSrc?: string; fullSrc?: string; downloadSrc?: string };
+type CartTotals = { subtotal: number; iva: number; total: number };
 
 interface AppContextType {
   currentUser: User | null;
   users: User[];
   tracks: Track[];
   cart: CartItem[];
+  cartTotals: CartTotals | null;
+  cartError: string | null;
   subscriptions: ProducerSubscription[];
   sales: SaleRecord[];
   purchases: PurchaseRecord[];
@@ -91,6 +95,7 @@ interface AppContextType {
   deleteTrack: (trackId: string) => void;
   claimFreeTrack: (trackId: string) => boolean;
   downloadAuditionDemo: (track: Track) => void;
+  downloadPurchasedTrack: (track: Track) => Promise<void>;
   getContractForPurchase: (purchase: PurchaseRecord) => LicenseContract;
   getContractForSale: (sale: SaleRecord) => LicenseContract;
   generateLicenseForTrack: (track: Track) => LicenseContract;
@@ -113,6 +118,10 @@ interface AppContextType {
   backendError: { phase: 'session' | 'catalog' | 'cart'; type: 'network' | 'api'; status?: number; message: string } | null;
   isSyncing: boolean;          // hay una petición al backend en curso
   refreshFromBackend: () => Promise<void>;
+  sessionExpiredMessage: string | null;
+  clearSessionExpiredMessage: () => void;
+  paymentNotice: { status: 'approved' | 'rejected' | 'cancelled' | 'abandoned'; message: string } | null;
+  clearPaymentNotice: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -151,6 +160,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('bc_cart');
     return saved ? JSON.parse(saved) : [];
   });
+  const [cartTotals, setCartTotals] = useState<CartTotals | null>(isHybrid ? { subtotal: 0, iva: 0, total: 0 } : null);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   const [subscriptions] = useState<ProducerSubscription[]>(isHybrid ? [] : INITIAL_SUBSCRIPTIONS);
 
@@ -189,6 +200,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [apiMode, setApiMode] = useState<ApiMode>(CONFIGURED_MODE);
   const [backendStatus, setBackendStatus] = useState<'idle' | 'checking' | 'online' | 'offline'>(isHybrid ? 'checking' : 'idle');
   const [backendError, setBackendError] = useState<AppContextType['backendError']>(null);
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState<AppContextType['paymentNotice']>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const syncCount = useRef(0);
   const refreshSequence = useRef(0);
@@ -199,6 +212,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   modeRef.current = apiMode;
   // Carrito real: mapa trackId UI -> ventaId de Django (DELETE /api/carrito/<venta_id>/)
   const cartVentaIds = React.useRef<Record<string, number>>({});
+  const cartLineTotals = React.useRef<Record<string, CartTotals>>({});
+
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      refreshSequence.current += 1;
+      cartIdentityGeneration.current += 1;
+      cartVentaIds.current = {};
+      cartLineTotals.current = {};
+      cartOperationGeneration.current = {};
+      pendingCartAdds.current.clear();
+      setCurrentUserId('');
+      setUsers([]);
+      setTracks([]);
+      setCart([]);
+      setCartTotals({ subtotal: 0, iva: 0, total: 0 });
+      setCartError(null);
+      setSales([]);
+      setPurchases([]);
+      setActiveTrack(null);
+      setSessionExpiredMessage('Tu sesión expiró. Inicia sesión de nuevo para continuar.');
+      setBackendStatus('online');
+      setBackendError(null);
+      localStorage.removeItem('bc_session_user_id');
+      localStorage.removeItem('bc_cart');
+    });
+    return () => setSessionExpiredHandler(null);
+  }, []);
 
   /** Marca "syncing" alrededor de una llamada al backend. */
   const withSync = async <T,>(fn: () => Promise<T>): Promise<T> => {
@@ -237,33 +277,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Anónimo = carrito vacío válido. Autenticado = carrito consultado obligatoriamente.
       phase = 'cart';
       const identityGeneration = cartIdentityGeneration.current;
-      const cartRes = session ? await DjangoApi.carrito() : { items: [] };
+      const cartRes = session ? await DjangoApi.carrito() : { items: [], subtotal: 0, iva: 0, total: 0 };
       const byId = new Map(mapped.map((t) => [t.id, t]));
       const nextCartVentaIds: Record<string, number> = {};
+      const nextCartLineTotals: Record<string, CartTotals> = {};
       const items = cartRes.items
         .map((v) => {
           const t = byId.get(`dj-${v.track}`);
-          if (t) nextCartVentaIds[t.id] = v.id;
+          if (t) {
+            nextCartVentaIds[t.id] = v.id;
+            nextCartLineTotals[t.id] = { subtotal: v.precio, iva: v.iva, total: v.precio_total };
+          }
           return t ? { track: t, addedAt: v.fecha } : null;
         })
         .filter((x): x is CartItem => x !== null);
       if (sequence !== refreshSequence.current || identityGeneration !== cartIdentityGeneration.current) return;
       cartVentaIds.current = nextCartVentaIds;
+      cartLineTotals.current = nextCartLineTotals;
       setTracks(mapped);
       setUsers(uiUser ? [uiUser] : []);
       setCurrentUserId(uiUser?.id ?? '');
       if (uiUser) localStorage.setItem('bc_session_user_id', uiUser.id);
       else localStorage.removeItem('bc_session_user_id');
       setCart(items);
+      setCartTotals({ subtotal: cartRes.subtotal, iva: cartRes.iva, total: cartRes.total });
+      setCartError(null);
       setBackendError(null);
       setBackendStatus('online');
       audioEngine.setPlaybackMode('file');
     } catch (e) {
       if (sequence !== refreshSequence.current) return;
       const status = (e as Error & { status?: number }).status;
+      if (status === 401) throw e;
       const network = e instanceof TypeError && /fetch|network/i.test(e.message);
       setBackendError({ phase, type: network ? 'network' : 'api', ...(status ? { status } : {}), message: network ? 'No se pudo conectar con Django.' : 'Django rechazó o no pudo completar la solicitud.' });
       setBackendStatus('offline');
+      if (phase === 'cart') setCartTotals(null);
       throw e;
     }
   };
@@ -278,13 +327,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Al pagar en Webpay, Django redirige de vuelta con ?pago=exito|fracaso|cancelado:
-  // re-hidratamos para que HistorialCompra/Venta ya reflejen la compra autorizada.
+  // Django valida el retorno y devuelve a la SPA con un estado explícito.
   useEffect(() => {
     if (modeRef.current !== 'hybrid') return;
     const params = new URLSearchParams(window.location.search);
     const pago = params.get('pago');
     if (pago) {
+      const estados = {
+        approved: ['approved', 'Pago aprobado. Tu carrito se actualizó y ya puedes descargar las compras.'],
+        rejected: ['rejected', 'El pago fue rechazado. Tu carrito se mantiene para que puedas intentarlo nuevamente.'],
+        cancelled: ['cancelled', 'El pago fue anulado. Tu carrito se mantiene.'],
+        abandoned: ['abandoned', 'El pago quedó sin confirmar. Tu carrito se mantiene.'],
+        exito: ['approved', 'Pago aprobado. Tu carrito se actualizó y ya puedes descargar las compras.'],
+        cancelado: ['cancelled', 'El pago fue anulado. Tu carrito se mantiene.'],
+        fracaso: ['rejected', 'El pago fue rechazado. Tu carrito se mantiene para que puedas intentarlo nuevamente.'],
+      } as const;
+      const notice = estados[pago as keyof typeof estados];
+      if (notice) setPaymentNotice({ status: notice[0], message: notice[1] });
       window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`);
       withSync(loadFromBackend).catch(() => {});
     }
@@ -296,6 +355,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBackendError(null);
     return withSync(loadFromBackend);
   };
+
+  const clearSessionExpiredMessage = () => setSessionExpiredMessage(null);
+  const clearPaymentNotice = () => setPaymentNotice(null);
 
   // Regla de seguridad central: una pista está protegida (preview amortiguada,
   // sin descarga de master) si tiene marca de agua y el usuario no la adquirió.
@@ -473,6 +535,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .then((venta) => {
           if (identityGeneration !== cartIdentityGeneration.current || cartOperationGeneration.current[track.id] !== operationGeneration) return venta.id;
           cartVentaIds.current[track.id] = venta.id;
+          setCartError(null);
+          const lineTotals = { subtotal: venta.precio, iva: venta.iva, total: venta.precio_total };
+          cartLineTotals.current[track.id] = lineTotals;
+          setCartTotals((prev) => prev ? {
+            subtotal: prev.subtotal + lineTotals.subtotal,
+            iva: prev.iva + lineTotals.iva,
+            total: prev.total + lineTotals.total,
+          } : lineTotals);
           setCart((prev) =>
             prev.some((i) => i.track.id === track.id) ? prev : [...prev, { track, addedAt: venta.fecha }]
           );
@@ -480,6 +550,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
         .catch((e) => {
           // 409 duplicado/recompra, 401 sin sesión: no agregamos nada.
+          if ((e as Error & { status?: number }).status !== 401) {
+            setCartError((e as Error).message || 'No se pudo agregar el track al carrito.');
+          }
           console.warn('[BeatsCloud] No se pudo agregar al carrito:', e);
           return null;
         }).finally(() => {
@@ -497,20 +570,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pendingAdd = pendingCartAdds.current.get(trackId);
     const ventaId = cartVentaIds.current[trackId];
     const item = cart.find((entry) => entry.track.id === trackId);
+    const lineTotals = cartLineTotals.current[trackId] ?? (item ? {
+      subtotal: item.track.price,
+      iva: Math.round(item.track.price * 0.19),
+      total: item.track.price + Math.round(item.track.price * 0.19),
+    } : null);
     const identityGeneration = cartIdentityGeneration.current;
     const operationGeneration = (cartOperationGeneration.current[trackId] || 0) + 1;
     cartOperationGeneration.current[trackId] = operationGeneration;
     setCart((prev) => prev.filter((item) => item.track.id !== trackId));
     delete cartVentaIds.current[trackId];
+    delete cartLineTotals.current[trackId];
+    if (lineTotals) setCartTotals((prev) => prev ? {
+      subtotal: Math.max(0, prev.subtotal - lineTotals.subtotal),
+      iva: Math.max(0, prev.iva - lineTotals.iva),
+      total: Math.max(0, prev.total - lineTotals.total),
+    } : null);
     if (modeRef.current === 'hybrid' && (ventaId != null || pendingAdd)) {
       const remove = async () => {
         const confirmedVentaId = ventaId ?? await pendingAdd;
         if (confirmedVentaId == null || identityGeneration !== cartIdentityGeneration.current || cartOperationGeneration.current[trackId] !== operationGeneration) return;
         await withSync(() => DjangoApi.removeFromCart(confirmedVentaId));
+        setCartError(null);
       };
       remove().catch((e) => {
         if (identityGeneration === cartIdentityGeneration.current && cartOperationGeneration.current[trackId] === operationGeneration) {
+          if ((e as Error & { status?: number }).status !== 401) {
+            setCartError((e as Error).message || 'No se pudo quitar el track del carrito.');
+          }
           if (item) setCart((prev) => prev.some((entry) => entry.track.id === trackId) ? prev : [...prev, item]);
+          if (lineTotals) {
+            cartLineTotals.current[trackId] = lineTotals;
+            setCartTotals((prev) => prev ? {
+              subtotal: prev.subtotal + lineTotals.subtotal,
+              iva: prev.iva + lineTotals.iva,
+              total: prev.total + lineTotals.total,
+            } : lineTotals);
+          }
           if (ventaId != null) cartVentaIds.current[trackId] = ventaId;
           else pendingAdd?.then((id) => {
             if (id != null && identityGeneration === cartIdentityGeneration.current && cartOperationGeneration.current[trackId] === operationGeneration) cartVentaIds.current[trackId] = id;
@@ -539,7 +635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (modeRef.current !== 'hybrid') {
       return {
         status: 'error',
-        message: 'El pago Webpay requiere el modo hybrid conectado a Django.',
+        message: 'El pago Webpay requiere el modo real conectado a Django.',
       };
     }
 
@@ -752,17 +848,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!password) return { success: false, error: 'Ingresa tu contraseña.' };
       try {
         const dUser = await withSync(() => DjangoApi.login(username, password));
+        setSessionExpiredMessage(null);
         const uiUser = mapUser(dUser);
         // La confirmación de Django cambia la identidad activa. Invalida cualquier
         // snapshot anterior antes de iniciar la rehidratación del nuevo usuario.
         refreshSequence.current += 1;
         cartIdentityGeneration.current += 1;
         cartVentaIds.current = {};
+        cartLineTotals.current = {};
         cartOperationGeneration.current = {};
         pendingCartAdds.current.clear();
         setUsers([uiUser]);
         setTracks([]);
         setCart([]);
+        setCartTotals({ subtotal: 0, iva: 0, total: 0 });
+        setCartError(null);
         setActiveTrack(null);
         setCurrentUserId(uiUser.id);
         localStorage.setItem('bc_session_user_id', uiUser.id);
@@ -796,10 +896,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       refreshSequence.current += 1;
       cartIdentityGeneration.current += 1;
       cartVentaIds.current = {};
+      cartLineTotals.current = {};
       cartOperationGeneration.current = {};
       pendingCartAdds.current.clear();
       setCart([]);
+      setCartTotals({ subtotal: 0, iva: 0, total: 0 });
+      setUsers([]);
+      setTracks([]);
+      setSales([]);
+      setPurchases([]);
+      setActiveTrack(null);
       localStorage.removeItem('bc_cart');
+      await withSync(loadFromBackend).catch(() => {});
     }
     if (CONFIGURED_MODE === 'hybrid') localStorage.removeItem('bc_current_user_id');
     localStorage.removeItem('bc_session_user_id');
@@ -904,6 +1012,19 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
     a.href = url;
     a.download = `Maqueta_Ensayo_${track.title.replace(/[\s/]/g, '_')}_BeatsCloud.txt`;
     a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadPurchasedTrack = async (track: Track) => {
+    if (modeRef.current !== 'hybrid' || !track.id.startsWith('dj-')) {
+      throw new Error('La descarga del archivo original requiere una compra confirmada en Django.');
+    }
+    const { blob, filename } = await withSync(() => DjangoApi.downloadTrack(djangoId(track.id)));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
     URL.revokeObjectURL(url);
   };
 
@@ -1038,6 +1159,8 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
         users,
         tracks,
         cart,
+        cartTotals,
+        cartError,
         subscriptions,
         sales,
         purchases,
@@ -1064,6 +1187,7 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
         deleteTrack,
         claimFreeTrack,
         downloadAuditionDemo,
+        downloadPurchasedTrack,
         getContractForPurchase,
         getContractForSale,
         generateLicenseForTrack,
@@ -1082,6 +1206,10 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
         backendError,
         isSyncing,
         refreshFromBackend,
+        sessionExpiredMessage,
+        clearSessionExpiredMessage,
+        paymentNotice,
+        clearPaymentNotice,
       }}
     >
       {children}

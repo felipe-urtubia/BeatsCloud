@@ -6,6 +6,7 @@ import {
   Trash2,
   ShieldCheck,
   ArrowRight,
+  LoaderCircle,
 } from 'lucide-react';
 
 interface CartPageProps {
@@ -17,15 +18,15 @@ export const CartPage: React.FC<CartPageProps> = ({
   onNavigateCatalog,
   onOpenTrackDetail,
 }) => {
-  const { cart, removeFromCart, clearCart, checkoutCart } = useApp();
+  const { cart, cartTotals, cartError, removeFromCart, clearCart, checkoutCart, backendStatus, backendError, refreshFromBackend } = useApp();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
-  const subtotal = cart.reduce((sum, item) => sum + item.track.price, 0);
-  const iva = Math.round(subtotal * 0.19);
-  const total = subtotal + iva;
+  const subtotal = cartTotals?.subtotal ?? cart.reduce((sum, item) => sum + item.track.price, 0);
+  const iva = cartTotals?.iva ?? Math.round(subtotal * 0.19);
+  const total = cartTotals?.total ?? subtotal + iva;
 
   const handleStartCheckout = async () => {
     if (isProcessing) return;
@@ -82,6 +83,17 @@ export const CartPage: React.FC<CartPageProps> = ({
       </div>
 
       {cart.length === 0 ? (
+        backendStatus === 'checking' ? (
+          <div role="status" className="bg-[#0e111a] border border-[#1b2030] rounded-3xl p-12 text-center text-sky-200">
+            <LoaderCircle className="w-8 h-8 animate-spin mx-auto mb-3" /> Cargando carrito…
+          </div>
+        ) : backendStatus === 'offline' ? (
+          <div role="alert" className="bg-[#0e111a] border border-rose-400/20 rounded-3xl p-12 text-center">
+            <h3 className="text-base font-bold text-white mb-2">No se pudo cargar el carrito</h3>
+            <p className="text-xs text-zinc-400 mb-4">{backendError?.message ?? 'Conéctate a Django y vuelve a intentarlo.'}</p>
+            <button onClick={() => void refreshFromBackend().catch(() => {})} className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold px-4 py-2 rounded-xl text-xs">Reintentar</button>
+          </div>
+        ) : (
         /* Empty Cart State */
         <div className="bg-[#0e111a] border border-[#1b2030] rounded-3xl p-12 text-center">
           <div className="w-14 h-14 rounded-2xl bg-zinc-800/80 text-zinc-500 flex items-center justify-center mx-auto mb-3">
@@ -98,6 +110,7 @@ export const CartPage: React.FC<CartPageProps> = ({
             Explorar Catálogo de Audio
           </button>
         </div>
+        )
       ) : (
         /* Items & Summary Grid */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -220,6 +233,8 @@ export const CartPage: React.FC<CartPageProps> = ({
           </div>
         </div>
       )}
+
+      {cartError && <p role="alert" className="text-sm text-rose-400">{cartError}</p>}
 
     </div>
   );

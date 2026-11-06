@@ -15,21 +15,13 @@ Qué agrega:
     NO toca INSTALLED_APPS salvo una línea comentada opcional).
   * Endpoints espejo de lo que consume el frontend React (src/api/client.ts).
 
-Instalación (en el repo de Felipe, mínimo invasivo):
-  1. Copiar este archivo a  app/api_shim.py
-  2. En app/urls.py agregar AL FINAL del urlpatterns existente:
-        from django.urls import path
-        from . import api_shim
-        urlpatterns += api_shim.urlpatterns          # <- única línea obligatoria
-     (o bien:  urlpatterns = api_shim.wrap_with_api(urlpatterns)  si además
-      quieren CORS para localhost:3000 sin instalar django-cors-headers)
-  3. Nada más. Las vistas HTML de Felipe siguen intactas y funcionando.
-
-Frontend: correr con  VITE_API_MODE=rest  VITE_DJANGO_URL=http://localhost:8000
+La API se monta desde `app/urls.py` en este backend unificado. El frontend usa
+la capa tipada `client/src/api/django.service.ts` y sesión Django.
 """
 import json
 import mimetypes
 import random
+import secrets
 
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMultiAlternatives
@@ -619,7 +611,7 @@ def pago_init_api(request):
     wt = WebpayTransaction.objects.create(
         user=request.user,
         buy_order=str(random.randrange(1000000, 99999999)),
-        session_id=request.user.username,  # misma convencion que views.py
+        session_id=secrets.token_urlsafe(24),
         amount=amount,
     )
     from django.urls import reverse

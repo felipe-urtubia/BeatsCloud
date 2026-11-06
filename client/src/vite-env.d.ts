@@ -3,7 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_DJANGO_URL?: string;
-  /** 'mock' | 'hybrid' — hybrid: mockup + integración real con backend */
+  /** 'real' (alias legacy: 'hybrid') | 'mock' */
   readonly VITE_API_MODE?: string;
 }
 

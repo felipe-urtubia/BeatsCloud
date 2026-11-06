@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -17,7 +17,14 @@ import { Track, UserType } from './types';
 import { BackendStatusBanner } from './components/BackendStatusBanner';
 
 export const App: React.FC = () => {
-  const { currentUser } = useApp();
+  const {
+    currentUser,
+    sessionExpiredMessage,
+    clearSessionExpiredMessage,
+    paymentNotice,
+    clearPaymentNotice,
+    configuredMode,
+  } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>('descubrir');
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
@@ -33,12 +40,23 @@ export const App: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
+  useEffect(() => {
+    if (!sessionExpiredMessage) return;
+    setCurrentTab('descubrir');
+    setAuthMode('login');
+    setAuthModalOpen(true);
+  }, [sessionExpiredMessage]);
+
   const handleOpenAuth = (mode: 'login' | 'register') => {
     setAuthMode(mode);
     setAuthModalOpen(true);
   };
 
   const handleOpenUpload = () => {
+    if (!currentUser && configuredMode !== 'mock') {
+      handleOpenAuth('login');
+      return;
+    }
     setTrackToEdit(null);
     setUploadModalOpen(true);
   };
@@ -89,6 +107,19 @@ export const App: React.FC = () => {
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
         <BackendStatusBanner />
+        {paymentNotice && (
+          <div
+            role={paymentNotice.status === 'approved' ? 'status' : 'alert'}
+            className={`flex items-center justify-between gap-3 border-b px-4 py-3 text-sm ${
+              paymentNotice.status === 'approved'
+                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+                : 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+            }`}
+          >
+            <span>{paymentNotice.message}</span>
+            <button onClick={clearPaymentNotice} className="rounded px-2 py-1 hover:bg-white/10" aria-label="Cerrar aviso">×</button>
+          </div>
+        )}
 
         {/* Dynamic Main Views Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28">
@@ -195,7 +226,10 @@ export const App: React.FC = () => {
       <AuthModal
         isOpen={authModalOpen}
         mode={authMode}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={() => {
+          setAuthModalOpen(false);
+          clearSessionExpiredMessage();
+        }}
         onSwitchMode={(mode) => setAuthMode(mode)}
       />
 

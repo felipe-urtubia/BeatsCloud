@@ -16,7 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onSwitchMode,
 }) => {
-  const { login, registerUser, registerAccount, switchUser, users, configuredMode } = useApp();
+  const { login, registerUser, registerAccount, switchUser, users, configuredMode, sessionExpiredMessage } = useApp();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -140,6 +140,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {error && (
           <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-3 rounded-xl mb-4">
             {error}
+          </div>
+        )}
+        {sessionExpiredMessage && (
+          <div role="alert" className="bg-amber-400/10 border border-amber-400/30 text-amber-200 text-xs p-3 rounded-xl mb-4">
+            {sessionExpiredMessage}
           </div>
         )}
 

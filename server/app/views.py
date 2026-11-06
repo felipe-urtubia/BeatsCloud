@@ -1227,7 +1227,7 @@ def _marcar_cancelada_desde_retorno_webpay(request, *, es_suscripcion):
     Marca como CANCELLED una transacción PENDING cuando Webpay devuelve
     TBK_ORDEN_COMPRA/TBK_ID_SESION sin token_ws después de una cancelación.
     """
-    if not request.user.is_authenticated:
+    if es_suscripcion and not request.user.is_authenticated:
         return False
 
     buy_order = (
@@ -1242,17 +1242,25 @@ def _marcar_cancelada_desde_retorno_webpay(request, *, es_suscripcion):
     if not buy_order or not session_id:
         return False
 
-    actualizadas = WebpayTransaction.objects.filter(
-        buy_order=str(buy_order),
-        session_id=str(session_id),
-        user=request.user,
-        status=WebpayTransaction.ESTADO_PENDIENTE,
-        suscripcion__isnull=not es_suscripcion,
-    ).update(
+    filtros = {
+        "buy_order": str(buy_order),
+        "session_id": str(session_id),
+        "status": WebpayTransaction.ESTADO_PENDIENTE,
+        "suscripcion__isnull": not es_suscripcion,
+    }
+    if es_suscripcion:
+        filtros["user"] = request.user
+
+    actualizadas = WebpayTransaction.objects.filter(**filtros).update(
         status=WebpayTransaction.ESTADO_CANCELADO
     )
 
     return actualizadas == 1
+
+
+def _redirect_spa_pago(estado):
+    """Devuelve el resultado validado del carrito a la SPA local/configurada."""
+    return HttpResponseRedirect(f"{settings.SPA_URL}/?pago={estado}")
 
 
 @login_required
@@ -1382,7 +1390,7 @@ def exito_carrito(request):
             "TRANSACCION_CANCELADA_LOCALMENTE:",
             cancelada,
         )
-        return redirect('cancelado')
+        return _redirect_spa_pago('cancelled' if cancelada else 'abandoned')
 
     try:
         tx = Transaction(
@@ -1427,7 +1435,7 @@ def exito_carrito(request):
 
         if not response_code_ok or str(status).upper() != 'AUTHORIZED':
             print("PAGO CARRITO RECHAZADO POR TRANSBANK")
-            return redirect('cancelado')
+            return _redirect_spa_pago('rejected')
 
         # Verificar que la respuesta corresponde a una transacción creada
         # previamente por BeatCloud.
@@ -1437,14 +1445,14 @@ def exito_carrito(request):
 
         if webpay_transaction is None:
             print("PAGO CARRITO: buy_order no encontrado:", buy_order)
-            return redirect('cancelado')
+            return _redirect_spa_pago('rejected')
 
         try:
             expected_amount = int(round(float(webpay_transaction.amount)))
             paid_amount = int(round(float(amount)))
         except (TypeError, ValueError):
             print("PAGO CARRITO: monto inválido en la respuesta")
-            return redirect('cancelado')
+            return _redirect_spa_pago('rejected')
 
         if expected_amount != paid_amount:
             print(
@@ -1452,11 +1460,11 @@ def exito_carrito(request):
                 "Esperado:", expected_amount,
                 "Pagado:", paid_amount
             )
-            return redirect('cancelado')
+            return _redirect_spa_pago('rejected')
 
         if session_id and str(webpay_transaction.session_id) != session_id:
             print("PAGO CARRITO: session_id no coincide")
-            return redirect('cancelado')
+            return _redirect_spa_pago('rejected')
 
         usuario_comprador = Usuario.objects.get(
             user=webpay_transaction.user
@@ -1468,7 +1476,7 @@ def exito_carrito(request):
 
         if not ventas.exists():
             print("PAGO CARRITO: no hay productos pendientes en el carrito")
-            return redirect('cancelado')
+            return _redirect_spa_pago('rejected')
 
         # Validación adicional: el carrito actual debe coincidir con el monto
         # que efectivamente fue pagado.
@@ -1483,7 +1491,7 @@ def exito_carrito(request):
                 "Carrito:", total_actual,
                 "Pagado:", paid_amount
             )
-            return redirect('cancelado')
+            return _redirect_spa_pago('rejected')
 
         # Registrar la compra únicamente después del commit exitoso.
         with transaction.atomic():
@@ -1507,19 +1515,11 @@ def exito_carrito(request):
 
                 venta.delete()
 
-        return render(
-            request,
-            'app/exito.html',
-            {
-                'transbank_response': response,
-                'monto_pagado': paid_amount,
-                'buy_order': buy_order,
-            }
-        )
+        return _redirect_spa_pago('approved')
 
     except Exception as e:
         print("ERROR COMMIT TRANSBANK CARRITO:", repr(e))
-        return redirect('cancelado')
+        return _redirect_spa_pago('rejected')
 
 
 @csrf_exempt
