@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 interface DiscoverPageProps {
-  onNavigateCatalog: () => void;
+  onNavigateCatalog: (resource?: ResourceType) => void;
   onOpenTrackDetail: (trackId: string) => void;
   onOpenProducerProfile: (producerId: string) => void;
 }
@@ -54,7 +54,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={onNavigateCatalog}
+              onClick={() => onNavigateCatalog()}
               className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black px-5 py-2.5 rounded-xl text-xs transition-all hover:scale-102 flex items-center gap-2 shadow-sm"
             >
               <span>Explorar Todo el Catálogo</span>
@@ -69,7 +69,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
         <div
           onClick={() => {
             setActiveResourceFilter('instrumental');
-            onNavigateCatalog();
+            onNavigateCatalog('instrumental');
           }}
           className="bg-[#0e111a] border border-sky-500/20 hover:border-sky-500/50 p-4 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5 group"
         >
@@ -86,7 +86,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
         <div
           onClick={() => {
             setActiveResourceFilter('loop');
-            onNavigateCatalog();
+            onNavigateCatalog('loop');
           }}
           className="bg-[#0e111a] border border-amber-500/20 hover:border-amber-500/50 p-4 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5 group"
         >
@@ -103,7 +103,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
         <div
           onClick={() => {
             setActiveResourceFilter('acapella');
-            onNavigateCatalog();
+            onNavigateCatalog('acapella');
           }}
           className="bg-[#0e111a] border border-purple-500/20 hover:border-purple-500/50 p-4 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5 group"
         >
@@ -120,7 +120,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
         <div
           onClick={() => {
             setActiveResourceFilter('drumkit');
-            onNavigateCatalog();
+            onNavigateCatalog('drumkit');
           }}
           className="bg-[#0e111a] border border-emerald-500/20 hover:border-emerald-500/50 p-4 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5 group"
         >
@@ -145,7 +145,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
             </h2>
           </div>
           <button
-            onClick={onNavigateCatalog}
+            onClick={() => onNavigateCatalog()}
             className="text-xs font-bold text-amber-400 hover:text-amber-300"
           >
             Ver catálogo completo →

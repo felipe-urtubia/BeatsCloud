@@ -29,7 +29,7 @@ import {
 
 interface SidebarProps {
   currentTab: string;
-  setCurrentTab: (tab: string) => void;
+  setCurrentTab: (tab: string, resource?: ResourceType) => void;
   onOpenUpload: () => void;
   onOpenAuth: (mode: 'login' | 'register') => void;
   isMobileOpen?: boolean;
@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSelectResourceFilter = (filter: ResourceType) => {
     setActiveResourceFilter(filter);
-    setCurrentTab('catalogo');
+    setCurrentTab('catalogo', filter);
     onCloseMobile?.();
   };
 

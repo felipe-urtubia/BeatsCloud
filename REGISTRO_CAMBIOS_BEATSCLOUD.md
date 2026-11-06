@@ -1838,3 +1838,42 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - No se altero el procedimiento de confirmacion de Webpay.
 - Las pruebas automatizadas existentes no cubren directamente
   la nueva integracion de totales del carrito.
+
+---
+
+## Enlaces individuales y menu principal - 06-11-2026
+
+### Mejoras implementadas
+
+- Se incorporaron enlaces directos a las secciones principales.
+- El catalogo conserva enlaces a sus categorias de audio.
+- Se actualizaron los manejadores del historial del navegador.
+- Los enlaces soportan recarga, Atras y Adelante.
+- Se conservaron los enlaces de canciones y perfiles publicos.
+- Se mantuvieron las restricciones de las vistas privadas.
+- Se retiro el buscador de la barra superior.
+- La busqueda de canciones permanece disponible en el catalogo.
+- Se corrigieron dos manejadores de clic en DiscoverPage.tsx.
+
+### Verificacion tecnica
+
+- Compilacion TypeScript y Vite aprobada.
+- Pruebas automatizadas: 23 aprobadas, 0 fallidas.
+- Ocho pruebas nuevas sobre enlaces y navegacion.
+
+### Verificaciones visuales
+
+- Enlaces de secciones principales aprobados.
+- Enlaces de categorias de audio aprobados.
+- Apartados de usuario comprobados.
+- Buscador del catalogo comprobado.
+- Historial Atras y Adelante comprobado.
+- Enlaces a canciones y perfiles comprobados.
+- Total: 6 verificaciones visuales aprobadas.
+
+### Alcance y seguridad
+
+- Sin cambios en Django ni PostgreSQL.
+- Sin modificar canciones, compras ni pagos.
+- Sin dependencias nuevas para las pruebas.
+- No se realizaron operaciones en Webpay.

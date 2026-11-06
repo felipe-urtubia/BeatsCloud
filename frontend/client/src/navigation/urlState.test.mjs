@@ -8,6 +8,8 @@ import {
   makeLeaveProfileUrl,
   lookupPublicProfile,
   lookupPublicProfileForRoute,
+  readPageNavigation,
+  makeTabUrl,
 } from './urlState.ts';
 
 const users = [
@@ -109,4 +111,65 @@ test('permite buscar un productor por ID y rol', () => {
     )?.username,
     'productor_demo'
   );
+});
+
+
+test('cada seccion principal tiene enlace propio', () => {
+  for (const tab of [
+    'descubrir','catalogo','usuarios','sobre_nosotros',
+    'carrito','perfil','ventas','favoritos'
+  ]) {
+    const url = makeTabUrl('http://localhost:3000/', tab);
+    assert.equal(readPageNavigation(new URL(url, 'http://localhost:3000').search).tab, tab);
+  }
+});
+
+test('enlaces directos de las cuatro categorias de audio', () => {
+  for (const resource of ['instrumental','loop','acapella','drumkit']) {
+    const url = makeTabUrl('http://localhost:3000/', 'catalogo', resource);
+    assert.deepEqual(readPageNavigation(new URL(url, 'http://localhost:3000').search), {tab:'catalogo',resource});
+  }
+});
+
+test('catalogo general no arrastra filtros de audio', () => {
+  assert.equal(
+    makeTabUrl('http://localhost:3000/?tab=catalogo&resource=loop', 'catalogo'),
+    '/?tab=catalogo'
+  );
+});
+
+test('navegar a otra pagina limpia filtros, perfil y cancion', () => {
+  assert.equal(
+    makeTabUrl('http://localhost:3000/?tab=catalogo&resource=loop&track=dj-2&profile=demo', 'carrito'),
+    '/?tab=carrito'
+  );
+});
+
+test('rutas invalidas vuelven a inicio sin aceptar filtros no soportados', () => {
+  assert.deepEqual(
+    readPageNavigation('?tab=catalogo&resource=inesperado'),
+    { tab:'catalogo',resource:'all' }
+  );
+  assert.equal(readPageNavigation('?tab=desconocido').tab, 'descubrir');
+});
+
+test('enlaces publicos de perfil no arrastran apartados privados', () => {
+  assert.equal(
+    makeProfileUrl('http://localhost:3000/?tab=carrito&resource=loop','productor_demo'),
+    '/?profile=productor_demo'
+  );
+});
+
+test('enlace de cancion conserva la seccion y su filtro', () => {
+  assert.equal(
+    makeTrackUrl('http://localhost:3000/?tab=catalogo&resource=instrumental', 'dj-11'),
+    '/?tab=catalogo&resource=instrumental&track=dj-11'
+  );
+});
+
+test('el historial se puede representar con los enlaces generados', () => {
+  const first = makeTabUrl('http://localhost:3000/', 'usuarios');
+  const next = makeTabUrl(`http://localhost:3000${first}`, 'carrito');
+  assert.equal(readPageNavigation(new URL(first, 'http://localhost:3000').search).tab, 'usuarios');
+  assert.equal(readPageNavigation(new URL(next, 'http://localhost:3000').search).tab, 'carrito');
 });

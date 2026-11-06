@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 interface CatalogPageProps {
+  onSelectResource: (resource: ResourceType | 'all') => void;
   onOpenTrackDetail: (trackId: string) => void;
   onOpenProducerProfile: (producerId: string) => void;
 }
@@ -47,6 +48,7 @@ const SCALES = [
 ];
 
 export const CatalogPage: React.FC<CatalogPageProps> = ({
+  onSelectResource,
   onOpenTrackDetail,
   onOpenProducerProfile,
 }) => {
@@ -65,7 +67,6 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     globalSearchQuery,
     setGlobalSearchQuery,
     activeResourceFilter,
-    setActiveResourceFilter,
   } = useApp();
 
   const [selectedGenre, setSelectedGenre] = useState<'Todos' | MusicGenre>('Todos');
@@ -262,11 +263,28 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   return (
     <div className="py-5 pb-36 max-w-7xl mx-auto space-y-5">
+      <div className="relative flex flex-wrap items-center gap-2 bg-[#10131d] border border-[#1b2030] rounded-2xl p-3">
+        <Search className="w-4 h-4 text-zinc-400" />
+        <input
+          type="search"
+          aria-label="Buscar canciones en el cat?logo"
+          placeholder="Buscar canci?n, productor, g?nero, BPM o tonalidad..."
+          value={globalSearchQuery}
+          onChange={(event) => setGlobalSearchQuery(event.target.value)}
+          className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-zinc-500 outline-none"
+        />
+        {globalSearchQuery && (
+          <button type="button" onClick={() => setGlobalSearchQuery('')}
+            className="text-xs text-amber-400 hover:text-amber-300 font-bold">
+            Limpiar
+          </button>
+        )}
+      </div>
       {/* Top Filter Bar: Content Type Pill Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d0f17] border border-[#1b2030] p-3 rounded-2xl shadow-sm">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <button
-            onClick={() => setActiveResourceFilter('all')}
+            onClick={() => onSelectResource('all')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
               activeResourceFilter === 'all'
                 ? 'bg-amber-400 text-zinc-950 font-black shadow-sm'
@@ -285,7 +303,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             return (
               <button
                 key={t.id}
-                onClick={() => setActiveResourceFilter(t.id)}
+                onClick={() => onSelectResource(t.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
                   isSelected
                     ? `${info.badgeClass} ring-1 ring-amber-400 font-bold`
@@ -500,7 +518,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               setOnlyWithStems(false);
               setPriceFilter('all');
               setGlobalSearchQuery('');
-              setActiveResourceFilter('all');
+              onSelectResource('all');
             }}
             className="px-4 py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300"
           >

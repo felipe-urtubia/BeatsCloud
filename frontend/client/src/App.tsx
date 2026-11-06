@@ -13,12 +13,13 @@ import { AboutPage } from './components/AboutPage';
 import { TrackDetailModal } from './components/TrackDetailModal';
 import { UploadTrackModal } from './components/UploadTrackModal';
 import { AuthModal } from './components/AuthModal';
-import { Track, UserType } from './types';
+import { Track, UserType, ResourceType } from './types';
 import {
   readNavigation,
   makeTrackUrl,
   makeProfileUrl,
-  makeLeaveProfileUrl,
+  readPageNavigation,
+  makeTabUrl,
   lookupPublicProfile,
   lookupPublicProfileForRoute,
 } from './navigation/urlState';
@@ -27,12 +28,12 @@ import { X } from 'lucide-react';
 import { AccountDeletionModal } from './components/AccountDeletionModal';
 
 export const App: React.FC = () => {
-  const { currentUser, users, paymentNotice, clearPaymentNotice } = useApp();
+  const { currentUser, users, paymentNotice, clearPaymentNotice, setActiveResourceFilter } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>(
     () => readNavigation(window.location.search).profileUsername
       ? 'perfil_externo'
-      : 'descubrir',
+      : readPageNavigation(window.location.search).tab,
   );
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(
     () => readNavigation(window.location.search).trackId,
@@ -65,29 +66,19 @@ export const App: React.FC = () => {
       setSelectedTrackId(trackId);
 
       setViewedProfileUsername(username);
+      const page = readPageNavigation(window.location.search);
+      setActiveResourceFilter(page.resource);
 
-      if (username) {
-        setCurrentTab('perfil_externo');
-      } else {
-        const previousTab = window.history.state?.beatcloudTab;
-
-        setCurrentTab((tab) =>
-          tab === 'perfil_externo'
-            ? typeof previousTab === 'string' &&
-              previousTab !== 'perfil_externo'
-              ? previousTab
-              : 'descubrir'
-            : tab
-        );
-      }
+      setCurrentTab(username ? 'perfil_externo' : page.tab);
     };
 
+    syncTrackFromUrl();
     window.addEventListener('popstate', syncTrackFromUrl);
 
     return () => {
       window.removeEventListener('popstate', syncTrackFromUrl);
     };
-  }, []);
+  }, [setActiveResourceFilter]);
 
   const handleOpenTrackDetail = (id: string) => {
     if (!id) return;
@@ -145,19 +136,20 @@ export const App: React.FC = () => {
     setUploadModalOpen(true);
   };
 
-  const handleNavigateTab = (tab: string) => {
-    const url = new URL(window.location.href);
+  const handleNavigateTab = (tab: string, resource?: ResourceType) => {
+    const chosenResource = tab === 'catalogo' ? resource ?? 'all' : 'all';
+    const destination = makeTabUrl(window.location.href, tab, chosenResource);
+    const actual =
+      `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
-    if (url.searchParams.has('profile')) {
-      window.history.pushState(
-        { beatcloudTab: tab },
-        '',
-        makeLeaveProfileUrl(window.location.href)
-      );
+    if (destination !== actual) {
+      window.history.pushState({ beatcloudTab: tab }, '', destination);
     }
 
+    setActiveResourceFilter(chosenResource);
+    setSelectedTrackId(null);
     setViewedProfileUsername(null);
-    setCurrentTab(tab);
+    setCurrentTab(readPageNavigation(new URL(destination, window.location.origin).search).tab);
   };
 
   const handleOpenPublicProfile = (userId: string, role: UserType) => {
@@ -247,9 +239,25 @@ export const App: React.FC = () => {
               </button>
             </div>
           )}
+          {(
+            (currentTab === 'perfil' && !currentUser) ||
+            (currentTab === 'ventas' && currentUser?.role !== 'productor') ||
+            (currentTab === 'favoritos' && currentUser?.role !== 'artista')
+          ) && (
+            <div role="status" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-200">
+              <h2 className="text-lg font-bold mb-2">Secci?n de cuenta no disponible</h2>
+              <p className="text-sm text-zinc-400">
+                Inicia sesi?n con la cuenta y el rol correspondientes para acceder.
+              </p>
+              <button type="button" onClick={() => handleNavigateTab('descubrir')}
+                className="mt-4 rounded-lg bg-amber-400 px-4 py-2 font-bold text-zinc-950">
+                Volver al inicio
+              </button>
+            </div>
+          )}
           {(currentTab === 'descubrir' || currentTab === 'inicio') && (
             <DiscoverPage
-              onNavigateCatalog={() => handleNavigateTab('catalogo')}
+              onNavigateCatalog={(resource) => handleNavigateTab('catalogo', resource)}
               onOpenTrackDetail={handleOpenTrackDetail}
               onOpenProducerProfile={handleOpenProducerProfile}
             />
@@ -257,6 +265,7 @@ export const App: React.FC = () => {
 
           {currentTab === 'catalogo' && (
             <CatalogPage
+              onSelectResource={(resource) => handleNavigateTab('catalogo', resource === 'all' ? undefined : resource)}
               onOpenTrackDetail={handleOpenTrackDetail}
               onOpenProducerProfile={handleOpenProducerProfile}
             />
@@ -276,7 +285,7 @@ export const App: React.FC = () => {
           {currentTab === 'sobre_nosotros' && <AboutPage />}
 
           {/* Current Logged-in User Profile */}
-          {currentTab === 'perfil' && (
+          {currentTab === 'perfil' && currentUser && (
             currentUser?.role === 'productor' ? (
               <ProducerProfilePage
                 initialTab="beats"
@@ -294,7 +303,7 @@ export const App: React.FC = () => {
           )}
 
           {/* Producer Sales View */}
-          {currentTab === 'ventas' && (
+          {currentTab === 'ventas' && currentUser?.role === 'productor' && (
             <ProducerProfilePage
               initialTab="ventas"
               onOpenTrackDetail={handleOpenTrackDetail}
@@ -304,7 +313,7 @@ export const App: React.FC = () => {
           )}
 
           {/* Artist Favorites View */}
-          {currentTab === 'favoritos' && (
+          {currentTab === 'favoritos' && currentUser?.role === 'artista' && (
             <ArtistProfilePage
               initialTab="favoritos"
               onOpenTrackDetail={handleOpenTrackDetail}
