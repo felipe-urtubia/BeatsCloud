@@ -1698,3 +1698,37 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - Persistencia de generos verificada mediante pruebas aisladas.
 - Publicacion y edicion visual verificadas previamente.
 - No se ejecuto en este paso la suite completa de Django.
+
+---
+
+## Enlaces directos a canciones React - 06-11-2026
+
+### Navegacion
+
+- Se incorporaron enlaces directos utilizando el parametro track.
+- La URL se actualiza cuando se abre el detalle de una cancion.
+- El detalle puede abrirse directamente desde una URL compartida.
+- Se sincronizo la navegacion con los botones Atras y Adelante.
+- Se actualizo el cierre del detalle para mantener la URL coherente.
+- Se conservaron los parametros existentes de la direccion.
+- Se mantuvo el sistema de navegacion actual de React.
+
+### Verificaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Apertura desde el catalogo verificada visualmente.
+- Apertura del enlace en otra pestana verificada.
+- Recarga conservando la cancion verificada.
+- Navegacion Atras y Adelante verificada.
+- Cierre del detalle mediante X verificado.
+- Cierre despues de recargar verificado.
+
+### Alcance
+
+- Cambio realizado exclusivamente en App.tsx.
+- No se modificaron rutas existentes de Django.
+- No se modificaron canciones, usuarios ni pagos.
+- No se realizaron cambios en PostgreSQL.
+- Enlaces a perfiles publicos pendientes de desarrollo.
+- Compartir enlaces fuera del entorno local requiere despliegue.
