@@ -28,7 +28,10 @@ export type MusicGenre =
   | 'Rock'
   | 'Drill'
   | 'Boom-Bap'
-  | 'Soul';
+  | 'Soul'
+  | 'Jazz'
+  | 'Metal'
+  | (string & {});
 
 export type ResourceType = 'instrumental' | 'acapella' | 'loop' | 'drumkit';
 

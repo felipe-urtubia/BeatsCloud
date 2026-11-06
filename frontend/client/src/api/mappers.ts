@@ -10,7 +10,6 @@ import type {
   Track,
   User,
   UserType,
-  MusicGenre,
   SaleRecord,
   PurchaseRecord,
 } from '../types';
@@ -37,12 +36,6 @@ export const apiDownloadUrl = (idTrack: number) => `${DJANGO_BASE}/api/track/${i
 export const mediaUrl = (path: string | null): string | null =>
   path ? (path.startsWith('http') ? path : `${DJANGO_BASE}${path.startsWith('/') ? '' : '/'}${path}`) : null;
 
-/** Genero_Musical.descripcion -> MusicGenre de la UI (con alias para variantes de spelling) */
-// MusicGenre de la UI no incluye Jazz/Metal -> mapeo a la variante más cercana.
-const GENERO_MAP: Record<string, MusicGenre> = {
-  'Pop': 'Pop', 'Rock': 'Rock', 'Hip-Hop': 'Hip-Hop', 'Electronica': 'Electronica',
-  'Reggaeton': 'Reggaeton', 'R&B': 'R&B', 'Jazz': 'Boom-Bap', 'Metal': 'Drill', 'Soul': 'Soul',
-};
 
 const slug = (n: number) => `dj-${n}`; // ids UI como string estable ("dj-42")
 
@@ -79,7 +72,7 @@ export function mapTrack(d: DTrack, opts?: { isPurchased?: boolean; isOwner?: bo
     producerUsername: d.usuario.username,
     producerAvatar: mediaUrl(d.usuario.foto_perfil) ?? `https://api.dicebear.com/7.x/shapes/svg?seed=${d.usuario.username}`,
     resourceType: d.resource_type ?? 'instrumental',
-    genre: GENERO_MAP[d.genero?.descripcion] ?? 'Hip-Hop',
+    genre: d.genero?.descripcion?.trim() || 'Sin especificar',
     subgenre: d.subgenre ?? '',
     price: d.precio,
     coverUrl: mediaUrl(d.foto) ?? `https://picsum.photos/seed/${d.id_track}/600/600`,

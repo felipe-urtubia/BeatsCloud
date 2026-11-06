@@ -53,6 +53,8 @@ interface AppContextType {
   currentUser: User | null;
   users: User[];
   tracks: Track[];
+  genres: string[];
+  genreOptions: { id: number; descripcion: string }[];
   cart: CartItem[];
   subscriptions: ProducerSubscription[];
   sales: SaleRecord[];
@@ -170,6 +172,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return INITIAL_TRACKS;
     }
   });
+
+  const [genres, setGenres] = useState<string[]>([]);
+  const [genreOptions, setGenreOptions] = useState<
+    { id: number; descripcion: string }[]
+  >([]);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (isHybrid) return [];
@@ -306,6 +313,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .filter((x): x is CartItem => x !== null);
       if (sequence !== refreshSequence.current || identityGeneration !== cartIdentityGeneration.current) return;
       cartVentaIds.current = nextCartVentaIds;
+      const serverGenres = (firstPage.generos ?? [])
+        .map((genre) => genre.descripcion?.trim())
+        .filter((genre): genre is string => Boolean(genre));
+
+      setGenres(Array.from(new Set(serverGenres)));
+      setGenreOptions(
+        (firstPage.generos ?? [])
+          .filter((g) =>
+            Number.isSafeInteger(g.id) &&
+            g.id > 0 &&
+            typeof g.descripcion === 'string' &&
+            g.descripcion.trim().length > 0
+          )
+          .map((g) => ({
+            id: g.id,
+            descripcion: g.descripcion.trim(),
+          }))
+      );
       setTracks(mapped);
       setUsers(Array.from(usersById.values()));
       setCurrentUserId(uiUser?.id ?? '');
@@ -638,6 +663,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const getDjangoGenreId = (name: string): string => {
+    const selected = genreOptions.find(
+      (item) => item.descripcion === name
+    );
+
+    if (!selected || !Number.isSafeInteger(selected.id) || selected.id <= 0) {
+      throw new Error('Selecciona un genero valido de Django.');
+    }
+
+    return String(selected.id);
+  };
+
   const uploadTrack = async (data: {
     title: string;
     resourceType: ResourceType;
@@ -669,7 +706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       form.set('nombre_track', data.title);
       form.set('precio', String(data.isFree ? 0 : data.price));
       form.set('descripcion', data.description);
-      form.set('genero', data.genre);
+      form.set('genero', getDjangoGenreId(data.genre));
       form.set('subgenre', data.subgenre ?? '');
       form.set('track', data.audioFile);
       form.set('resource_type', data.resourceType);
@@ -773,7 +810,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
       const body = new FormData();
       const fields: Array<[keyof Track, string]> = [
-        ['title', 'nombre_track'], ['price', 'precio'], ['description', 'descripcion'], ['genre', 'genero'],
+        ['title', 'nombre_track'], ['price', 'precio'], ['description', 'descripcion'],
         ['subgenre', 'subgenre'],
         ['resourceType', 'resource_type'], ['bpm', 'bpm'], ['scaleKey', 'scale_key'],
         ['mood', 'mood'], ['hasStems', 'has_stems'], ['hasWav', 'has_wav'],
@@ -784,6 +821,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const value = data[key];
         if (value !== undefined) body.set(field, String(value));
       });
+      if (data.genre !== undefined) {
+        body.set('genero', getDjangoGenreId(data.genre));
+      }
       if (coverFile) body.set('foto', coverFile);
       const saved = await withSync(() => DjangoApi.updateTrack(djangoId(trackId), body));
       const updated = mapTrack(saved, { isOwner: true });
@@ -1198,6 +1238,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         users,
         tracks,
+        genres,
+        genreOptions,
         cart,
         subscriptions,
         sales,

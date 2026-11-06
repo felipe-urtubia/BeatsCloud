@@ -31,19 +31,6 @@ interface CatalogPageProps {
   onOpenProducerProfile: (producerId: string) => void;
 }
 
-const GENRES: ('Todos' | MusicGenre)[] = [
-  'Todos',
-  'Trap',
-  'Reggaeton',
-  'Hip-Hop',
-  'Drill',
-  'Boom-Bap',
-  'R&B',
-  'Electronica',
-  'Pop',
-  'Rock',
-  'Soul',
-];
 
 const SCALES = [
   'Todas',
@@ -65,6 +52,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 }) => {
   const {
     tracks,
+    genres,
     playTrack,
     activeTrack,
     isPlaying,
@@ -100,6 +88,19 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
+
+  const availableGenres = useMemo(() => {
+    const names = [...genres, ...tracks.map((track) => track.genre)]
+      .map((genre) => genre.trim())
+      .filter((genre) => genre.length > 0 && genre !== 'Todos');
+
+    return [
+      'Todos',
+      ...Array.from(new Set(names)).sort((a, b) =>
+        a.localeCompare(b, 'es', { sensitivity: 'base' })
+      ),
+    ];
+  }, [genres, tracks]);
 
   const handleDownloadFree = async (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
@@ -330,10 +331,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             <span className="text-zinc-400 font-semibold font-mono text-[11px]">Género:</span>
             <select
               value={selectedGenre}
-              onChange={(e) => setSelectedGenre(e.target.value as any)}
+              onChange={(e) => setSelectedGenre(e.target.value)}
               className="bg-[#171b29] border border-zinc-700/80 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
             >
-              {GENRES.map((g) => (
+              {availableGenres.map((g) => (
                 <option key={g} value={g}>
                   {g}
                 </option>

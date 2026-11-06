@@ -1637,3 +1637,35 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - Filtros y ordenamiento verificados visualmente.
 - Paginacion verificada visualmente.
 - No se modificaron Django, PostgreSQL ni los pagos.
+
+---
+
+## Generos dinamicos Django y React - 06-11-2026
+
+### Catalogo
+
+- Se reemplazo el selector fijo de generos por opciones dinamicas.
+- Se reutilizan los generos recibidos desde la API de Django.
+- Se conserva el genero original de cada cancion.
+- Se eliminaron las conversiones Jazz a Boom-Bap y Metal a Drill.
+- Se mantienen los filtros, ordenamiento y paginacion.
+
+### Publicacion y edicion
+
+- El formulario React utiliza los generos registrados en Django.
+- Se conservan los identificadores reales de cada genero.
+- La publicacion envia el ID del genero seleccionado.
+- La edicion envia el ID correspondiente cuando cambia el genero.
+- Se conserva el modo de demostracion.
+- Se valida la seleccion del genero antes de guardar.
+
+### Validaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Catalogo y selector de generos verificados visualmente.
+- Selector de publicacion verificado visualmente.
+- Formulario de edicion y genero original verificados visualmente.
+- No se realizaron publicaciones ni ediciones reales en la prueba.
+- Persistencia real de generos pendiente de prueba controlada.
+- Django y PostgreSQL no fueron modificados.
