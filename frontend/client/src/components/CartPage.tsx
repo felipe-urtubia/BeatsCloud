@@ -1,3 +1,4 @@
+import { DjangoApi } from '../api/django.service';
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
@@ -16,19 +17,128 @@ export const CartPage: React.FC<CartPageProps> = ({
   onNavigateCatalog,
   onOpenTrackDetail,
 }) => {
-  const { cart, removeFromCart, clearCart, checkoutCart } = useApp();
+  const { cart, removeFromCart, clearCart, checkoutCart, configuredMode, currentUser } = useApp();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
-  const subtotal = cart.reduce((sum, item) => sum + item.track.price, 0);
-  const iva = Math.round(subtotal * 0.19);
+  const [serverTotals, setServerTotals] = useState<{
+    key: string;
+    subtotal: number;
+    iva: number;
+    total: number;
+  } | null>(null);
+
+  const [totalsIssue, setTotalsIssue] = useState<string | null>(null);
+  const [totalsRetry, setTotalsRetry] = useState(0);
+
+  const cartIds = cart.map((item) => item.track.id).sort().join('|');
+  const cartKey = `${currentUser?.id ?? ''}:${cartIds}`;
+
+  const verifiedTotals =
+    serverTotals?.key === cartKey ? serverTotals : null;
+
+  const pendingTotals =
+    configuredMode === 'hybrid' &&
+    cart.length > 0 &&
+    !verifiedTotals;
+
+  useEffect(() => {
+    if (configuredMode !== 'hybrid' || cart.length === 0) {
+      setServerTotals(null);
+      setTotalsIssue(null);
+      return;
+    }
+
+    let active = true;
+
+    setTotalsIssue(null);
+
+    void DjangoApi.carrito()
+      .then((response) => {
+        if (!active) return;
+
+        const remoteIds = response.items
+          .map((item) => `dj-${item.track}`)
+          .sort()
+          .join('|');
+
+        if (remoteIds !== cartIds) {
+          setTotalsIssue(
+            'El carrito del servidor cambi?. Actualiza los totales antes de pagar.'
+          );
+          return;
+        }
+
+        const values = [
+          response.subtotal,
+          response.iva,
+          response.total,
+        ];
+
+        if (
+          values.some((value) =>
+            !Number.isSafeInteger(value) || value < 0
+          ) ||
+          response.subtotal + response.iva !== response.total
+        ) {
+          throw new Error('Django devolvi? totales no v?lidos.');
+        }
+
+        setServerTotals({
+          key: cartKey,
+          subtotal: response.subtotal,
+          iva: response.iva,
+          total: response.total,
+        });
+
+        setTotalsIssue(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setTotalsIssue(
+          error instanceof Error
+            ? error.message
+            : 'No fue posible consultar los totales del servidor.'
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [configuredMode, cartKey, totalsRetry]);
+
+  // En modo hybrid, Django es la ?nica fuente de los totales.
+  // El c?lculo local se conserva exclusivamente para el modo de demostraci?n.
+  const demoSubtotal = configuredMode !== 'hybrid'
+    ? cart.reduce((sum, item) => sum + item.track.price, 0)
+    : 0;
+
+  const subtotal = configuredMode === 'hybrid'
+    ? verifiedTotals?.subtotal ?? 0
+    : demoSubtotal;
+
+  const iva = configuredMode === 'hybrid'
+    ? verifiedTotals?.iva ?? 0
+    : Math.round(demoSubtotal * 0.19);
+
   const total = subtotal + iva;
+
+  const formatCartAmount = (amount: number) =>
+    pendingTotals ? '?' : amount.toLocaleString('es-CL');
 
   const openCheckoutConfirm = () => {
     if (isProcessing) return;
+
+    if (configuredMode === 'hybrid' && !verifiedTotals) {
+      setTotalsIssue(
+        'Debes verificar los totales de Django antes de continuar.'
+      );
+      return;
+    }
     setCheckoutError(null);
     setCheckoutNotice(null);
 
@@ -61,6 +171,13 @@ export const CartPage: React.FC<CartPageProps> = ({
 
   const handleStartCheckout = async () => {
     if (isProcessing) return;
+
+    if (configuredMode === 'hybrid' && !verifiedTotals) {
+      setCheckoutError(
+        'Los totales del servidor ya no est?n verificados.'
+      );
+      return;
+    }
     setCheckoutError(null);
     setCheckoutNotice(null);
     if (total <= 0) {
@@ -112,6 +229,25 @@ export const CartPage: React.FC<CartPageProps> = ({
           </button>
         )}
       </div>
+
+      {pendingTotals && (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-400/30 bg-zinc-900 p-4 text-sm text-zinc-300"
+        >
+          <p>
+            {totalsIssue ??
+              'Verificando subtotal, IVA y total oficiales con Django...'}
+          </p>
+          <button
+            type="button"
+            className="mt-2 text-amber-400 font-bold hover:underline"
+            onClick={() => setTotalsRetry((value) => value + 1)}
+          >
+            Actualizar totales
+          </button>
+        </div>
+      )}
 
       {cart.length === 0 ? (
         /* Empty Cart State */
@@ -204,18 +340,18 @@ export const CartPage: React.FC<CartPageProps> = ({
               <div className="space-y-2.5 text-xs text-zinc-300 pb-3 border-b border-[#1b2030] font-mono">
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Subtotal ({cart.length} productos):</span>
-                  <span className="font-semibold text-white">${subtotal.toLocaleString('es-CL')}</span>
+                  <span className="font-semibold text-white">${formatCartAmount(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-400">IVA (19%):</span>
-                  <span className="font-semibold text-white">${iva.toLocaleString('es-CL')}</span>
+                  <span className="font-semibold text-white">${formatCartAmount(iva)}</span>
                 </div>
               </div>
 
               <div className="flex justify-between items-baseline font-mono">
                 <span className="text-xs font-bold text-zinc-400 uppercase">Total Final:</span>
                 <span className="text-xl font-black text-amber-400">
-                  ${total.toLocaleString('es-CL')} CLP
+                  ${formatCartAmount(total)} CLP
                 </span>
               </div>
 
@@ -293,16 +429,16 @@ export const CartPage: React.FC<CartPageProps> = ({
             <div className="border-t border-zinc-700 pt-4 space-y-2 text-sm">
               <div className="flex justify-between text-zinc-300">
                 <span>Subtotal</span>
-                <span>${subtotal.toLocaleString('es-CL')}</span>
+                <span>${formatCartAmount(subtotal)}</span>
               </div>
               <div className="flex justify-between text-zinc-300">
                 <span>IVA (19%)</span>
-                <span>${iva.toLocaleString('es-CL')}</span>
+                <span>${formatCartAmount(iva)}</span>
               </div>
               <div className="flex justify-between text-white font-black text-lg pt-2">
                 <span>Total estimado</span>
                 <span className="text-amber-400">
-                  ${total.toLocaleString('es-CL')} CLP
+                  ${formatCartAmount(total)} CLP
                 </span>
               </div>
             </div>

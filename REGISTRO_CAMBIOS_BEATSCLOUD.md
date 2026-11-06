@@ -1809,3 +1809,32 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - Las pruebas automatizadas cubren funciones de navegacion.
 - Las comprobaciones visuales complementan las pruebas unitarias.
 - No se incorporaron pruebas automatizadas de navegador completo.
+
+---
+
+## Totales oficiales del carrito - 06-11-2026
+
+### Correccion implementada
+
+- CartPage.tsx consulta los totales mediante DjangoApi.carrito().
+- Django mantiene la responsabilidad del subtotal, IVA y total.
+- React valida la coincidencia entre los productos locales y los del servidor.
+- Los totales se verifican antes de permitir continuar hacia el pago.
+- Si falla la consulta, se informa al usuario y se ofrece reintentar.
+- El modo de demostracion conserva su calculo local.
+
+### Verificaciones realizadas
+
+- Compilacion TypeScript y Vite aprobada.
+- Quince pruebas automatizadas existentes aprobadas.
+- Verificacion visual del carrito con productos existentes aprobada.
+- Subtotal, IVA y total coinciden con la respuesta de Django.
+- No se realizaron pagos durante la comprobacion.
+
+### Alcance
+
+- Modificacion limitada a CartPage.tsx.
+- No se modificaron Django ni las tablas de PostgreSQL.
+- No se altero el procedimiento de confirmacion de Webpay.
+- Las pruebas automatizadas existentes no cubren directamente
+  la nueva integracion de totales del carrito.
