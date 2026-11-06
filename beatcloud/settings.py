@@ -198,7 +198,11 @@ AUTHENTICATION_BACKENDS = [
 # Configuración de sesión
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Almacenamiento de sesiones en la base de datos
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Sesión expira al cerrar el navegador
-SESSION_COOKIE_SECURE = not DEBUG  # HTTPS en producción; HTTP local durante el desarrollo
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SECURE = not DEBUG  # HTTPS en producción; HTTP local durante el desarrollo
 
 
 TRANSBANK_COMMERCE_CODE = os.getenv('TRANSBANK_COMMERCE_CODE', '')

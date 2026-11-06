@@ -42,6 +42,17 @@ import type {
 const BASE = ((import.meta.env.VITE_DJANGO_URL as string | undefined) ?? '').replace(/\/$/, '');
 
 let csrfToken: string | null = null;
+const sessionInvalidationListeners = new Set<() => void>();
+export function subscribeToSessionInvalidation(listener: () => void): () => void {
+  sessionInvalidationListeners.add(listener);
+  return () => { sessionInvalidationListeners.delete(listener); };
+}
+function invalidateApiSession() {
+  csrfToken = null;
+  for (const listener of sessionInvalidationListeners) {
+    try { listener(); } catch (error) { console.error('[BeatCloud] Error al invalidar la sesion:', error); }
+  }
+}
 
 async function parse(res: Response): Promise<any> {
   const isHtml = res.headers.get('content-type')?.includes('text/html') ?? false;
@@ -68,6 +79,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   if (!(opts.body instanceof FormData) && opts.body != null) headers.set('Content-Type', 'application/json');
   if (csrfToken && opts.method && opts.method !== 'GET') headers.set('X-CSRFToken', csrfToken);
   const res = await fetch(`${BASE}${path}`, { ...opts, headers, credentials: 'same-origin' });
+  if (res.status === 401 && path !== '/api/auth/login/') invalidateApiSession();
   return parse(res) as Promise<T>;
 }
 
@@ -168,6 +180,7 @@ export const DjangoApi = {
   downloadTrack: async (id: number, fallbackName: string) => {
     const response = await fetch(`${BASE}/api/track/${id}/descargar/`, { credentials: 'same-origin' });
     if (!response.ok) {
+      if (response.status === 401) invalidateApiSession();
       const detail = await response.text();
       throw new Error(detail || `No se pudo descargar la pista (${response.status}).`);
     }
