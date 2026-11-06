@@ -1551,3 +1551,31 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
   ordenes antiguas si se obtiene evidencia suficiente.
 - No considerar probados los cobros recurrentes ni los pagos
   de produccion: las verificaciones fueron en ambiente TEST.
+
+---
+
+## Mejoras del carrito y reproductor - 05-11-2026
+
+### Carrito de compras
+
+- Se elimino el mensaje sobre la validacion de Django.
+- Se conservo la validacion real de Webpay.
+- Se comprobo visualmente el carrito.
+
+### Reproductor de audio
+
+- Se agrego un boton X para cerrar el reproductor.
+- Al cerrar, el audio se detiene y se limpia el estado.
+- Se incorporaron controles de reproducir y pausar.
+- Se agregaron botones para retroceder y avanzar 5 segundos.
+- Se mejoro el control de progreso y duracion.
+- Se corrigio la sincronizacion del estado de reproduccion.
+- Se conserva la limitacion del archivo de vista previa.
+
+### Validaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas frontend aprobadas.
+- Funcionamiento visual confirmado en navegador.
+- No se modificaron Django, PostgreSQL ni los pagos.
+- Cambios preparados para un nuevo commit.

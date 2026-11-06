@@ -4,7 +4,6 @@ import { getResourceBadgeInfo } from '../utils/resourceHelpers';
 import {
   ShoppingCart,
   Trash2,
-  ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
 
@@ -212,10 +211,6 @@ export const CartPage: React.FC<CartPageProps> = ({
                 </p>
               )}
 
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-zinc-500 font-mono">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>La aprobación se valida en el retorno de Django</span>
-              </div>
             </div>
           </div>
         </div>
