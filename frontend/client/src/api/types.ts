@@ -129,7 +129,6 @@ export interface DPagoInit {
   url_webpay: string;   // redirigir el navegador aquí
   token_ws: string;
   buy_order: string;
-  session_id: string;
   amount: number;
   transaction_id: number;
 }
