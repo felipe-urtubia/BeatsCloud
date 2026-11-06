@@ -1877,3 +1877,13 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - Sin modificar canciones, compras ni pagos.
 - Sin dependencias nuevas para las pruebas.
 - No se realizaron operaciones en Webpay.
+
+---
+
+## Correccion de acentos del buscador - 06-11-2026
+
+- Se corrigieron los textos accesibles y visibles del buscador del catalogo.
+- Se restauraron correctamente los acentos de catalogo, cancion y genero.
+- Se verifico visualmente que el buscador funciona correctamente.
+- Compilacion aprobada y 23 pruebas automatizadas aprobadas.
+- Sin cambios en Django, PostgreSQL, canciones o pagos.

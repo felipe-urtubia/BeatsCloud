@@ -267,8 +267,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         <Search className="w-4 h-4 text-zinc-400" />
         <input
           type="search"
-          aria-label="Buscar canciones en el cat?logo"
-          placeholder="Buscar canci?n, productor, g?nero, BPM o tonalidad..."
+          aria-label="Buscar canciones en el catálogo"
+          placeholder="Buscar canción, productor, género, BPM o tonalidad..."
           value={globalSearchQuery}
           onChange={(event) => setGlobalSearchQuery(event.target.value)}
           className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-zinc-500 outline-none"
