@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -22,7 +22,9 @@ export const App: React.FC = () => {
   const { currentUser, paymentNotice, clearPaymentNotice } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>('descubrir');
-  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('track') || null,
+  );
 
   // Profile view state
   const [viewedProfileId, setViewedProfileId] = useState<string | null>(null);
@@ -37,6 +39,65 @@ export const App: React.FC = () => {
   );
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+
+  useEffect(() => {
+    const syncTrackFromUrl = () => {
+      const trackId = new URLSearchParams(
+        window.location.search
+      ).get('track');
+
+      setSelectedTrackId(trackId || null);
+    };
+
+    window.addEventListener('popstate', syncTrackFromUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncTrackFromUrl);
+    };
+  }, []);
+
+  const handleOpenTrackDetail = (id: string) => {
+    if (!id) return;
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('track') !== id) {
+      url.searchParams.set('track', id);
+
+      const previousState = window.history.state;
+      const state =
+        typeof previousState === 'object' && previousState !== null
+          ? { ...previousState, beatcloudTrackOverlay: true }
+          : { beatcloudTrackOverlay: true };
+
+      window.history.pushState(
+        state,
+        '',
+        `${url.pathname}${url.search}${url.hash}`
+      );
+    }
+
+    setSelectedTrackId(id);
+  };
+
+  const handleCloseTrackDetail = () => {
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.has('track')) {
+      if (window.history.state?.beatcloudTrackOverlay === true) {
+        window.history.back();
+      } else {
+        url.searchParams.delete('track');
+        window.history.replaceState(
+          window.history.state,
+          '',
+          `${url.pathname}${url.search}${url.hash}`
+        );
+      }
+    }
+
+    setSelectedTrackId(null);
+  };
 
   const handleOpenAuth = (mode: 'login' | 'register') => {
     setAuthMode(mode);
@@ -112,14 +173,14 @@ export const App: React.FC = () => {
           {(currentTab === 'descubrir' || currentTab === 'inicio') && (
             <DiscoverPage
               onNavigateCatalog={() => setCurrentTab('catalogo')}
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onOpenTrackDetail={handleOpenTrackDetail}
               onOpenProducerProfile={handleOpenProducerProfile}
             />
           )}
 
           {currentTab === 'catalogo' && (
             <CatalogPage
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onOpenTrackDetail={handleOpenTrackDetail}
               onOpenProducerProfile={handleOpenProducerProfile}
             />
           )}
@@ -127,7 +188,7 @@ export const App: React.FC = () => {
           {currentTab === 'carrito' && (
             <CartPage
               onNavigateCatalog={() => setCurrentTab('catalogo')}
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onOpenTrackDetail={handleOpenTrackDetail}
             />
           )}
 
@@ -142,14 +203,14 @@ export const App: React.FC = () => {
             currentUser?.role === 'productor' ? (
               <ProducerProfilePage
                 initialTab="beats"
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+                onOpenTrackDetail={handleOpenTrackDetail}
                 onOpenUploadModal={handleOpenUpload}
                 onEditTrack={handleEditTrack}
               />
             ) : (
               <ArtistProfilePage
                 initialTab="compras"
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+                onOpenTrackDetail={handleOpenTrackDetail}
                 onNavigateCatalog={() => setCurrentTab('catalogo')}
               />
             )
@@ -159,7 +220,7 @@ export const App: React.FC = () => {
           {currentTab === 'ventas' && (
             <ProducerProfilePage
               initialTab="ventas"
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onOpenTrackDetail={handleOpenTrackDetail}
               onOpenUploadModal={handleOpenUpload}
               onEditTrack={handleEditTrack}
             />
@@ -169,7 +230,7 @@ export const App: React.FC = () => {
           {currentTab === 'favoritos' && (
             <ArtistProfilePage
               initialTab="favoritos"
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onOpenTrackDetail={handleOpenTrackDetail}
               onNavigateCatalog={() => setCurrentTab('catalogo')}
             />
           )}
@@ -179,14 +240,14 @@ export const App: React.FC = () => {
             viewedProfileRole === 'productor' ? (
               <ProducerProfilePage
                 producerId={viewedProfileId}
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+                onOpenTrackDetail={handleOpenTrackDetail}
                 onOpenUploadModal={handleOpenUpload}
                 onEditTrack={handleEditTrack}
               />
             ) : (
               <ArtistProfilePage
                 artistId={viewedProfileId}
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+                onOpenTrackDetail={handleOpenTrackDetail}
                 onNavigateCatalog={() => setCurrentTab('catalogo')}
               />
             )
@@ -197,7 +258,7 @@ export const App: React.FC = () => {
       {/* Track Detail Modal */}
       <TrackDetailModal
         trackId={selectedTrackId}
-        onClose={() => setSelectedTrackId(null)}
+        onClose={handleCloseTrackDetail}
         onOpenProducerProfile={handleOpenProducerProfile}
       />
 
@@ -221,7 +282,7 @@ export const App: React.FC = () => {
       />
 
       {/* Global Persistent Audio Player */}
-      <GlobalAudioPlayer onOpenTrackDetail={(id) => setSelectedTrackId(id)} />
+      <GlobalAudioPlayer onOpenTrackDetail={handleOpenTrackDetail} />
     </div>
   );
 };
