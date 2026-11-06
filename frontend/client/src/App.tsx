@@ -28,7 +28,7 @@ import { X } from 'lucide-react';
 import { AccountDeletionModal } from './components/AccountDeletionModal';
 
 export const App: React.FC = () => {
-  const { currentUser, users, paymentNotice, paymentReturnReady, clearPaymentNotice, setActiveResourceFilter } = useApp();
+  const { currentUser, users, paymentNotice, paymentReturnReady, clearPaymentNotice, authNotice, clearAuthNotice, setActiveResourceFilter } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>(
     () => readNavigation(window.location.search).profileUsername
@@ -228,6 +228,15 @@ export const App: React.FC = () => {
 
         {/* Dynamic Main Views Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28">
+          {authNotice && (
+            <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/40 bg-zinc-900 p-4 text-sm text-amber-100">
+              <span>{authNotice}</span>
+              <button type="button" className="rounded-lg bg-amber-400 px-3 py-2 font-bold text-zinc-950" onClick={() => {
+                clearAuthNotice();
+                handleOpenAuth('login');
+              }}>Iniciar sesion</button>
+            </div>
+          )}
           {paymentNotice && (
             <div
               role="status"
@@ -254,6 +263,7 @@ export const App: React.FC = () => {
             </div>
           )}
           {(
+            (currentTab === 'carrito' && !currentUser) ||
             (currentTab === 'perfil' && !currentUser) ||
             (currentTab === 'ventas' && currentUser?.role !== 'productor') ||
             (currentTab === 'favoritos' && currentUser?.role !== 'artista')
@@ -285,7 +295,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentTab === 'carrito' && (
+          {currentTab === 'carrito' && currentUser && (
             <CartPage
               onNavigateCatalog={() => handleNavigateTab('catalogo')}
               onOpenTrackDetail={handleOpenTrackDetail}

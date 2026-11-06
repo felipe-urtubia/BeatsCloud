@@ -57,6 +57,7 @@ from django.utils import timezone
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.cache import never_cache
 
 from transbank.webpay.webpay_plus.transaction import Transaction, WebpayOptions
 
@@ -280,6 +281,7 @@ def csrf_token(request):
     return JsonResponse({"detail": get_token(request)})
 
 
+@never_cache
 def session_view(request):
     if request.method != "GET":
         return _method_not_allowed(["GET"])
@@ -291,6 +293,7 @@ def session_view(request):
 # --------------------------------------------------------------------------
 # Auth — delega en las MISMAS forms de Felipe (registro con activación por correo)
 # --------------------------------------------------------------------------
+@never_cache
 def login_api(request):
     """Igual criterio que login_view()/registro() de views.py: la cuenta queda
     inactiva hasta confirmar el correo; authenticate() ya lo refleja."""
@@ -314,6 +317,7 @@ def login_api(request):
     return JsonResponse(ser_user_private(user))
 
 
+@never_cache
 def logout_api(request):
     if request.method != "POST":
         return _method_not_allowed(["POST"])
