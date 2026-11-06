@@ -1579,3 +1579,28 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - Funcionamiento visual confirmado en navegador.
 - No se modificaron Django, PostgreSQL ni los pagos.
 - Cambios preparados para un nuevo commit.
+
+---
+
+## Confirmacion previa de compra - 06-11-2026
+
+### Mejoras implementadas
+
+- Se incorporo una ventana de confirmacion antes de Webpay.
+- El carrito incluye el boton Revisar compra.
+- La ventana muestra canciones, subtotal, IVA y total estimado.
+- Se agrego la opcion Volver al carrito.
+- Se permite cerrar la confirmacion con Escape.
+- El usuario conserva sus productos al regresar al carrito.
+- Solo el boton de confirmacion inicia el checkout existente.
+- La validacion definitiva del pago permanece en Django.
+
+### Verificaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas frontend aprobadas.
+- Apertura de la ventana confirmada en navegador.
+- Cierre mediante boton y tecla Escape confirmado.
+- No se inicio un nuevo pago durante las pruebas visuales.
+- No se modificaron Django, PostgreSQL ni Webpay.
+- La confirmacion final contra Webpay queda pendiente de prueba.
