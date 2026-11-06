@@ -1669,3 +1669,32 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - No se realizaron publicaciones ni ediciones reales en la prueba.
 - Persistencia real de generos pendiente de prueba controlada.
 - Django y PostgreSQL no fueron modificados.
+
+---
+
+## Pruebas automatizadas de generos - 06-11-2026
+
+### Pruebas incorporadas
+
+- Se agrego app/test_generos_api.py con cuatro pruebas Django.
+- Se verifico la publicacion con el ID real del genero Jazz.
+- Se verifico la edicion de una cancion de Jazz a Metal.
+- Se verifico el rechazo de un ID inexistente al editar.
+- Se verifico el rechazo de un ID inexistente al publicar.
+
+### Resultados
+
+- Cuatro pruebas ejecutadas: 4 aprobadas y 0 fallidas.
+- Django System Check: sin problemas.
+- Las pruebas utilizaron una base PostgreSQL temporal.
+- La base temporal fue eliminada al finalizar.
+- No se realizaron modificaciones a la base beatsbd.
+- No se modificaron canciones ni pagos existentes.
+- No se cambio la logica de produccion de Django.
+- El archivo de pruebas queda disponible para futuras regresiones.
+
+### Estado
+
+- Persistencia de generos verificada mediante pruebas aisladas.
+- Publicacion y edicion visual verificadas previamente.
+- No se ejecuto en este paso la suite completa de Django.
