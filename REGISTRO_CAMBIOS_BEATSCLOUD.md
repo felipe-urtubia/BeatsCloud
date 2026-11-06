@@ -1604,3 +1604,36 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - No se inicio un nuevo pago durante las pruebas visuales.
 - No se modificaron Django, PostgreSQL ni Webpay.
 - La confirmacion final contra Webpay queda pendiente de prueba.
+
+---
+
+## Mejoras del catalogo React - 06-11-2026
+
+### Filtros de precios
+
+- Se incorporaron cuatro rangos de precios en pesos chilenos.
+- Se conservaron los filtros Todos, De pago y Gratis.
+- Se actualizaron las opciones de restablecimiento.
+
+### Ordenamiento
+
+- Se agrego el ordenamiento por antiguedad.
+- Se agrego el ordenamiento por precio mayor.
+- Se agrego el ordenamiento alfabetico A-Z y Z-A.
+- Se conservaron las opciones anteriores.
+
+### Paginacion
+
+- Se agrego paginacion de 6, 12 y 24 canciones.
+- Se incorporaron botones Primera, Anterior, Siguiente y Ultima.
+- Se actualizaron las vistas de tabla y cuadricula.
+- Los cambios de filtros reinician la navegacion de paginas.
+- La paginacion se realiza en React, sobre las pistas cargadas.
+
+### Validaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Filtros y ordenamiento verificados visualmente.
+- Paginacion verificada visualmente.
+- No se modificaron Django, PostgreSQL ni los pagos.
