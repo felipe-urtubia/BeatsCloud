@@ -14,6 +14,14 @@ import { TrackDetailModal } from './components/TrackDetailModal';
 import { UploadTrackModal } from './components/UploadTrackModal';
 import { AuthModal } from './components/AuthModal';
 import { Track, UserType } from './types';
+import {
+  readNavigation,
+  makeTrackUrl,
+  makeProfileUrl,
+  makeLeaveProfileUrl,
+  lookupPublicProfile,
+  lookupPublicProfileForRoute,
+} from './navigation/urlState';
 import { BackendStatusBanner } from './components/BackendStatusBanner';
 import { X } from 'lucide-react';
 import { AccountDeletionModal } from './components/AccountDeletionModal';
@@ -22,22 +30,22 @@ export const App: React.FC = () => {
   const { currentUser, users, paymentNotice, clearPaymentNotice } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>(
-    () => new URLSearchParams(window.location.search).get('profile')
+    () => readNavigation(window.location.search).profileUsername
       ? 'perfil_externo'
       : 'descubrir',
   );
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(
-    () => new URLSearchParams(window.location.search).get('track') || null,
+    () => readNavigation(window.location.search).trackId,
   );
 
   // Profile view state
   const [viewedProfileUsername, setViewedProfileUsername] = useState<string | null>(
-    () => new URLSearchParams(window.location.search).get('profile')?.trim() || null,
+    () => readNavigation(window.location.search).profileUsername,
   );
 
-  const viewedProfile = viewedProfileUsername
-    ? users.find((user) => user.username === viewedProfileUsername) || null
-    : null;
+  const viewedProfile = lookupPublicProfile(
+    users, viewedProfileUsername
+  );
 
   // Modals & Mobile state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -51,11 +59,10 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const syncTrackFromUrl = () => {
-      const params = new URLSearchParams(window.location.search);
+      const { trackId, profileUsername: username } =
+        readNavigation(window.location.search);
 
-      setSelectedTrackId(params.get('track') || null);
-
-      const username = params.get('profile')?.trim() || null;
+      setSelectedTrackId(trackId);
 
       setViewedProfileUsername(username);
 
@@ -88,8 +95,6 @@ export const App: React.FC = () => {
     const url = new URL(window.location.href);
 
     if (url.searchParams.get('track') !== id) {
-      url.searchParams.set('track', id);
-
       const previousState = window.history.state;
       const state =
         typeof previousState === 'object' && previousState !== null
@@ -99,7 +104,7 @@ export const App: React.FC = () => {
       window.history.pushState(
         state,
         '',
-        `${url.pathname}${url.search}${url.hash}`
+        makeTrackUrl(window.location.href, id)
       );
     }
 
@@ -144,12 +149,10 @@ export const App: React.FC = () => {
     const url = new URL(window.location.href);
 
     if (url.searchParams.has('profile')) {
-      url.searchParams.delete('profile');
-
       window.history.pushState(
         { beatcloudTab: tab },
         '',
-        `${url.pathname}${url.search}${url.hash}`
+        makeLeaveProfileUrl(window.location.href)
       );
     }
 
@@ -158,18 +161,15 @@ export const App: React.FC = () => {
   };
 
   const handleOpenPublicProfile = (userId: string, role: UserType) => {
-    const target = users.find(
-      (user) => user.id === userId && user.role === role
+    const target = lookupPublicProfileForRoute(
+      users, userId, role
     );
 
     if (!target) return;
 
-    const url = new URL(window.location.href);
-
-    url.searchParams.delete('track');
-    url.searchParams.set('profile', target.username);
-
-    const destino = `${url.pathname}${url.search}${url.hash}`;
+    const destino = makeProfileUrl(
+      window.location.href, target.username
+    );
     const actual =
       `${window.location.pathname}${window.location.search}${window.location.hash}`;
 

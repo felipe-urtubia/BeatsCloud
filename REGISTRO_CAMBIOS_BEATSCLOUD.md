@@ -1767,3 +1767,45 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - No se alteraron canciones, cuentas, compras ni pagos.
 - La validacion visual no sustituye una auditoria completa de seguridad.
 - Pendiente publicar el commit en GitHub.
+
+---
+
+## Pruebas automatizadas de navegacion - 06-11-2026
+
+### Implementacion
+
+- Se creo frontend/client/src/navigation/urlState.ts.
+- Se incorporaron funciones reutilizables para leer y construir URLs.
+- Se centralizo la resolucion de perfiles publicos por username.
+- Se incorporo la validacion de usuarios por ID y rol.
+- App.tsx utiliza las funciones del modulo de navegacion.
+- Se creo frontend/client/src/navigation/urlState.test.mjs.
+- Se actualizo npm test para ejecutar ambas suites.
+- No se instalaron dependencias nuevas.
+
+### Pruebas automatizadas
+
+- Once pruebas nuevas de navegacion.
+- Cuatro pruebas existentes de Webpay.
+- Total ejecutado: 15 pruebas.
+- Pruebas aprobadas: 15.
+- Pruebas fallidas: 0.
+- Compilacion TypeScript y Vite aprobada.
+
+### Verificaciones visuales
+
+- Apertura de enlaces a canciones aprobada.
+- Apertura de perfiles publicos aprobada.
+- Navegacion combinada aprobada.
+- Validacion de perfil inexistente aprobada.
+- Navegacion habitual y reproductor aprobados.
+- Total: cinco comprobaciones visuales aprobadas.
+
+### Alcance
+
+- No se modifico el backend Django.
+- No se realizaron operaciones en PostgreSQL.
+- No se alteraron canciones, usuarios, compras ni pagos.
+- Las pruebas automatizadas cubren funciones de navegacion.
+- Las comprobaciones visuales complementan las pruebas unitarias.
+- No se incorporaron pruebas automatizadas de navegador completo.
