@@ -128,6 +128,7 @@ interface AppContextType {
   backendError: { phase: 'session' | 'catalog' | 'cart'; type: 'network' | 'api'; status?: number; message: string } | null;
   isSyncing: boolean;          // hay una petición al backend en curso
   paymentNotice: string | null;
+  paymentReturnReady: boolean;
   clearPaymentNotice: () => void;
   refreshFromBackend: () => Promise<void>;
   refreshTrackComments: (trackId: string) => Promise<void>;
@@ -223,6 +224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [backendError, setBackendError] = useState<AppContextType['backendError']>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
+  const [paymentReturnReady, setPaymentReturnReady] = useState(false);
   const syncCount = useRef(0);
   const refreshSequence = useRef(0);
   const cartIdentityGeneration = useRef(0);
@@ -363,28 +365,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Al pagar en Webpay, Django redirige de vuelta con ?pago=exito|fracaso|cancelado:
-  // re-hidratamos para que HistorialCompra/Venta ya reflejen la compra autorizada.
+  // El backend procesa el retorno de Webpay antes de redirigir al SPA.
+  // React solo presenta el acceso a compras cuando termina su sincronizacion.
   useEffect(() => {
     if (modeRef.current !== 'hybrid') return;
-    const params = new URLSearchParams(window.location.search);
-    const pago = params.get('pago');
-    if (pago) {
-      window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`);
-      setPaymentNotice(
-        pago === 'exito'
-          ? 'Pago Confirmado, Tu cuenta ya esta actualizada'
-          : pago === 'cancelado'
-          ? 'El pago fue cancelado; no se registró ningún cobro.'
-          : pago === 'revision'
-          ? 'Pago en revisión: Webpay autorizó la transacción, pero no se pudo registrar la compra. No vuelvas a pagar; contacta a soporte.'
-          : 'El pago no fue aprobado. Revisa el estado de tu cuenta antes de volver a intentarlo.',
-      );
-      withSync(loadFromBackend).catch(() => {});
+    const url = new URL(window.location.href);
+    const pago = url.searchParams.get('pago');
+    if (!pago) return;
+
+    // Quitar solo el dato transitorio de pago; preservar enlaces del SPA.
+    url.searchParams.delete('pago');
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`
+    );
+    setPaymentReturnReady(false);
+
+    if (pago === 'exito') {
+      setPaymentNotice('Webpay regresó con resultado exitoso. Actualizando tu cuenta con Django...');
+      void withSync(loadFromBackend)
+        .then(() => {
+          setPaymentNotice(
+            'Webpay informó una operación exitosa. Django actualizó tu cuenta; revisa tus compras registradas.'
+          );
+          setPaymentReturnReady(true);
+        })
+        .catch(() => {
+          setPaymentNotice(
+            'No pudimos actualizar las compras desde Django. Verifica el estado de tu compra antes de intentar pagar otra vez.'
+          );
+          setPaymentReturnReady(false);
+        });
+      return;
     }
+
+    setPaymentNotice(
+      pago === 'cancelado'
+        ? 'El pago fue cancelado; no se registró ningún cobro.'
+        : pago === 'revision'
+        ? 'Pago en revisión: no vuelvas a pagar; contacta a soporte.'
+        : 'El pago no fue aprobado. Revisa el estado de tu cuenta antes de volver a intentarlo.'
+    );
+    void withSync(loadFromBackend).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   const refreshFromBackend = () => {
     setBackendStatus('checking');
     setBackendError(null);
@@ -1288,6 +1313,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         backendError,
         isSyncing,
         paymentNotice,
+        paymentReturnReady,
         clearPaymentNotice: () => setPaymentNotice(null),
         refreshFromBackend,
         refreshTrackComments,
