@@ -217,7 +217,6 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
               {/* Producer quick link */}
               <div
                 onClick={() => {
-                  onClose();
                   onOpenProducerProfile(track.producerId);
                 }}
                 className="flex items-center gap-2 text-zinc-300 hover:text-amber-400 cursor-pointer w-fit mb-4 transition-colors"
@@ -545,7 +544,6 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
 
               <button
                 onClick={() => {
-                  onClose();
                   onOpenProducerProfile(track.producerId);
                 }}
                 className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors border border-zinc-700 text-center block"

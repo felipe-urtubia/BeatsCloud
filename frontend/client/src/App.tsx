@@ -19,16 +19,25 @@ import { X } from 'lucide-react';
 import { AccountDeletionModal } from './components/AccountDeletionModal';
 
 export const App: React.FC = () => {
-  const { currentUser, paymentNotice, clearPaymentNotice } = useApp();
+  const { currentUser, users, paymentNotice, clearPaymentNotice } = useApp();
 
-  const [currentTab, setCurrentTab] = useState<string>('descubrir');
+  const [currentTab, setCurrentTab] = useState<string>(
+    () => new URLSearchParams(window.location.search).get('profile')
+      ? 'perfil_externo'
+      : 'descubrir',
+  );
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('track') || null,
   );
 
   // Profile view state
-  const [viewedProfileId, setViewedProfileId] = useState<string | null>(null);
-  const [viewedProfileRole, setViewedProfileRole] = useState<UserType>('productor');
+  const [viewedProfileUsername, setViewedProfileUsername] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('profile')?.trim() || null,
+  );
+
+  const viewedProfile = viewedProfileUsername
+    ? users.find((user) => user.username === viewedProfileUsername) || null
+    : null;
 
   // Modals & Mobile state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -42,11 +51,28 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const syncTrackFromUrl = () => {
-      const trackId = new URLSearchParams(
-        window.location.search
-      ).get('track');
+      const params = new URLSearchParams(window.location.search);
 
-      setSelectedTrackId(trackId || null);
+      setSelectedTrackId(params.get('track') || null);
+
+      const username = params.get('profile')?.trim() || null;
+
+      setViewedProfileUsername(username);
+
+      if (username) {
+        setCurrentTab('perfil_externo');
+      } else {
+        const previousTab = window.history.state?.beatcloudTab;
+
+        setCurrentTab((tab) =>
+          tab === 'perfil_externo'
+            ? typeof previousTab === 'string' &&
+              previousTab !== 'perfil_externo'
+              ? previousTab
+              : 'descubrir'
+            : tab
+        );
+      }
     };
 
     window.addEventListener('popstate', syncTrackFromUrl);
@@ -114,16 +140,73 @@ export const App: React.FC = () => {
     setUploadModalOpen(true);
   };
 
-  const handleOpenProducerProfile = (producerId: string) => {
-    setViewedProfileId(producerId);
-    setViewedProfileRole('productor');
+  const handleNavigateTab = (tab: string) => {
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.has('profile')) {
+      url.searchParams.delete('profile');
+
+      window.history.pushState(
+        { beatcloudTab: tab },
+        '',
+        `${url.pathname}${url.search}${url.hash}`
+      );
+    }
+
+    setViewedProfileUsername(null);
+    setCurrentTab(tab);
+  };
+
+  const handleOpenPublicProfile = (userId: string, role: UserType) => {
+    const target = users.find(
+      (user) => user.id === userId && user.role === role
+    );
+
+    if (!target) return;
+
+    const url = new URL(window.location.href);
+
+    url.searchParams.delete('track');
+    url.searchParams.set('profile', target.username);
+
+    const destino = `${url.pathname}${url.search}${url.hash}`;
+    const actual =
+      `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+    if (destino !== actual) {
+      if (!new URLSearchParams(window.location.search).has('profile')) {
+        const previousState = window.history.state;
+
+        const state =
+          typeof previousState === 'object' && previousState !== null
+            ? previousState
+            : {};
+
+        window.history.replaceState(
+          { ...state, beatcloudTab: currentTab },
+          '',
+          actual
+        );
+      }
+
+      window.history.pushState(
+        { beatcloudPublicProfile: true },
+        '',
+        destino
+      );
+    }
+
+    setSelectedTrackId(null);
+    setViewedProfileUsername(target.username);
     setCurrentTab('perfil_externo');
   };
 
+  const handleOpenProducerProfile = (producerId: string) => {
+    handleOpenPublicProfile(producerId, 'productor');
+  };
+
   const handleSelectCommunityUser = (userId: string, role: UserType) => {
-    setViewedProfileId(userId);
-    setViewedProfileRole(role);
-    setCurrentTab('perfil_externo');
+    handleOpenPublicProfile(userId, role);
   };
 
   return (
@@ -131,10 +214,7 @@ export const App: React.FC = () => {
       {/* Studio Left Sidebar */}
       <Sidebar
         currentTab={currentTab}
-        setCurrentTab={(tab) => {
-          setViewedProfileId(null);
-          setCurrentTab(tab);
-        }}
+        setCurrentTab={handleNavigateTab}
         onOpenAuth={handleOpenAuth}
         onOpenUpload={handleOpenUpload}
         isMobileOpen={isMobileMenuOpen}
@@ -146,10 +226,7 @@ export const App: React.FC = () => {
         {/* TopBar */}
         <TopBar
           currentTab={currentTab}
-          setCurrentTab={(tab) => {
-            setViewedProfileId(null);
-            setCurrentTab(tab);
-          }}
+          setCurrentTab={handleNavigateTab}
           onOpenAuth={handleOpenAuth}
           onOpenAccountDeletion={() => setAccountDeletionOpen(true)}
           onOpenUpload={handleOpenUpload}
@@ -172,7 +249,7 @@ export const App: React.FC = () => {
           )}
           {(currentTab === 'descubrir' || currentTab === 'inicio') && (
             <DiscoverPage
-              onNavigateCatalog={() => setCurrentTab('catalogo')}
+              onNavigateCatalog={() => handleNavigateTab('catalogo')}
               onOpenTrackDetail={handleOpenTrackDetail}
               onOpenProducerProfile={handleOpenProducerProfile}
             />
@@ -187,7 +264,7 @@ export const App: React.FC = () => {
 
           {currentTab === 'carrito' && (
             <CartPage
-              onNavigateCatalog={() => setCurrentTab('catalogo')}
+              onNavigateCatalog={() => handleNavigateTab('catalogo')}
               onOpenTrackDetail={handleOpenTrackDetail}
             />
           )}
@@ -211,7 +288,7 @@ export const App: React.FC = () => {
               <ArtistProfilePage
                 initialTab="compras"
                 onOpenTrackDetail={handleOpenTrackDetail}
-                onNavigateCatalog={() => setCurrentTab('catalogo')}
+                onNavigateCatalog={() => handleNavigateTab('catalogo')}
               />
             )
           )}
@@ -231,26 +308,47 @@ export const App: React.FC = () => {
             <ArtistProfilePage
               initialTab="favoritos"
               onOpenTrackDetail={handleOpenTrackDetail}
-              onNavigateCatalog={() => setCurrentTab('catalogo')}
+              onNavigateCatalog={() => handleNavigateTab('catalogo')}
             />
           )}
 
           {/* External Viewed Profile */}
-          {currentTab === 'perfil_externo' && viewedProfileId && (
-            viewedProfileRole === 'productor' ? (
+          {currentTab === 'perfil_externo' && viewedProfile && (
+            viewedProfile.role === 'productor' ? (
               <ProducerProfilePage
-                producerId={viewedProfileId}
+                producerId={viewedProfile.id}
                 onOpenTrackDetail={handleOpenTrackDetail}
                 onOpenUploadModal={handleOpenUpload}
                 onEditTrack={handleEditTrack}
               />
             ) : (
               <ArtistProfilePage
-                artistId={viewedProfileId}
+                artistId={viewedProfile.id}
                 onOpenTrackDetail={handleOpenTrackDetail}
-                onNavigateCatalog={() => setCurrentTab('catalogo')}
+                onNavigateCatalog={() => handleNavigateTab('catalogo')}
               />
             )
+          )}
+          {currentTab === 'perfil_externo' && !viewedProfile && (
+            <div
+              role="status"
+              className="rounded-2xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-200"
+            >
+              <h2 className="text-lg font-bold mb-2">
+                Perfil no disponible
+              </h2>
+              <p className="text-sm text-zinc-400">
+                No pudimos encontrar este perfil entre los usuarios cargados.
+                Comprueba el enlace y la conexion con el servidor.
+              </p>
+              <button
+                type="button"
+                className="mt-4 rounded-lg bg-amber-400 px-4 py-2 font-bold text-zinc-950"
+                onClick={() => handleNavigateTab('usuarios')}
+              >
+                Ver comunidad
+              </button>
+            </div>
           )}
         </main>
       </div>

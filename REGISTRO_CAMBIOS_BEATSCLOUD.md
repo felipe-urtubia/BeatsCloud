@@ -1732,3 +1732,38 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - No se realizaron cambios en PostgreSQL.
 - Enlaces a perfiles publicos pendientes de desarrollo.
 - Compartir enlaces fuera del entorno local requiere despliegue.
+
+---
+
+## Enlaces directos a perfiles publicos React - 06-11-2026
+
+### Funcionalidades incorporadas
+
+- Se incorporaron enlaces directos a perfiles mediante el parametro profile.
+- Las direcciones utilizan el nombre de usuario publico.
+- React resuelve el identificador interno y el rol del usuario.
+- Se habilitaron enlaces compartibles para artistas y productores.
+- Los perfiles pueden abrirse en nuevas pestanas y recargarse.
+- Se sincronizo la navegacion con los botones Atras y Adelante.
+- Se mantuvo el acceso a productores desde el detalle de canciones.
+- Los perfiles no encontrados muestran Perfil no disponible.
+- Se evito mostrar otra cuenta como alternativa ante perfiles inexistentes.
+
+### Verificaciones realizadas
+
+- Compilacion React y TypeScript aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Prueba visual de enlace a productor aprobada.
+- Prueba visual de enlace a artista aprobada.
+- Prueba visual de perfil inexistente aprobada.
+- Prueba visual de Atras y Adelante aprobada.
+- Prueba visual de navegacion desde cancion a productor aprobada.
+- Se comprobaron visualmente los controles privados de perfiles ajenos.
+
+### Alcance y pendientes
+
+- Archivos React modificados: App.tsx y TrackDetailModal.tsx.
+- No se modifico Django ni PostgreSQL.
+- No se alteraron canciones, cuentas, compras ni pagos.
+- La validacion visual no sustituye una auditoria completa de seguridad.
+- Pendiente publicar el commit en GitHub.
