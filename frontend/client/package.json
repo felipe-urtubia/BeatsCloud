@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "tsc -b && vite build",
     "lint": "tsc -b",
-    "test": "node src/api/webpayCheckout.test.mjs",
+    "test": "node --test src/api/webpayCheckout.test.mjs src/navigation/urlState.test.mjs",
     "preview": "vite preview --port 3000 --host 0.0.0.0"
   },
   "dependencies": {
