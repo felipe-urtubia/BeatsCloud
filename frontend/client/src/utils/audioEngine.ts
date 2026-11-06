@@ -121,8 +121,17 @@ class BeatsAudioEngine {
       // Audio real servido por Django. El volumen y la atenuación de preescucha
       // (setPreviewSecurityMode/setVolume) se aplican vía MediaStreamSource en la
       // misma cadena master -> previewGain -> analyser -> destination.
-      this.audioEl.play().catch(() => {
-        /* autoplay bloqueado: el usuario ya interactuó al hacer click */
+      const audio = this.audioEl;
+      const requestedTrackId = this.activeTrackId;
+      audio.play().catch(() => {
+        if (
+          this.audioEl === audio &&
+          this.activeTrackId === requestedTrackId &&
+          audio.paused
+        ) {
+          this.isPlaying = false;
+          this.onPlayStateChangeCallback?.(false);
+        }
       });
       return;
     }
@@ -195,7 +204,10 @@ class BeatsAudioEngine {
       }
     };
     el.addEventListener('loadedmetadata', () => {
-      if (Number.isFinite(el.duration) && el.duration > 0) this.duration = el.duration;
+      if (Number.isFinite(el.duration) && el.duration > 0) {
+        this.duration = el.duration;
+        this.onTimeUpdateCallback?.(this.currentTime, this.duration);
+      }
       attach();
     });
     el.addEventListener('timeupdate', () => {
@@ -219,6 +231,25 @@ class BeatsAudioEngine {
     }
     if (this.onPlayStateChangeCallback) {
       this.onPlayStateChangeCallback(false);
+    }
+  }
+
+  public stop() {
+    this.pause();
+    this.setAudioSource(null);
+
+    if (this.audioEl) {
+      this.audioEl.pause();
+      this.audioEl.load();
+    }
+
+    this.activeTrackId = null;
+    this.currentTime = 0;
+    this.duration = 0;
+    this.currentStep = 0;
+
+    if (this.onTimeUpdateCallback) {
+      this.onTimeUpdateCallback(0, 0);
     }
   }
 

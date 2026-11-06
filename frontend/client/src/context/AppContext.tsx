@@ -68,6 +68,7 @@ interface AppContextType {
   setActiveResourceFilter: (filter: ResourceType | 'all') => void;
   playTrack: (track: Track) => void;
   togglePlay: () => void;
+  closeAudioPlayer: () => void;
   seekAudio: (seconds: number) => void;
   setAudioVolume: (volume: number) => void;
   toggleLike: (trackId: string) => void;
@@ -457,6 +458,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveTrack(track);
       audioEngine.playTrack(track.id, track.audioBeatType, track.bpm, track.duration);
     }
+  };
+
+  const closeAudioPlayer = () => {
+    audioEngine.stop();
+    setActiveTrack(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
   };
 
   const togglePlay = () => {
@@ -1204,6 +1213,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveResourceFilter,
         playTrack,
         togglePlay,
+        closeAudioPlayer,
         seekAudio,
         setAudioVolume,
         toggleLike,

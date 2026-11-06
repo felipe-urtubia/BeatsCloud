@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
-import { Play, Pause, Volume2, VolumeX, Heart, ShoppingCart, Info, Music2, Download, Lock, ShieldCheck } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Heart, ShoppingCart, Info, Music2, Download, Lock, ShieldCheck, X } from 'lucide-react';
 
 interface GlobalAudioPlayerProps {
   onOpenTrackDetail: (trackId: string) => void;
@@ -17,6 +17,7 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({ onOpenTrac
     togglePlay,
     seekAudio,
     setAudioVolume,
+    closeAudioPlayer,
     toggleLike,
     addToCart,
     currentUser,
@@ -87,17 +88,40 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({ onOpenTrac
 
         {/* Center Controls & Interactive Waveform/Progress */}
         <div className="flex-1 w-full max-w-2xl flex flex-col items-center gap-1.5">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center gap-2 flex-wrap">
             <button
+              type="button"
+              onClick={() => seekAudio(Math.max(0, currentTime - 5))}
+              disabled={duration <= 0}
+              aria-label="Retroceder cinco segundos"
+              title="Retroceder 5 segundos"
+              className="px-3 h-10 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold disabled:opacity-40"
+            >
+              -5 s
+            </button>
+            <button
+              type="button"
               onClick={togglePlay}
-              className="w-10 h-10 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 flex items-center justify-center transition-transform hover:scale-105 shadow-md shadow-amber-400/20"
+              aria-label={isPlaying ? 'Pausar audio' : 'Reproducir audio'}
               title={isPlaying ? 'Pausar' : 'Reproducir'}
+              className="min-w-[125px] h-10 px-3 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 flex items-center justify-center gap-2 font-bold text-xs shadow-md shadow-amber-400/20"
             >
               {isPlaying ? (
                 <Pause className="w-5 h-5 fill-current" />
               ) : (
-                <Play className="w-5 h-5 fill-current ml-0.5" />
+                <Play className="w-5 h-5 fill-current" />
               )}
+              <span>{isPlaying ? 'Pausar' : 'Reproducir'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => seekAudio(Math.min(duration, currentTime + 5))}
+              disabled={duration <= 0}
+              aria-label="Avanzar cinco segundos"
+              title="Avanzar 5 segundos"
+              className="px-3 h-10 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold disabled:opacity-40"
+            >
+              +5 s
             </button>
 
             {/* Live Waveform Equalizer Bars */}
@@ -123,8 +147,10 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({ onOpenTrac
             <div className="relative flex-1 group py-1">
               <input
                 type="range"
+                aria-label="Posicion del audio"
                 min={0}
                 max={duration || 100}
+                step={0.5}
                 value={currentTime}
                 onChange={(e) => seekAudio(Number(e.target.value))}
                 className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-400 group-hover:h-2 transition-all"
@@ -209,6 +235,15 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({ onOpenTrac
               <span>Descargar</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={closeAudioPlayer}
+            aria-label="Cerrar reproductor y detener audio"
+            title="Cerrar reproductor"
+            className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>
