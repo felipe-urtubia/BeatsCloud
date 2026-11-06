@@ -20,6 +20,7 @@ export interface DUser {
   email: string;
   // Perfil Usuario (OneToOne)
   tipo_usu: TipoUsu | null;
+  nombre_artistico: string;
   descripcion: string | null;
   foto_perfil: string | null;   // MEDIA_URL relativa o absoluta
   foto_fondo: string | null;
@@ -28,6 +29,8 @@ export interface DUser {
   instagram: string | null;
   /** Solo en login/sesión del propio usuario (nunca en payloads públicos, donde email viene vacío). */
   liked_track_ids?: number[];
+  /** Solo en sesión propia; no se exponen las relaciones privadas en el directorio público. */
+  subscription_ids?: number[];
 }
 
 /** app.models.Genero_Musical — 9 choices declarados */
@@ -52,6 +55,7 @@ export interface DTrack {
   is_owner?: boolean;        // el usuario autenticado es el productor
   // Metadatos propuestos (migración 0016_track_metadata, ver docs/INTEGRACION_BACKEND.md §3-C)
   resource_type?: 'instrumental' | 'acapella' | 'loop' | 'drumkit';
+  subgenre?: string;
   bpm?: number;
   scale_key?: string;
   mood?: string;
@@ -136,5 +140,18 @@ export interface DSuscripcion {
   detalle: string;
   precio: number;
   user: DUser;
-  is_subscribed?: boolean;
+}
+
+export interface DLicense {
+  license_code: string;
+  verification_hash: string;
+  issue_date: string;
+  purchase_reference: string;
+  amount_clp: number;
+  track: DTrack;
+  buyer: {
+    id: number;
+    username: string;
+    nombre_artistico: string;
+  };
 }

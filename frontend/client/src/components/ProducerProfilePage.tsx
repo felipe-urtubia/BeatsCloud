@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { LicenseContract, User, Track } from '../types';
-import { LicenseCertificateModal } from './LicenseCertificateModal';
+import { User, Track } from '../types';
+import { ProfileEditForm } from './ProfileEditForm';
 import {
   Play,
   Pause,
@@ -15,7 +15,6 @@ import {
   Heart,
   Calendar,
   CheckCircle,
-  FileText,
   Plus,
 } from 'lucide-react';
 
@@ -46,14 +45,19 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
     deleteTrack,
     subscribeToProducer,
     updateProfile,
-    getContractForSale,
+    configuredMode,
+    createSubscription,
+    purchaseSubscription,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'beats' | 'suscripciones' | 'ventas'>(initialTab);
   const [isEditingBio, setIsEditingBio] = useState(false);
-  const [editedBio, setEditedBio] = useState('');
   const [subSuccess, setSubSuccess] = useState<string | null>(null);
-  const [viewingContract, setViewingContract] = useState<LicenseContract | null>(null);
+  const [newPlanTitle, setNewPlanTitle] = useState('');
+  const [newPlanPrice, setNewPlanPrice] = useState('');
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
+  const [isProcessingSubscription, setIsProcessingSubscription] = useState(false);
 
   // Target producer
   const targetUser: User = producerId
@@ -72,16 +76,60 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
   const totalSalesRevenue = producerSales.reduce((sum, s) => sum + s.amount, 0);
   const totalLikes = producerTracks.reduce((sum, t) => sum + t.likesCount, 0);
 
-  const handleSaveBio = () => {
-    updateProfile({ bio: editedBio });
+  const handleSaveProfile = async (data: Parameters<typeof updateProfile>[0]) => {
+    await updateProfile(data);
     setIsEditingBio(false);
   };
 
-  const handleSubscribe = (sub: any) => {
+  const handleSubscribe = async (sub: any) => {
+    setSubscriptionError(null);
+    if (configuredMode === 'hybrid') {
+      if (isProcessingSubscription) return;
+
+      setIsProcessingSubscription(true);
+
+      try {
+        const result = await purchaseSubscription(sub);
+
+        if (result.status === 'error') {
+          setSubscriptionError(result.message);
+        }
+      } catch (error) {
+        setSubscriptionError(
+          error instanceof Error
+            ? error.message
+            : 'No fue posible iniciar el pago con Webpay.'
+        );
+      } finally {
+        setIsProcessingSubscription(false);
+      }
+
+      return;
+    }
     const ok = subscribeToProducer(sub);
     if (ok) {
       setSubSuccess(sub.id);
       setTimeout(() => setSubSuccess(null), 3000);
+    }
+  };
+
+  const handleCreatePlan = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const price = Number(newPlanPrice);
+    if (!newPlanTitle.trim() || !Number.isInteger(price) || price <= 0) {
+      setSubscriptionError('Ingresa un nombre y un precio válido mayor a cero.');
+      return;
+    }
+    setIsSavingPlan(true);
+    setSubscriptionError(null);
+    try {
+      await createSubscription(newPlanTitle.trim(), price);
+      setNewPlanTitle('');
+      setNewPlanPrice('');
+    } catch (error) {
+      setSubscriptionError((error as Error).message);
+    } finally {
+      setIsSavingPlan(false);
     }
   };
 
@@ -124,28 +172,11 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                   {targetUser.bio || 'Sin biografía disponible aún.'}
                 </p>
               ) : (
-                <div className="mt-2 space-y-2">
-                  <textarea
-                    value={editedBio}
-                    onChange={(e) => setEditedBio(e.target.value)}
-                    rows={3}
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-xs text-white"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveBio}
-                      className="px-3 py-1 bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => setIsEditingBio(false)}
-                      className="px-3 py-1 bg-zinc-800 text-zinc-300 rounded-lg text-xs"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
+                <ProfileEditForm
+                  user={targetUser}
+                  onSave={handleSaveProfile}
+                  onCancel={() => setIsEditingBio(false)}
+                />
               )}
 
               {/* Social Media Links */}
@@ -193,13 +224,12 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
               <>
                 <button
                   onClick={() => {
-                    setEditedBio(targetUser.bio);
                     setIsEditingBio(!isEditingBio);
                   }}
                   className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-4 py-2.5 rounded-xl text-xs border border-zinc-700 transition-colors flex items-center gap-2"
                 >
                   <Edit3 className="w-4 h-4" />
-                  <span>Editar Bio</span>
+                  <span>Editar Perfil</span>
                 </button>
                 <button
                   onClick={onOpenUploadModal}
@@ -227,7 +257,7 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
             </span>
           </div>
           <div className="bg-[#14151f] p-4 rounded-2xl border border-zinc-800">
-            <span className="text-xs text-zinc-400 block font-semibold">Licencias Vendidas</span>
+            <span className="text-xs text-zinc-400 block font-semibold">Ventas registradas</span>
             <span className="text-2xl font-black text-amber-400">{producerSales.length}</span>
           </div>
           <div className="bg-[#14151f] p-4 rounded-2xl border border-zinc-800">
@@ -373,6 +403,37 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
         {/* Tab 2: Subscriptions */}
         {activeTab === 'suscripciones' && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {isOwner && configuredMode === 'hybrid' && (
+              <form onSubmit={handleCreatePlan} className="col-span-full rounded-2xl border border-zinc-800 bg-[#14151f] p-5 space-y-3">
+                <h3 className="text-sm font-bold text-white">Crear plan de suscripción</h3>
+                <div className="grid gap-3 sm:grid-cols-[1fr_180px_auto]">
+                  <input
+                    value={newPlanTitle}
+                    onChange={(event) => setNewPlanTitle(event.target.value)}
+                    maxLength={200}
+                    placeholder="Nombre del plan"
+                    aria-label="Nombre del plan"
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={newPlanPrice}
+                    onChange={(event) => setNewPlanPrice(event.target.value)}
+                    placeholder="Precio en CLP"
+                    aria-label="Precio en CLP"
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                  />
+                  <button disabled={isSavingPlan} className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-black text-zinc-950 disabled:opacity-50">
+                    {isSavingPlan ? 'Guardando…' : 'Publicar plan'}
+                  </button>
+                </div>
+              </form>
+            )}
+            {subscriptionError && (
+              <p role="alert" className="col-span-full text-xs text-rose-400">{subscriptionError}</p>
+            )}
             {producerSubscriptions.length === 0 ? (
               <div className="col-span-full bg-[#14151f] border border-zinc-800 rounded-2xl p-10 text-center text-sm text-zinc-400">
                 Este productor no tiene planes de suscripción activos actualmente.
@@ -393,7 +454,9 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                       <h3 className="text-2xl font-black text-white mt-1 mb-2">{sub.title}</h3>
                       <div className="text-3xl font-black text-amber-400 mb-6">
                         ${sub.price.toLocaleString('es-CL')}{' '}
-                        <span className="text-xs font-normal text-zinc-400">/ {sub.period}</span>
+                        {sub.period && (
+                          <span className="text-xs font-normal text-zinc-400">/ {sub.period}</span>
+                        )}
                       </div>
 
                       <ul className="space-y-3 text-xs sm:text-sm text-zinc-300 mb-6">
@@ -406,10 +469,15 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                       </ul>
                     </div>
 
+                    {!isOwner && configuredMode === 'hybrid' && !isSubscribed && (
+                      <p className="text-center text-xs text-zinc-400">
+                        La contratación de suscripciones aún se realiza desde Django.
+                      </p>
+                    )}
                     {!isOwner && (
                       <button
-                        onClick={() => handleSubscribe(sub)}
-                        disabled={isSubscribed}
+                        onClick={() => void handleSubscribe(sub)}
+                        disabled={isSubscribed || isProcessingSubscription}
                         className={`w-full py-3 rounded-xl text-xs font-black transition-all ${
                           isSubscribed
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
@@ -418,6 +486,8 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                       >
                         {isSubscribed
                           ? '✓ Membresía Activa'
+                          : isProcessingSubscription
+                          ? 'Conectando con Webpay...'
                           : subSuccess === sub.id
                           ? '¡Suscrito con Éxito!'
                           : 'Suscribirse al Productor'}
@@ -446,7 +516,6 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                     <th className="p-4">Comprador</th>
                     <th className="p-4">Monto</th>
                     <th className="p-4">Estado</th>
-                    <th className="p-4 text-right">Licencia</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800 text-zinc-300 font-mono">
@@ -463,16 +532,6 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                           {sale.status}
                         </span>
                       </td>
-                      <td className="p-4 text-right">
-                        <button
-                          onClick={() => setViewingContract(getContractForSale(sale))}
-                          className="inline-flex items-center gap-1.5 bg-[#181d2c] hover:bg-[#22283d] text-amber-300 border border-amber-400/30 font-bold px-3 py-1.5 rounded-xl text-[10px] transition-colors"
-                          title={`Ver certificado oficial de licencia ${sale.licenseCode || ''}`}
-                        >
-                          <FileText className="w-3 h-3 text-amber-400" />
-                          <span>Certificado</span>
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -481,12 +540,6 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
           </div>
         )}
 
-      {/* Certificado de Licencia emitido al comprador (vista productor) */}
-      <LicenseCertificateModal
-        isOpen={viewingContract !== null}
-        onClose={() => setViewingContract(null)}
-        contract={viewingContract}
-      />
       </div>
     </div>
   );

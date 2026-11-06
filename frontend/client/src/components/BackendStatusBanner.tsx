@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, LoaderCircle, RefreshCw, WifiOff } from 'lucide-react';
+import { LoaderCircle, RefreshCw, WifiOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const phaseLabels = {
@@ -34,15 +34,6 @@ export const BackendStatusBanner: React.FC = () => {
           <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
           Reintentar
         </button>
-      </div>
-    );
-  }
-
-  if (backendStatus === 'online') {
-    return (
-      <div role="status" className={`${base} border-emerald-400/15 bg-emerald-400/5 text-emerald-200/80`}>
-        <CheckCircle2 className="h-4 w-4" />
-        Sincronización con Django activa
       </div>
     );
   }

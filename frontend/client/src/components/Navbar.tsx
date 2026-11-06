@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ShoppingCart, Music2, User as UserIcon, LogOut, ChevronDown, Sparkles } from 'lucide-react';
+import { ShoppingCart, Music2, User as UserIcon, LogOut, ChevronDown, Sparkles, UserPlus } from 'lucide-react';
 
 interface NavbarProps {
   currentTab: string;
@@ -227,8 +227,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
                 <button
                   onClick={() => onOpenAuth('register')}
-                  className="px-3.5 py-1.5 text-xs font-bold bg-amber-400 hover:bg-amber-300 text-zinc-950 rounded-lg transition-colors shadow-sm"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-400 px-4 py-2 text-xs font-extrabold text-zinc-950 shadow-[0_0_20px_rgba(251,146,60,0.35)] transition-all hover:-translate-y-0.5 hover:bg-orange-300 hover:shadow-[0_0_26px_rgba(251,146,60,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200"
                 >
+                  <UserPlus className="h-3.5 w-3.5" />
                   Registrarse
                 </button>
               </div>

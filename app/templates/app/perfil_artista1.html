@@ -2,7 +2,7 @@
 
 {% load static %}
 
-{% block titulo %}{{ perfil.user.username|capfirst }} - Artista{% endblock %}
+{% block titulo %}{{ perfil.nombre_artistico|default:perfil.user.username|capfirst }} - Artista{% endblock %}
 
 {% block contenido %}
 
@@ -260,7 +260,7 @@
         {% endif %}
 
         <div class="artista-name">
-          <h1>{{ perfil.user.username|capfirst }}</h1>
+          <h1>{{ perfil.nombre_artistico|default:perfil.user.username|capfirst }}</h1>
           <span class="artista-role">🎤 Artista</span>
         </div>
       </div>

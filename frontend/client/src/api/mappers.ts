@@ -5,8 +5,25 @@
  * REGLA DE ORO: la UI nunca debe ver snake_case ni ids numéricos crudos;
  * todo pasa por estos mapeadores. Si mañana DRF cambia un campo, solo se toca aquí.
  */
-import type { Track, User, UserType, MusicGenre, SaleRecord, PurchaseRecord } from '../types';
-import type { DTrack, DUser, DVenta, DHistorialVenta, DHistorialCompra, DComentario } from './types';
+import type {
+  ProducerSubscription,
+  Track,
+  User,
+  UserType,
+  MusicGenre,
+  SaleRecord,
+  PurchaseRecord,
+} from '../types';
+import type {
+  DTrack,
+  DUser,
+  DVenta,
+  DHistorialVenta,
+  DHistorialCompra,
+  DComentario,
+  DSuscripcion,
+  DLicense,
+} from './types';
 
 const DJANGO_BASE: string = (((import.meta as any).env?.VITE_DJANGO_URL as string | undefined) ?? '').replace(/\/$/, ''); // '' = mismo origen (proxy de Vite)
 
@@ -34,7 +51,9 @@ export function mapUser(d: DUser): User {
   return {
     id: String(d.id),
     username: d.username,
-    artistName: d.first_name && d.last_name ? `${d.first_name} ${d.last_name}` : d.username,
+    artistName: d.nombre_artistico || (
+      d.first_name && d.last_name ? `${d.first_name} ${d.last_name}` : d.first_name || d.username
+    ),
     email: d.email,
     role,
     hasProfile: d.tipo_usu !== null,
@@ -44,9 +63,9 @@ export function mapUser(d: DUser): User {
     spotify: d.spotify ?? undefined,
     youtube: d.youtube ?? undefined,
     instagram: d.instagram ?? undefined,
-    subscriptions: [],
+    subscriptions: (d.subscription_ids ?? []).map((id) => `sus-${id}`),
     purchasedTrackIds: [],   // se hidratan con tracks_comprados del catálogo
-    likedTrackIds: [],       // se hidratan con GET /api/me/likes (Fase B)
+    likedTrackIds: (d.liked_track_ids ?? []).map(slug),
   };
 }
 
@@ -56,11 +75,12 @@ export function mapTrack(d: DTrack, opts?: { isPurchased?: boolean; isOwner?: bo
     id: slug(d.id_track),
     title: d.nombre_track,
     producerId: String(d.usuario.id),
-    producerName: d.usuario.first_name || d.usuario.username,
+    producerName: d.usuario.nombre_artistico || d.usuario.username,
     producerUsername: d.usuario.username,
     producerAvatar: mediaUrl(d.usuario.foto_perfil) ?? `https://api.dicebear.com/7.x/shapes/svg?seed=${d.usuario.username}`,
     resourceType: d.resource_type ?? 'instrumental',
     genre: GENERO_MAP[d.genero?.descripcion] ?? 'Hip-Hop',
+    subgenre: d.subgenre ?? '',
     price: d.precio,
     coverUrl: mediaUrl(d.foto) ?? `https://picsum.photos/seed/${d.id_track}/600/600`,
     description: d.descripcion ?? '',
@@ -126,7 +146,7 @@ export function mapHistorialCompra(d: DHistorialCompra, buyerUserId: string): Pu
     userId: buyerUserId,
     trackId: slug(d.track.id_track),
     trackTitle: d.track.nombre_track,
-    producerName: d.track.usuario.username,
+    producerName: d.track.usuario.nombre_artistico || d.track.usuario.username,
     amount: d.track.precio,
     date: d.fecha_compra,
     purchasedAt: d.fecha_compra, // alias decorativo
@@ -135,6 +155,49 @@ export function mapHistorialCompra(d: DHistorialCompra, buyerUserId: string): Pu
     downloadUrl: apiDownloadUrl(d.track.id_track),
     licenseType: 'comercial_wav_stems',
   } as unknown as PurchaseRecord;
+}
+
+export function mapSubscription(d: DSuscripcion): ProducerSubscription {
+  return {
+    id: `sus-${d.id_sus}`,
+    producerId: String(d.user.id),
+    title: d.detalle,
+    price: d.precio,
+    benefits: [],
+  };
+}
+
+export function mapLicense(d: DLicense): import('../types').LicenseContract {
+  const producer = d.track.usuario;
+  return {
+    licenseCode: d.license_code,
+    verificationHash: `HMAC-SHA256:${d.verification_hash}`,
+    issueDate: d.issue_date,
+    trackId: slug(d.track.id_track),
+    trackTitle: d.track.nombre_track,
+    trackGenre: d.track.genero.descripcion,
+    trackBpm: d.track.bpm ?? 0,
+    trackKey: d.track.scale_key ?? 'No informado',
+    producerId: String(producer.id),
+    producerName: producer.nombre_artistico || producer.username,
+    producerUsername: producer.username,
+    producerRut: 'No registrado',
+    buyerId: String(d.buyer.id),
+    buyerName: d.buyer.nombre_artistico || d.buyer.username,
+    buyerUsername: d.buyer.username,
+    buyerRut: 'No registrado',
+    amountClp: d.amount_clp,
+    buyOrder: d.purchase_reference,
+    licenseType: d.amount_clp === 0 ? 'maqueta_ensayo' : 'comercial_wav_stems',
+    musicRightsSplit: { producerPercent: 0, artistPercent: 0, scdRegistered: false },
+    distributionTerms: {
+      streamsLimit: 'No especificado por Django',
+      musicVideoMonetized: false,
+      radioBroadcasting: false,
+      livePerformancesForProfit: false,
+      contentIdProtected: false,
+    },
+  };
 }
 
 export function mapComentario(d: DComentario): Track['comments'][number] {

@@ -224,7 +224,7 @@
       <div class="subscription-summary">
 
         <div class="subscription-summary-header">
-          Suscripción de {{ suscripcion.user.user.username }}
+          Suscripción de {{ suscripcion.user.nombre_artistico|default:suscripcion.user.user.username }}
         </div>
 
         <div class="subscription-summary-body">

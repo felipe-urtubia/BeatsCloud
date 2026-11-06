@@ -448,7 +448,7 @@
         {% endif %}
 
         <div class="perfil-name">
-          <h1>{{ user.username|capfirst }}</h1>
+          <h1>{{ user.usuario.nombre_artistico|default:user.username|capfirst }}</h1>
           <span class="perfil-role">🎛️ Productor</span>
         </div>
 

@@ -212,7 +212,7 @@
                     </div>
 
                     <div class="usuario-card-body">
-                        <h3>{{ usuario.user.username|capfirst }}</h3>
+                        <h3>{{ usuario.nombre_artistico|default:usuario.user.username|capfirst }}</h3>
 
                         {% if usuario.tipo_usu == 2 %}
                             <span class="usuario-rol rol-productor">🎛️ Productor</span>

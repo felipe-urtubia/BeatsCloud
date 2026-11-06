@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { LicenseCertificateModal } from './LicenseCertificateModal';
 import { LicenseContract } from '../types';
+import { ProfileEditForm } from './ProfileEditForm';
+import { DjangoApi } from '../api/django.service';
+import { djangoId, mapLicense } from '../api/mappers';
 
 interface ArtistProfilePageProps {
   artistId?: string;
@@ -42,13 +45,13 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     isPlaying,
     updateProfile,
     getContractForPurchase,
-    generateLicenseForTrack,
+    configuredMode,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'compras' | 'favoritos' | 'membresias'>(initialTab);
   const [isEditingBio, setIsEditingBio] = useState(false);
-  const [editedBio, setEditedBio] = useState('');
   const [viewingContract, setViewingContract] = useState<LicenseContract | null>(null);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const targetUser: User = artistId
     ? users.find((u) => u.id === artistId) || (currentUser as User)
@@ -56,27 +59,64 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
 
   const isOwner = currentUser?.id === targetUser.id;
 
-  const purchasedTracks = tracks.filter((t) => targetUser.purchasedTrackIds.includes(t.id));
+  const purchasedTracks = isOwner
+    ? tracks.filter((t) => targetUser.purchasedTrackIds.includes(t.id))
+    : [];
   const likedTracks = tracks.filter((t) => targetUser.likedTrackIds.includes(t.id));
-  const activeSubs = subscriptions.filter((s) => targetUser.subscriptions?.includes(s.id));
+  const activeSubs = isOwner
+    ? subscriptions.filter((s) => targetUser.subscriptions?.includes(s.id))
+    : [];
 
-  const handleSaveBio = () => {
-    updateProfile({ bio: editedBio });
+  const handleSaveProfile = async (data: Parameters<typeof updateProfile>[0]) => {
+    await updateProfile(data);
     setIsEditingBio(false);
   };
 
-  const handleDownload = (track: Track) => {
-    const blob = new Blob(
-      [
-        `BeatsCloud License & Stems Certificate\nTrack: ${track.title}\nProducer: ${track.producerName}\nBPM: ${track.bpm}\nKey: ${track.scaleKey}\nPurchased by: ${targetUser.artistName}\nLicense: Full Commercial Rights (Unlimited Distribution)`,
-      ],
-      { type: 'text/plain' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${track.title.replace(/[\s/]/g, '_')}_Licencia_BeatsCloud.txt`;
-    a.click();
+  const handleDownload = async (track: Track) => {
+    setPurchaseError(null);
+    try {
+      if (configuredMode === 'hybrid' && track.id.startsWith('dj-')) {
+        await DjangoApi.downloadTrack(djangoId(track.id), track.title);
+        return;
+      }
+      const purchase = purchases.find((item) => item.trackId === track.id && item.userId === targetUser.id);
+      if (!purchase) throw new Error('No se encontró el registro de compra de esta pista.');
+      const contract = getContractForPurchase(purchase);
+      const receipt = [
+        'Comprobante de compra de BeatsCloud',
+        `Referencia: ${contract.buyOrder}`,
+        `Pista: ${contract.trackTitle}`,
+        `Productor: ${contract.producerName}`,
+        `Comprador: ${contract.buyerName}`,
+        `Monto registrado: $${contract.amountClp.toLocaleString('es-CL')} CLP`,
+        `Fecha registrada: ${contract.issueDate}`,
+        '',
+        'Este comprobante no establece condiciones de licencia.',
+      ].join('\n');
+      const url = URL.createObjectURL(new Blob([receipt], { type: 'text/plain;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Comprobante_BeatsCloud_${contract.buyOrder}.txt`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setPurchaseError((error as Error).message);
+    }
+  };
+
+  const handleViewContract = async (track: Track) => {
+    setPurchaseError(null);
+    try {
+      if (configuredMode === 'hybrid' && track.id.startsWith('dj-')) {
+        setViewingContract(mapLicense(await DjangoApi.license(djangoId(track.id))));
+        return;
+      }
+      const purchase = purchases.find((item) => item.trackId === track.id && item.userId === targetUser.id);
+      if (!purchase) throw new Error('No se encontró el registro de compra de esta pista.');
+      setViewingContract(getContractForPurchase(purchase));
+    } catch (error) {
+      setPurchaseError((error as Error).message);
+    }
   };
 
   return (
@@ -117,28 +157,11 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                   {targetUser.bio || 'Sin biografía disponible aún.'}
                 </p>
               ) : (
-                <div className="mt-2 space-y-2">
-                  <textarea
-                    value={editedBio}
-                    onChange={(e) => setEditedBio(e.target.value)}
-                    rows={3}
-                    className="w-full bg-[#141724] border border-zinc-700 rounded-xl p-3 text-xs text-white"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveBio}
-                      className="px-3 py-1 bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => setIsEditingBio(false)}
-                      className="px-3 py-1 bg-zinc-800 text-zinc-300 rounded-lg text-xs"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
+                <ProfileEditForm
+                  user={targetUser}
+                  onSave={handleSaveProfile}
+                  onCancel={() => setIsEditingBio(false)}
+                />
               )}
             </div>
           </div>
@@ -146,13 +169,12 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
           {isOwner && (
             <button
               onClick={() => {
-                setEditedBio(targetUser.bio);
                 setIsEditingBio(!isEditingBio);
               }}
               className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-3.5 py-2 rounded-xl text-xs border border-zinc-700 transition-colors flex items-center gap-1.5"
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>Editar Bio</span>
+              <span>Editar Perfil</span>
             </button>
           )}
         </div>
@@ -213,12 +235,13 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
         {/* Tab 1: Purchased Tracks */}
         {activeTab === 'compras' && (
           <div className="mt-6 space-y-3">
+            {purchaseError && <p role="alert" className="text-xs text-rose-400">{purchaseError}</p>}
             {purchasedTracks.length === 0 ? (
               <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-10 text-center">
                 <FileMusic className="w-8 h-8 text-zinc-500 mx-auto mb-2" />
                 <p className="text-sm font-bold text-zinc-300">Aún no has adquirido pistas</p>
                 <p className="text-xs text-zinc-500 mt-1 mb-4">
-                  Las compras quedan registradas en tu biblioteca con acceso perpetuo a stems.
+                  Las compras registradas aparecen aquí. La descarga depende de que el archivo siga disponible.
                 </p>
                 <button
                   onClick={onNavigateCatalog}
@@ -281,27 +304,20 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => {
-                          const purchase = purchases.find((p) => p.trackId === track.id && p.userId === targetUser.id);
-                          if (purchase) {
-                            setViewingContract(getContractForPurchase(purchase));
-                          } else {
-                            setViewingContract(generateLicenseForTrack(track));
-                          }
-                        }}
+                        onClick={() => void handleViewContract(track)}
                         className="flex items-center gap-1.5 bg-[#181d2c] hover:bg-[#22283d] text-amber-300 border border-amber-400/30 font-bold px-3 py-2 rounded-xl text-xs transition-colors shadow-sm"
-                        title="Ver Cédula Oficial de Licencia comercial emitida para esta obra"
+                        title="Ver los datos de compra registrados para esta pista"
                       >
                         <FileText className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Ver Contrato</span>
+                        <span>Ver comprobante</span>
                       </button>
 
                       <button
-                        onClick={() => handleDownload(track)}
+                        onClick={() => void handleDownload(track)}
                         className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black px-3.5 py-2 rounded-xl text-xs transition-colors shadow-sm"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Descargar WAV + Stems</span>
+                        <span>Descargar archivo de audio</span>
                       </button>
                     </div>
                   </div>
@@ -389,6 +405,11 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
           </div>
         )}
       </div>
+      <LicenseCertificateModal
+        isOpen={viewingContract !== null}
+        onClose={() => setViewingContract(null)}
+        contract={viewingContract}
+      />
     </div>
   );
 };

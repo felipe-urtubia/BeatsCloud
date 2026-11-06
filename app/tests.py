@@ -124,6 +124,30 @@ class EliminarCuentaTests(TestCase):
         self.assertFalse(Usuario.objects.filter(pk=perfil_id).exists())
         self.assertTemplateUsed(response, 'app/cuenta_eliminada.html')
 
+    def test_admin_user_delete_confirmation_with_purchase_history(self):
+        user, profile = self.crear_usuario('admin_delete_artist', Usuario.ARTISTA)
+        genre = self.crear_genero()
+        track = Track.objects.create(
+            nombre_track='Track comprado',
+            precio=5000,
+            track='canciones/comprado.mp3',
+            genero=genre,
+            usuario=profile,
+        )
+        HistorialCompra.objects.create(usuario=profile, track=track)
+        admin_user = User.objects.create_superuser(
+            username='admin',
+            email='admin@example.com',
+            password=self.PASSWORD,
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get(f'/admin/auth/user/{user.pk}/delete/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cannot delete user')
+        self.assertContains(response, 'admin_delete_artist')
+
     def test_productor_conserva_track_comprado_como_anonimo(self):
         productor, perfil_productor = self.crear_usuario(
             'productor1',

@@ -64,7 +64,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
   onClose,
   trackToEdit,
 }) => {
-  const { uploadTrack, updateTrack } = useApp();
+  const { uploadTrack, updateTrack, configuredMode } = useApp();
 
   const [title, setTitle] = useState('');
   const [resourceType, setResourceType] = useState<ResourceType>('instrumental');
@@ -77,6 +77,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
   const [mood, setMood] = useState<MoodType>('Oscuro');
   const [audioBeatType, setAudioBeatType] = useState<Track['audioBeatType']>('trap');
   const [coverUrl, setCoverUrl] = useState(PRESET_COVERS[0]);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
 
   // Stems checkboxes
   const [hasWav, setHasWav] = useState(true);
@@ -87,19 +88,22 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
   // "Punto medio": permitir descarga de maqueta de composición en beats de pago
   const [allowFreeDownload, setAllowFreeDownload] = useState(false);
 
-  // Duración real detectada del archivo subido (segundos). Si no hay archivo,
-  // uploadTrack usará su valor por defecto (180s) como antes.
+  // Duración detectada localmente; el modo hybrid requiere el archivo para subirlo.
   const [detectedDuration, setDetectedDuration] = useState<number | null>(null);
 
   // Fallback Audio Analyzer State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AudioAnalysisResult | null>(null);
   const [fileNameInput, setFileNameInput] = useState('');
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Autodetección por nombre de archivo: si el productor sube un archivo real,
   // se usa su nombre como insumo del analizador de fallback.
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    setAudioFile(file ?? null);
     if (!file) return;
     setFileNameInput(file.name);
     if (!title.trim()) {
@@ -107,8 +111,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
     }
 
     // Extracción de metadatos reales del audio (duración y BPM aproximado).
-    // En producción esto lo hará el backend Django con Mutagen al recibir el
-    // archivo en Cloudflare R2; aquí se replica la lógica en el cliente.
+    // El análisis local complementa la carga real del archivo al backend Django.
     const url = URL.createObjectURL(file);
     const probe = new Audio();
     probe.preload = 'metadata';
@@ -135,6 +138,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       setMood(trackToEdit.mood || 'Oscuro');
       setAudioBeatType(trackToEdit.audioBeatType);
       setCoverUrl(trackToEdit.coverUrl);
+      setCoverFile(null);
       setHasWav(trackToEdit.hasWav);
       setHasStems(trackToEdit.hasStems);
       setHasMidi(trackToEdit.hasMidi);
@@ -153,6 +157,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       setMood('Oscuro');
       setAudioBeatType('trap');
       setCoverUrl(PRESET_COVERS[0]);
+      setCoverFile(null);
       setHasWav(true);
       setHasStems(true);
       setHasMidi(false);
@@ -162,6 +167,8 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       setAnalysisResult(null);
       setFileNameInput('');
       setDetectedDuration(null);
+      setAudioFile(null);
+      setUploadError(null);
     }
   }, [trackToEdit, isOpen]);
 
@@ -188,57 +195,74 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
     setGenre(analysisResult.suggestedGenre);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    setUploadError(null);
+
+    if (!trackToEdit && configuredMode === 'hybrid' && !audioFile) {
+      setUploadError('Selecciona el archivo de audio que quieres guardar.');
+      return;
+    }
 
     const finalPrice = isFree ? 0 : price;
 
-    if (trackToEdit) {
-      updateTrack(trackToEdit.id, {
-        title,
-        resourceType,
-        genre,
-        subgenre,
-        price: finalPrice,
-        description,
-        bpm,
-        scaleKey,
-        mood,
-        audioBeatType,
-        coverUrl,
-        hasWav,
-        hasStems,
-        hasMidi,
-        isFree,
-        allowFreeDownload: isFree ? true : allowFreeDownload,
-        hasWatermark,
-        ...(detectedDuration ? { duration: detectedDuration } : {}),
-      });
-    } else {
-      uploadTrack({
-        title,
-        resourceType,
-        genre,
-        subgenre,
-        price: finalPrice,
-        description,
-        bpm,
-        scaleKey,
-        mood,
-        audioBeatType,
-        coverUrl,
-        hasWav,
-        hasStems,
-        hasMidi,
-        isFree,
-        allowFreeDownload: isFree ? true : allowFreeDownload,
-        hasWatermark,
-        duration: detectedDuration ?? undefined,
-      });
-    }
+    setIsSubmitting(true);
+    try {
+      if (trackToEdit) {
+        await updateTrack(trackToEdit.id, {
+          title,
+          resourceType,
+          genre,
+          subgenre,
+          price: finalPrice,
+          description,
+          bpm,
+          scaleKey,
+          mood,
+          audioBeatType,
+          coverUrl,
+          hasWav,
+          hasStems,
+          hasMidi,
+          isFree,
+          allowFreeDownload: isFree ? true : allowFreeDownload,
+          hasWatermark,
+          ...(detectedDuration ? { duration: detectedDuration } : {}),
+        }, coverFile ?? undefined);
+      } else {
+        await uploadTrack({
+          title,
+          resourceType,
+          genre,
+          subgenre,
+          price: finalPrice,
+          description,
+          bpm,
+          scaleKey,
+          mood,
+          audioBeatType,
+          coverUrl,
+          hasWav,
+          hasStems,
+          hasMidi,
+          isFree,
+          allowFreeDownload: isFree ? true : allowFreeDownload,
+          hasWatermark,
+          duration: detectedDuration ?? undefined,
+          audioFile: audioFile ?? undefined,
+          coverFile: coverFile ?? undefined,
+        });
+      }
 
-    onClose();
+      onClose();
+    } catch (error) {
+      const uploadFailure = error as Error & { errors?: Record<string, string[]> };
+      const fieldErrors = Object.values(uploadFailure.errors ?? {}).flat();
+      setUploadError(fieldErrors.join(' ') || uploadFailure.message || 'No se pudo guardar la pista.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const badgeInfo = getResourceBadgeInfo(resourceType);
@@ -293,7 +317,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
             </button>
           </div>
 
-          {/* Archivo de audio (insumo del analizador; en producción se sube a Cloudflare R2) */}
+          {/* El archivo seleccionado se envía al backend junto con los datos de la pista. */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0b0d13] border border-dashed border-zinc-600 hover:border-amber-400/60 cursor-pointer text-xs text-zinc-300 transition-colors">
               <FileAudio className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -302,7 +326,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
               </span>
               <input
                 type="file"
-                accept=".wav,.mp3,.aiff,.flac,audio/*"
+                accept=".wav,.mp3,.flac,.m4a,.aac,.ogg,audio/*"
                 className="hidden"
                 onChange={handleFileSelected}
               />
@@ -346,6 +370,11 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
 
         {/* Main Upload Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
+          {uploadError && (
+            <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">
+              {uploadError}
+            </div>
+          )}
           {/* 1. Resource Type Selection (Instrumental, Acapella, Loop, Drumkit) */}
           <div>
             <label className="text-xs font-bold text-zinc-300 block mb-2">
@@ -642,21 +671,36 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
             <label className="text-xs font-bold text-zinc-300 block mb-1.5">
               Carátula / Arte del Track
             </label>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-              {PRESET_COVERS.map((url, i) => (
-                <img
-                  key={i}
-                  src={url}
-                  alt="Preset"
-                  onClick={() => setCoverUrl(url)}
-                  className={`w-14 h-14 rounded-xl object-cover cursor-pointer transition-all flex-shrink-0 ${
-                    coverUrl === url
-                      ? 'ring-2 ring-amber-400 scale-105'
-                      : 'opacity-50 hover:opacity-100'
-                  }`}
+              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0b0d13] border border-dashed border-zinc-600 hover:border-amber-400/60 cursor-pointer text-xs text-zinc-300 transition-colors">
+                <Upload className="w-4 h-4 text-amber-400" />
+                <span>{coverFile?.name || 'Subir imagen de portada (opcional)'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)}
                 />
-              ))}
-            </div>
+              </label>
+              {configuredMode !== 'hybrid' && (
+                <div className="flex items-center gap-2 overflow-x-auto pt-3 pb-2 scrollbar-none">
+                  {PRESET_COVERS.map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt="Preset"
+                      onClick={() => {
+                        setCoverUrl(url);
+                        setCoverFile(null);
+                      }}
+                      className={`w-14 h-14 rounded-xl object-cover cursor-pointer transition-all flex-shrink-0 ${
+                        coverUrl === url
+                          ? 'ring-2 ring-amber-400 scale-105'
+                          : 'opacity-50 hover:opacity-100'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
           </div>
 
           {/* 7. Description */}
@@ -684,9 +728,10 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex-1 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-amber-400/20"
+              disabled={isSubmitting}
+              className="flex-1 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-amber-400/20 disabled:cursor-wait disabled:opacity-60"
             >
-              {trackToEdit ? 'Guardar Cambios' : 'Publicar en Catálogo'}
+              {isSubmitting ? 'Guardando…' : trackToEdit ? 'Guardar Cambios' : 'Publicar en Catálogo'}
             </button>
           </div>
         </form>

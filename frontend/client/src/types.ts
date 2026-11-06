@@ -84,7 +84,7 @@ export interface ProducerSubscription {
   producerId: string;
   title: string;
   price: number;
-  period: 'mensual' | 'anual';
+  period?: 'mensual' | 'anual';
   benefits: string[];
 }
 

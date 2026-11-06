@@ -15,9 +15,11 @@ import { UploadTrackModal } from './components/UploadTrackModal';
 import { AuthModal } from './components/AuthModal';
 import { Track, UserType } from './types';
 import { BackendStatusBanner } from './components/BackendStatusBanner';
+import { X } from 'lucide-react';
+import { AccountDeletionModal } from './components/AccountDeletionModal';
 
 export const App: React.FC = () => {
-  const { currentUser } = useApp();
+  const { currentUser, paymentNotice, clearPaymentNotice } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>('descubrir');
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
@@ -30,7 +32,10 @@ export const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [trackToEdit, setTrackToEdit] = useState<Track | null>(null);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(
+    () => new URLSearchParams(window.location.search).get('auth') === 'login',
+  );
+  const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const handleOpenAuth = (mode: 'login' | 'register') => {
@@ -85,6 +90,7 @@ export const App: React.FC = () => {
             setCurrentTab(tab);
           }}
           onOpenAuth={handleOpenAuth}
+          onOpenAccountDeletion={() => setAccountDeletionOpen(true)}
           onOpenUpload={handleOpenUpload}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
@@ -92,6 +98,17 @@ export const App: React.FC = () => {
 
         {/* Dynamic Main Views Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28">
+          {paymentNotice && (
+            <div
+              role="status"
+              className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100"
+            >
+              <span>{paymentNotice}</span>
+              <button type="button" onClick={clearPaymentNotice} aria-label="Cerrar aviso de pago">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           {(currentTab === 'descubrir' || currentTab === 'inicio') && (
             <DiscoverPage
               onNavigateCatalog={() => setCurrentTab('catalogo')}
@@ -197,6 +214,10 @@ export const App: React.FC = () => {
         mode={authMode}
         onClose={() => setAuthModalOpen(false)}
         onSwitchMode={(mode) => setAuthMode(mode)}
+      />
+      <AccountDeletionModal
+        isOpen={accountDeletionOpen}
+        onClose={() => setAccountDeletionOpen(false)}
       />
 
       {/* Global Persistent Audio Player */}
