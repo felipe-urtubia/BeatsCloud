@@ -25,7 +25,8 @@ Instalación (en el repo de Felipe, mínimo invasivo):
       quieren CORS para localhost:3000 sin instalar django-cors-headers)
   3. Nada más. Las vistas HTML de Felipe siguen intactas y funcionando.
 
-Frontend: correr con  VITE_API_MODE=rest  VITE_DJANGO_URL=http://localhost:8000
+Frontend local: VITE_API_MODE=hybrid (predeterminado) con proxy Vite /api/ hacia Django.
+Para demo sin backend: VITE_API_MODE=mock. Evitar un origen externo para cookies de sesion.
 """
 import json
 import hashlib

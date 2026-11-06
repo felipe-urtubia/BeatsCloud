@@ -1951,3 +1951,18 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 ### Seguridad
 - Sin cambios en datos reales de PostgreSQL.
 - Sin pagos ni modificaciones a canciones o compras.
+
+---
+
+## Integracion SPA con API real y respaldo mock - 06-11-2026
+
+- API real (`hybrid`) y modo `mock` seleccionables con `VITE_API_MODE`.
+- Corregido tipo `DPagoInit` para coincidir con la respuesta Django.
+- Actualizado comentario de configuracion antiguo en `app/api_shim.py`.
+- Agregadas 7 pruebas de integracion aislada en `app/test_integration_real.py`.
+- Pruebas: React 23/23, autenticacion Django 5/5, integracion Django 7/7.
+- Validacion visual con API real y respaldo mock aprobadas (pasos 199 y 200).
+- Documentacion ampliada en `docs/INTEGRACION_BACKEND.md`.
+- Pagos Webpay reales y registro en base principal no ejecutados.
+- Pendiente: validacion integral del pago en ambiente de integracion.
+- Sin cambios en canciones, compras ni datos reales de PostgreSQL.
