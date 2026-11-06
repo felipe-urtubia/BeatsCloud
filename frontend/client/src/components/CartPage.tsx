@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
 import {
@@ -21,10 +21,43 @@ export const CartPage: React.FC<CartPageProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+  const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
   const subtotal = cart.reduce((sum, item) => sum + item.track.price, 0);
   const iva = Math.round(subtotal * 0.19);
   const total = subtotal + iva;
+
+  const openCheckoutConfirm = () => {
+    if (isProcessing) return;
+    setCheckoutError(null);
+    setCheckoutNotice(null);
+
+    if (cart.length === 0 || total <= 0) {
+      setCheckoutError('El carrito no tiene productos de pago.');
+      return;
+    }
+
+    setShowCheckoutConfirm(true);
+  };
+
+  useEffect(() => {
+    if (!showCheckoutConfirm || isProcessing) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowCheckoutConfirm(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showCheckoutConfirm, isProcessing]);
+
+  useEffect(() => {
+    if (cart.length === 0) {
+      setShowCheckoutConfirm(false);
+    }
+  }, [cart.length]);
 
   const handleStartCheckout = async () => {
     if (isProcessing) return;
@@ -187,11 +220,11 @@ export const CartPage: React.FC<CartPageProps> = ({
               </div>
 
               <button
-                onClick={handleStartCheckout}
+                onClick={openCheckoutConfirm}
                 disabled={isProcessing || total <= 0}
                 className="w-full bg-amber-400 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-black py-3 px-4 rounded-xl text-xs transition-all hover:scale-102 flex items-center justify-center gap-2 shadow-sm font-mono uppercase"
               >
-                <span>{isProcessing ? 'Conectando con Webpay...' : 'Continuar a Webpay'}</span>
+                <span>{isProcessing ? 'Conectando con Webpay...' : 'Revisar compra'}</span>
                 {!isProcessing && <ArrowRight className="w-3.5 h-3.5" />}
               </button>
 
@@ -213,6 +246,99 @@ export const CartPage: React.FC<CartPageProps> = ({
 
             </div>
           </div>
+        </div>
+      )}
+
+      {showCheckoutConfirm && cart.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="checkout-confirm-title"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#111520] border border-[#2d3546] rounded-3xl p-6 shadow-2xl space-y-5"
+          >
+            <div>
+              <h2
+                id="checkout-confirm-title"
+                className="text-xl font-black text-white"
+              >
+                Confirmar compra
+              </h2>
+              <p className="text-xs text-zinc-400 mt-2">
+                Revisa tu pedido antes de continuar a Webpay.
+              </p>
+            </div>
+
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {cart.map((item) => (
+                <div
+                  key={item.track.id}
+                  className="flex justify-between gap-4 rounded-xl bg-zinc-900 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">
+                      {item.track.title}
+                    </p>
+                    <p className="text-xs text-zinc-400 truncate">
+                      {item.track.producerName}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold text-amber-400 whitespace-nowrap">
+                    ${item.track.price.toLocaleString('es-CL')}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-zinc-700 pt-4 space-y-2 text-sm">
+              <div className="flex justify-between text-zinc-300">
+                <span>Subtotal</span>
+                <span>${subtotal.toLocaleString('es-CL')}</span>
+              </div>
+              <div className="flex justify-between text-zinc-300">
+                <span>IVA (19%)</span>
+                <span>${iva.toLocaleString('es-CL')}</span>
+              </div>
+              <div className="flex justify-between text-white font-black text-lg pt-2">
+                <span>Total estimado</span>
+                <span className="text-amber-400">
+                  ${total.toLocaleString('es-CL')} CLP
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-400">
+              Django verifica el monto definitivo al iniciar la orden.
+              La compra solo se registra tras validar el pago con Webpay.
+            </p>
+
+            {checkoutError && (
+              <p role="alert" className="text-xs text-rose-400">
+                {checkoutError}
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                autoFocus
+                disabled={isProcessing}
+                onClick={() => setShowCheckoutConfirm(false)}
+                className="rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold px-4 py-3 text-xs disabled:opacity-50"
+              >
+                Volver al carrito
+              </button>
+
+              <button
+                type="button"
+                disabled={isProcessing || total <= 0}
+                onClick={handleStartCheckout}
+                className="rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black px-4 py-3 text-xs disabled:opacity-50"
+              >
+                {isProcessing ? 'Conectando...' : 'Confirmar e ir a Webpay'}
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
