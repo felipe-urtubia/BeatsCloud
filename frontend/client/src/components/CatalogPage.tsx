@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { MusicGenre, ResourceType, MoodType, Track } from '../types';
 import { getResourceBadgeInfo, RESOURCE_TYPES } from '../utils/resourceHelpers';
@@ -86,9 +86,20 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [minBpm, setMinBpm] = useState<number>(60);
   const [maxBpm, setMaxBpm] = useState<number>(180);
   const [onlyWithStems, setOnlyWithStems] = useState<boolean>(false);
-  const [priceFilter, setPriceFilter] = useState<'all' | 'paid' | 'free'>('all');
-  const [sortBy, setSortBy] = useState<'recientes' | 'bpm_asc' | 'bpm_desc' | 'likes' | 'precio_menor'>('recientes');
+  const [priceFilter, setPriceFilter] = useState<
+    'all' | 'paid' | 'free' |
+    '0_5000' | '5001_10000' |
+    '10001_20000' | '20001_plus'
+  >('all');
+  const [sortBy, setSortBy] = useState<
+    'recientes' | 'antiguos' |
+    'bpm_asc' | 'bpm_desc' |
+    'likes' | 'precio_menor' | 'precio_mayor' |
+    'nombre_asc' | 'nombre_desc'
+  >('recientes');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
 
   const handleDownloadFree = async (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
@@ -167,6 +178,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           return false;
         }
 
+        // Rangos de precio en pesos chilenos.
+        const price = track.isFree ? 0 : track.price;
+
+        if (priceFilter === '0_5000' && (!Number.isFinite(price) || price < 0 || price > 5000)) return false;
+        if (priceFilter === '5001_10000' && (!Number.isFinite(price) || price <= 5000 || price > 10000)) return false;
+        if (priceFilter === '10001_20000' && (!Number.isFinite(price) || price <= 10000 || price > 20000)) return false;
+        if (priceFilter === '20001_plus' && (!Number.isFinite(price) || price <= 20000)) return false;
+
         return true;
       })
       .sort((a, b) => {
@@ -174,6 +193,27 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         if (sortBy === 'bpm_desc') return b.bpm - a.bpm;
         if (sortBy === 'likes') return b.likesCount - a.likesCount;
         if (sortBy === 'precio_menor') return a.price - b.price;
+        if (sortBy === 'precio_mayor') return b.price - a.price;
+
+        if (sortBy === 'nombre_asc') {
+          return a.title.localeCompare(b.title, 'es', {
+            sensitivity: 'base',
+            numeric: true,
+          });
+        }
+
+        if (sortBy === 'nombre_desc') {
+          return b.title.localeCompare(a.title, 'es', {
+            sensitivity: 'base',
+            numeric: true,
+          });
+        }
+
+        if (sortBy === 'antiguos') {
+          return new Date(a.createdAt).getTime() -
+            new Date(b.createdAt).getTime();
+        }
+
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   }, [
@@ -189,6 +229,35 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     priceFilter,
     sortBy,
   ]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    activeResourceFilter,
+    globalSearchQuery,
+    selectedGenre,
+    selectedKey,
+    selectedMood,
+    minBpm,
+    maxBpm,
+    onlyWithStems,
+    priceFilter,
+    sortBy,
+    pageSize,
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredTracks.length / pageSize)
+  );
+
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+
+  const pagedTracks = filteredTracks.slice(
+    startIndex,
+    startIndex + pageSize
+  );
 
   return (
     <div className="py-5 pb-36 max-w-7xl mx-auto space-y-5">
@@ -340,6 +409,30 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             </button>
           </div>
 
+          {/* Rango de precio */}
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="catalog-price-range"
+              className="text-zinc-400 font-semibold font-mono text-[11px]"
+            >
+              Precio:
+            </label>
+            <select
+              id="catalog-price-range"
+              value={['all', 'paid', 'free'].includes(priceFilter) ? 'any' : priceFilter}
+              onChange={(event) => {
+                const next = event.target.value;
+                setPriceFilter(next === 'any' ? 'all' : (next as typeof priceFilter));
+              }}
+              className="bg-[#171b29] border border-zinc-700/80 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+            >
+              <option value="any">Todos los precios</option>
+              <option value="0_5000">$0 - $5.000</option>
+              <option value="5001_10000">$5.001 - $10.000</option>
+              <option value="10001_20000">$10.001 - $20.000</option>
+              <option value="20001_plus">Mas de $20.000</option>
+            </select>
+          </div>
           {/* Stems only toggle */}
           <label className="flex items-center gap-2 cursor-pointer text-zinc-300 font-semibold text-xs">
             <input
@@ -363,10 +456,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               className="bg-[#171b29] border border-zinc-700/80 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-semibold"
             >
               <option value="recientes">Más recientes</option>
+               <option value="antiguos">Más antiguos</option>
               <option value="likes">Más populares</option>
               <option value="bpm_asc">BPM (Menor a Mayor)</option>
               <option value="bpm_desc">BPM (Mayor a Menor)</option>
               <option value="precio_menor">Precio menor</option>
+               <option value="precio_mayor">Precio mayor</option>
+               <option value="nombre_asc">Nombre A-Z</option>
+               <option value="nombre_desc">Nombre Z-A</option>
             </select>
           </div>
         </div>
@@ -400,6 +497,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               setSelectedKey('Todas');
               setSelectedMood('Todos');
               setOnlyWithStems(false);
+              setPriceFilter('all');
               setGlobalSearchQuery('');
               setActiveResourceFilter('all');
             }}
@@ -428,7 +526,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#181d2c] font-medium text-zinc-300">
-                {filteredTracks.map((track, idx) => {
+                {pagedTracks.map((track, idx) => {
                   const isThisPlaying = isPlaying && activeTrack?.id === track.id;
                   const isLiked = currentUser?.likedTrackIds.includes(track.id);
                   const isPurchased = currentUser?.purchasedTrackIds.includes(track.id);
@@ -610,7 +708,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       ) : (
         /* Grid Layout */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredTracks.map((track) => {
+          {pagedTracks.map((track) => {
             const isThisPlaying = isPlaying && activeTrack?.id === track.id;
             const isLiked = currentUser?.likedTrackIds.includes(track.id);
             const isPurchased = currentUser?.purchasedTrackIds.includes(track.id);
@@ -745,6 +843,87 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           })}
         </div>
       )}
+      {filteredTracks.length > 0 && (
+        <nav
+          aria-label="Paginacion del catalogo"
+          className="flex flex-wrap items-center justify-between gap-4 bg-[#10131d] border border-[#1b2030] p-4 rounded-2xl"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              htmlFor="catalog-page-size"
+              className="text-xs font-semibold text-zinc-300"
+            >
+              Pistas por pagina
+            </label>
+
+            <select
+              id="catalog-page-size"
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-[#171b29] border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white"
+            >
+              <option value={6}>6</option>
+              <option value={12}>12</option>
+              <option value={24}>24</option>
+            </select>
+
+            <span className="text-xs text-zinc-400" role="status">
+              Mostrando {startIndex + 1}-
+              {Math.min(startIndex + pageSize, filteredTracks.length)}
+              {' '}de {filteredTracks.length} pistas
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={safePage === 1}
+              onClick={() => setCurrentPage(1)}
+              className="px-3 py-2 text-xs rounded-lg bg-zinc-800 text-white disabled:opacity-40"
+            >
+              Primera
+            </button>
+
+            <button
+              type="button"
+              disabled={safePage === 1}
+              onClick={() => setCurrentPage(safePage - 1)}
+              className="px-3 py-2 text-xs rounded-lg bg-zinc-800 text-white disabled:opacity-40"
+            >
+              Anterior
+            </button>
+
+            <span
+              className="px-2 text-xs font-bold text-amber-400 whitespace-nowrap"
+              aria-live="polite"
+            >
+              Pagina {safePage} de {totalPages}
+            </span>
+
+            <button
+              type="button"
+              disabled={safePage === totalPages}
+              onClick={() => setCurrentPage(safePage + 1)}
+              className="px-3 py-2 text-xs rounded-lg bg-amber-400 text-zinc-950 font-bold disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+
+            <button
+              type="button"
+              disabled={safePage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              className="px-3 py-2 text-xs rounded-lg bg-zinc-800 text-white disabled:opacity-40"
+            >
+              Ultima
+            </button>
+          </div>
+        </nav>
+      )}
+
     </div>
   );
 };
