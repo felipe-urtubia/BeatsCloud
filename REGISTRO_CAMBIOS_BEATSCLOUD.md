@@ -1887,3 +1887,40 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - Se verifico visualmente que el buscador funciona correctamente.
 - Compilacion aprobada y 23 pruebas automatizadas aprobadas.
 - Sin cambios en Django, PostgreSQL, canciones o pagos.
+
+---
+
+## Acceso a biblioteca tras Webpay - 06-11-2026
+
+### Mejora implementada
+
+- Se incorpora un boton para acceder a compras y descargas
+  desde el aviso de retorno exitoso de Webpay.
+- El acceso se muestra a cuentas de artista tras intentar
+  sincronizar sus datos con Django.
+- La navegacion abre Mi perfil, donde se encuentra la
+  biblioteca y las descargas.
+- No se ofrece el boton en retornos fallidos o en revision.
+- Django conserva el control de autorizacion de descargas.
+
+### Comprobaciones
+
+- Compilacion React y TypeScript aprobada.
+- 23 pruebas automatizadas existentes aprobadas.
+- Biblioteca de artista abierta correctamente.
+- Compras existentes visibles sin realizar pagos.
+
+### Limitaciones pendientes
+
+- No se ha realizado una prueba integral del retorno real
+  de Webpay y posterior descarga.
+- La sincronizacion de datos no demuestra por si sola
+  la aprobacion de una transaccion concreta.
+- Las pruebas existentes no cubren directamente el nuevo
+  comportamiento del aviso de retorno.
+
+### Seguridad
+
+- Sin modificaciones en Django ni PostgreSQL.
+- Sin compras ni operaciones Webpay durante las pruebas.
+- Cambios de interfaz limitados a App.tsx y AppContext.tsx.
