@@ -12,6 +12,7 @@ BeatsCloud es una aplicación web desarrollada con Django para artistas, product
 ### Cuentas y autenticación
 
 - Registro e inicio de sesión.
+- El nombre artístico se guarda separado del nombre y del nombre de usuario de acceso.
 - Validación para evitar correos duplicados.
 - Las cuentas nuevas se crean inactivas hasta confirmar el correo.
 - Confirmación de cuenta mediante enlace seguro de Django (`uidb64` + token).
@@ -37,7 +38,7 @@ BeatsCloud es una aplicación web desarrollada con Django para artistas, product
 - Validación de extensiones de audio.
 - Verificación real del archivo de audio mediante `mutagen`.
 - Validación de imágenes.
-- Edición de metadata de tracks.
+- Edición de metadata de tracks, incluido el subgénero.
 - Eliminación de tracks con validación de propietario.
 - Reemplazo del archivo de audio restringido cuando el track ya posee compras.
 - Reproducción mediante una vista controlada de Django.
@@ -167,7 +168,7 @@ STRIPE_SECRET_KEY=
 
 # Transbank / Webpay
 TRANSBANK_COMMERCE_CODE=TU_COMMERCE_CODE_DE_PRUEBA
-TRANSBANK_API_KEY=TU_API_KEY_DE_PRUEBA
+TRANSBANK_API_KEY=REEMPLAZAR_CON_API_KEY_TRANSBANK_TEST
 TRANSBANK_INTEGRATION_TYPE=TEST
 
 # PostgreSQL
@@ -183,7 +184,7 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=True
 EMAIL_HOST_USER=TU_CORREO@gmail.com
-EMAIL_HOST_PASSWORD=TU_CONTRASENA_DE_APLICACION
+EMAIL_HOST_PASSWORD=REEMPLAZAR_CON_APP_PASSWORD_GMAIL
 DEFAULT_FROM_EMAIL=BeatsCloud <TU_CORREO@gmail.com>
 EMAIL_TIMEOUT=15
 ```
@@ -763,7 +764,7 @@ por separado en `http://localhost:3000/`.
 Clona la rama de integración:
 
 ```bash
-git clone --branch integration/react-frontend https://github.com/felipe-urtubia/BeatsCloud.git
+git clone --branch main https://github.com/felipe-urtubia/BeatsCloud.git
 cd BeatsCloud
 ```
 
@@ -862,8 +863,10 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 ```
 
 Con esta alternativa, Django muestra en su terminal los correos y enlaces de
-activación. La activación de cuentas todavía usa la vista HTML existente de
-Django; la interfaz de confirmación integrada en React queda pendiente.
+activación. El enlace abre la pantalla de activación de React y usa la API de
+Django para validar el token. `FRONTEND_URL` en el `.env` raíz define el origen
+incluido en esos enlaces; usa `http://localhost:3000` localmente o la URL
+pública de React si recibes los correos en otro dispositivo.
 
 ## Configuración del frontend
 
@@ -921,10 +924,16 @@ solicitudes de `/api` y `/media` a Django en `127.0.0.1:8000`.
 La aplicación Django original y el administrador siguen accesibles,
 respectivamente, en http://127.0.0.1:8000/ y http://127.0.0.1:8000/admin/.
 
-Para recorrer autenticación: registra una cuenta desde React, copia el enlace
-que Django imprime en su terminal y ábrelo. La activación sigue usando la
-vista HTML existente de Django; la pantalla de confirmación integrada en
-React está pendiente.
+Para recorrer autenticación: registra una cuenta desde React y abre el enlace
+que recibes por correo (o que Django imprime en su terminal). React muestra el
+resultado de la activación; el botón final te lleva al inicio de sesión.
+Configura `FRONTEND_URL` en el `.env` raíz con el origen exacto donde estará
+disponible React para que los enlaces del correo apunten al sitio correcto.
+Desde el inicio de sesión de React también puedes solicitar la recuperación
+de contraseña. El enlace por correo abre React; Django valida el token y las
+reglas de contraseña antes de guardarla. La recuperación HTML de Django sigue
+disponible para el sitio original. React informa si el correo no está asociado
+a una cuenta activa para que puedas corregirlo.
 
 ## Modos de funcionamiento
 
@@ -937,29 +946,33 @@ solo para recorrer la interfaz sin conexión real con Django.
 
 ## Funcionalidades integradas y limitaciones conocidas
 
-**Conectadas y verificadas manualmente:** inicio y cierre de sesión con Django,
-persistencia de sesión al recargar React, registro (activación mediante enlace
-de Django), consulta del catálogo, agregar productos al carrito y cargar o
-eliminar productos del carrito. Estas comprobaciones manuales no son pruebas
-automatizadas de navegador.
+**Integradas desde Django en modo `hybrid`:** sesión, directorio público,
+catálogo, carrito, historiales propios, likes, comentarios, registro y
+activación; también edición del perfil propio (biografía, redes, avatar y
+banner), subida/edición de pistas, creación y contratación de planes de
+suscripción, eliminación de cuenta con confirmación por correo, descargas
+protegidas y consulta de comprobantes de compra. La carga/edición persiste el
+archivo disponible y los metadatos que admite el modelo Django, incluido el
+subgénero.
 
-**Parcialmente integradas:** detalle de track, perfiles y paneles muestran
-pantallas de React, pero algunos datos y acciones no están sincronizados con
-Django. El reproductor puede usar el endpoint de medios cuando hay un archivo
-disponible. El inicio del pago envía al usuario a Webpay; la validación y el
-resultado final ocurren en la vista HTML de Django, no en React.
+El inicio de Webpay se realiza desde React. Django procesa el retorno y valida
+la autorización; al volver, React muestra el resultado informado por Django.
+Esto no equivale a una prueba automatizada con Transbank ni a una transacción
+real. No hay pruebas de navegador E2E configuradas.
 
-**Demostrativas o simuladas:** el modo `mock` usa datos locales. Algunas
-acciones de panel, suscripción, certificados/licencias y descargas usan estado
-local o contenido generado para la interfaz; no equivalen a operaciones
-persistidas o validadas por el backend.
+**Límites de los datos y archivos:** Django actualmente almacena un archivo de
+audio por pista, no un paquete de WAV y stems; por ello la UI descarga el
+archivo disponible y no promete stems separados. Los planes solo guardan nombre
+y precio, no periodo ni beneficios. El comprobante muestra datos de compra y
+una huella HMAC devuelta por Django; no es un certificado oficial de derechos,
+no define términos de licencia y no garantiza protección frente a reclamos de
+copyright. Las condiciones de uso deben confirmarse por separado con el
+productor. No existe una consulta pública de licencias por código; React lo
+indica en vez de presentar registros locales como verificación oficial.
 
-**Pendientes de integración o validación:** confirmación de activación dentro
-de React, confirmación final de Webpay dentro de React, pagos probados de punta
-a punta, y sincronización completa de subida/edición de tracks, perfiles,
-comentarios, likes, suscripciones, compras, descargas y certificados. No se
-deben interpretar sus pantallas como evidencia de que esas operaciones están
-conectadas.
+El modo `mock` sigue siendo demostrativo y no persiste cambios en Django. Las
+descargas reales de audio requieren sesión, archivo disponible y el backend
+conectado en modo `hybrid`.
 
 La aplicación Django original conserva sus vistas HTML y administración. En
 una instalación limpia, el administrador y los flujos de React que requieren
@@ -996,7 +1009,10 @@ automatizadas del flujo de inicialización de Webpay; no simula una aprobación.
   `DB_PORT` en `.env` correspondan a tu instalación.
 - **Error 403 CSRF al usar React:** confirma que el `.env` de la raíz contenga
   `DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000` y
-  reinicia Django.
+  reinicia Django. Si abriste React mediante un Dev Tunnel, agrega también el
+  origen HTTPS exacto del túnel de React (puerto `3000`), no solo el túnel de
+  Django (puerto `8000`), y reinicia Django. Vuelve a cargar React para renovar
+  la cookie CSRF.
 - **El registro no envía correo:** con el backend de consola, revisa la
   terminal de Django y abre allí el enlace impreso. Para SMTP, configura las
   variables de correo descritas arriba; Gmail exige contraseña de aplicación.

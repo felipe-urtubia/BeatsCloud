@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserType } from '../types';
-import { X, LogIn, UserPlus, Sliders, Mic2, Sparkles, Check } from 'lucide-react';
+import { X, LogIn, UserPlus, Sliders, Mic2, Sparkles, Check, KeyRound, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import DjangoApi from '../api/django.service';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,14 +21,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
   const [artistName, setArtistName] = useState('');
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<UserType>('artista');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -55,7 +61,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     if (configuredMode === 'hybrid') {
-      if (!username.trim() || !email.trim() || !artistName.trim() || !password || !confirmPassword) {
+      if (!username.trim() || !email.trim() || !firstName.trim() || !artistName.trim() || !password || !confirmPassword) {
         setError('Completa los campos obligatorios del registro.');
         return;
       }
@@ -68,8 +74,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const form = new FormData();
       form.set('username', username.trim());
       form.set('email', email.trim());
-      form.set('first_name', artistName.trim());
+      form.set('first_name', firstName.trim());
       form.set('last_name', lastName.trim());
+      form.set('nombre_artistico', artistName.trim());
       form.set('password1', password);
       form.set('password2', confirmPassword);
       form.set('tipo_usu', role === 'productor' ? '2' : '1');
@@ -90,6 +97,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setSuccessMessage(result.message);
         setUsername('');
         setEmail('');
+        setFirstName('');
         setArtistName('');
         setLastName('');
         setPassword('');
@@ -106,14 +114,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const displayName = [artistName.trim(), lastName.trim()].filter(Boolean).join(' ');
-    registerUser(username, email, displayName, role);
+    registerUser(username, email, artistName.trim(), role);
     onClose();
   };
 
+  const handleRecoverySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const response = await DjangoApi.solicitarRestauracionContrasena(recoveryEmail);
+      setRecoveryMessage(response.detail);
+    } catch (recoveryError) {
+      setError(recoveryError instanceof Error ? recoveryError.message : 'No se pudo enviar el enlace.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const returnToLogin = () => {
+    setIsRecovering(false);
+    setRecoveryMessage(null);
+    setError(null);
+    onSwitchMode('login');
+  };
+
+  const recoveryEmailNotFound = recoveryMessage?.startsWith('No encontramos') ?? false;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md bg-[#14151e] border border-zinc-700 rounded-3xl p-6 sm:p-8 shadow-2xl">
+      <div className="relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-[#14151e] border border-zinc-700 rounded-3xl p-6 sm:p-8 shadow-2xl">
         <button
           onClick={onClose}
           disabled={isSubmitting}
@@ -125,13 +156,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Header */}
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-2xl bg-amber-400 text-zinc-950 font-black flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-400/20">
-            {mode === 'login' ? <LogIn className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
+            {isRecovering ? <KeyRound className="w-6 h-6" /> : mode === 'login' ? <LogIn className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
           </div>
           <h2 className="text-2xl font-black text-white">
-            {mode === 'login' ? 'Acceder a BeatsCloud' : 'Crear Cuenta en BeatsCloud'}
+            {isRecovering ? 'Recuperar contraseña' : mode === 'login' ? 'Acceder a BeatsCloud' : 'Crear Cuenta en BeatsCloud'}
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            {mode === 'login'
+            {isRecovering
+              ? 'Te enviaremos un enlace seguro a tu correo.'
+              : mode === 'login'
               ? configuredMode === 'mock' ? 'Ingresa tus credenciales o selecciona una cuenta de prueba' : 'Ingresa tus credenciales'
               : 'Únete como productor de instrumentales o artista independiente'}
           </p>
@@ -143,7 +176,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {successMessage ? (
+        {recoveryMessage ? (
+          <div className={`rounded-xl border p-4 text-sm ${
+            recoveryEmailNotFound
+              ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+              : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+          }`}>
+            <p className="font-bold">
+              {recoveryEmailNotFound ? 'Correo no asociado a una cuenta activa' : 'Revisa tu correo'}
+            </p>
+            <p className="mt-2">{recoveryMessage}</p>
+            <button
+              type="button"
+              onClick={returnToLogin}
+              className="mt-4 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-bold text-zinc-950"
+            >
+              Volver a iniciar sesión
+            </button>
+          </div>
+        ) : successMessage ? (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
             <p className="font-bold">Registro recibido</p>
             <p className="mt-2">{successMessage}</p>
@@ -161,6 +212,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               Volver a iniciar sesión
             </button>
           </div>
+        ) : isRecovering ? (
+          <form onSubmit={handleRecoverySubmit} className="space-y-4">
+            <div>
+              <label htmlFor="recovery-email" className="text-xs font-bold text-zinc-300 block mb-1">
+                Correo electrónico
+              </label>
+              <input
+                id="recovery-email"
+                type="email"
+                required
+                autoComplete="email"
+                maxLength={254}
+                placeholder="tu@correo.cl"
+                value={recoveryEmail}
+                onChange={(event) => setRecoveryEmail(event.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
+              />
+            </div>
+            <p className="text-[11px] leading-relaxed text-zinc-400">
+              Si el correo está asociado a una cuenta activa, recibirás un enlace para crear una nueva contraseña.
+            </p>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black py-3 rounded-xl text-xs transition-all disabled:opacity-60"
+            >
+              {isSubmitting ? 'Enviando…' : 'Enviar enlace de recuperación'}
+            </button>
+            <button
+              type="button"
+              onClick={returnToLogin}
+              className="flex items-center justify-center gap-2 w-full text-xs text-zinc-400 hover:text-amber-400"
+            >
+              <ArrowLeft className="h-3 w-3" /> Volver a iniciar sesión
+            </button>
+          </form>
         ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
@@ -210,13 +297,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-zinc-300 block mb-1">Nombre / nombre artístico *</label>
+                <label className="text-xs font-bold text-zinc-300 block mb-1">Nombre *</label>
                 <input
                   type="text"
                   required={configuredMode === 'hybrid'}
-                  placeholder="Ej: MC Flow"
-                  value={artistName}
-                  onChange={(e) => setArtistName(e.target.value)}
+                  placeholder="Tu nombre"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
@@ -228,6 +315,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   placeholder="Tu apellido"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-zinc-300 block mb-1">Nombre artístico *</label>
+                <input
+                  type="text"
+                  required={configuredMode === 'hybrid'}
+                  maxLength={100}
+                  placeholder="Ej: MC Flow"
+                  value={artistName}
+                  onChange={(e) => setArtistName(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
@@ -248,12 +348,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <div>
             <label className="text-xs font-bold text-zinc-300 block mb-1">
-              Nombre de Usuario {mode === 'login' && 'o Correo'} *
+              {mode === 'register' ? 'Nombre de usuario para iniciar sesión' : 'Nombre de usuario o correo'} *
             </label>
             <input
               type="text"
               required
-              placeholder="mcflow, metrosantiago..."
+              placeholder={mode === 'register' ? 'Sin espacios, por ejemplo: mcflow' : 'Tu usuario o correo'}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
@@ -262,15 +362,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <div>
             <label className="text-xs font-bold text-zinc-300 block mb-1">Contraseña</label>
-            <input
-              type="password"
-              required={configuredMode === 'hybrid'}
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400"
-            />
+            <div className="relative">
+              <input
+                type={mode === 'login' && showPassword ? 'text' : 'password'}
+                required={configuredMode === 'hybrid'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`w-full bg-zinc-900 border border-zinc-700 rounded-xl ${mode === 'login' ? 'pl-4 pr-11' : 'px-4'} py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400`}
+              />
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400 hover:text-amber-400"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
           </div>
+
+          {mode === 'login' && configuredMode === 'hybrid' && (
+            <div className="-mt-2 text-right">
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setRecoveryEmail(username.includes('@') ? username : email);
+                  setIsRecovering(true);
+                }}
+                className="text-[11px] font-semibold text-amber-400 hover:text-amber-300"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+          )}
 
           {mode === 'register' && configuredMode === 'hybrid' && (
             <div>
@@ -328,7 +457,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>}
 
         {/* Switch Mode Footer */}
-        <div className="mt-4 text-center">
+        {!isRecovering && !recoveryMessage && <div className="mt-4 text-center">
           {mode === 'login' ? (
             <button
               onClick={() => onSwitchMode('register')}
@@ -344,7 +473,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ¿Ya tienes cuenta? <span className="font-bold underline">Inicia sesión</span>
             </button>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { LicenseContract, ResourceType } from '../types';
+import { ResourceType } from '../types';
 import { LicenseVerificationModal } from './LicenseVerificationModal';
-import { LicenseCertificateModal } from './LicenseCertificateModal';
 import {
   Compass,
   Disc3,
@@ -24,6 +23,8 @@ import {
   UserCheck,
   BadgeCheck,
   X,
+  LogIn,
+  UserPlus,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -55,9 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     tracks,
   } = useApp();
 
-  // Verificador público de licencias (registro oficial de transacciones)
   const [verifyOpen, setVerifyOpen] = useState(false);
-  const [viewingContract, setViewingContract] = useState<LicenseContract | null>(null);
 
   const handleSelectResourceFilter = (filter: ResourceType) => {
     setActiveResourceFilter(filter);
@@ -305,10 +304,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={() => setVerifyOpen(true)}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all mt-1 text-zinc-400 hover:text-amber-300 hover:bg-amber-400/5"
-              title="Consultar el registro oficial de licencias emitidas por Webpay"
+              title="Información sobre comprobantes de compra"
             >
               <BadgeCheck className="w-4 h-4" />
-              <span>Verificar Licencia</span>
+              <span>Comprobantes de compra</span>
             </button>
             <button
               onClick={() => handleTabChange('sobre_nosotros')}
@@ -325,21 +324,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Public License Verification Registry */}
       <LicenseVerificationModal
         isOpen={verifyOpen}
         onClose={() => setVerifyOpen(false)}
-        onViewContract={(contract) => {
-          setVerifyOpen(false);
-          setViewingContract(contract);
-        }}
-      />
-
-      {/* Official License Certificate (from public verifier) */}
-      <LicenseCertificateModal
-        isOpen={viewingContract !== null}
-        onClose={() => setViewingContract(null)}
-        contract={viewingContract}
       />
 
       {/* User Footer Profile & Demo Switcher */}
@@ -383,15 +370,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>}
           </div>
         ) : (
-          <button
-            onClick={() => {
-              onOpenAuth('login');
-              onCloseMobile?.();
-            }}
-            className="w-full py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300 transition-colors"
-          >
-            Iniciar Sesión
-          </button>
+          <div className="grid gap-2">
+            <button
+              onClick={() => {
+                onOpenAuth('register');
+                onCloseMobile?.();
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-300 bg-orange-400 py-3 text-xs font-extrabold text-zinc-950 shadow-[0_0_22px_rgba(251,146,60,0.35)] transition-all hover:-translate-y-0.5 hover:bg-orange-300 hover:shadow-[0_0_28px_rgba(251,146,60,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200"
+            >
+              <UserPlus className="h-4 w-4" />
+              Registrarse
+            </button>
+            <button
+              onClick={() => {
+                onOpenAuth('login');
+                onCloseMobile?.();
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300/70 bg-amber-400 py-3 text-xs font-extrabold text-zinc-950 shadow-[0_0_20px_rgba(251,191,36,0.2)] transition-all hover:-translate-y-0.5 hover:bg-amber-300 hover:shadow-[0_0_26px_rgba(251,191,36,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+            >
+              <LogIn className="h-4 w-4" />
+              Acceder
+            </button>
+          </div>
         )}
       </div>
     </div>

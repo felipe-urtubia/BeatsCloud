@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { MusicGenre, ResourceType, MoodType, Track } from '../types';
 import { getResourceBadgeInfo, RESOURCE_TYPES } from '../utils/resourceHelpers';
+import DjangoApi from '../api/django.service';
 import {
   Search,
   SlidersHorizontal,
@@ -72,6 +73,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     claimFreeTrack,
     downloadAuditionDemo,
     currentUser,
+    configuredMode,
     globalSearchQuery,
     setGlobalSearchQuery,
     activeResourceFilter,
@@ -88,35 +90,26 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [sortBy, setSortBy] = useState<'recientes' | 'bpm_asc' | 'bpm_desc' | 'likes' | 'precio_menor'>('recientes');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
-  const handleDownloadFree = (e: React.MouseEvent, track: Track) => {
+  const handleDownloadFree = async (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
-    claimFreeTrack(track.id);
-    const blob = new Blob(
-      [
-        `BeatsCloud Licencia Gratuita (Non-Profit / Demo)\n` +
-        `Track: ${track.title}\n` +
-        `Productor: ${track.producerName}\n` +
-        `BPM: ${track.bpm} | Key: ${track.scaleKey}\n` +
-        `Descargado por: ${currentUser?.artistName || currentUser?.username || 'Artista'}\n\n` +
-        `Condiciones de la Licencia Gratuita:\n` +
-        `1. Permite uso para maquetas, ensayos y proyectos no lucrativos (SoundCloud, YouTube sin monetizar).\n` +
-        `2. Requiere acreditar en título o créditos: (Prod. ${track.producerName}).\n` +
-        `3. Para distribución comercial en Spotify, Apple Music o directos remunerados, se debe adquirir la Licencia Comercial en BeatsCloud.`
-      ],
-      { type: 'text/plain' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${track.title.replace(/[\s/]/g, '_')}_Demo_Gratis_BeatsCloud.txt`;
-    a.click();
+    if (configuredMode !== 'hybrid' || !track.id.startsWith('dj-')) {
+      window.alert('Las descargas de audio requieren el backend Django conectado.');
+      return;
+    }
+    try {
+      const claimed = await claimFreeTrack(track.id);
+      if (!claimed) throw new Error('Inicia sesión para reclamar esta pista gratuita.');
+      await DjangoApi.downloadTrack(Number(track.id.slice(3)), track.title);
+    } catch (error) {
+      window.alert((error as Error).message);
+    }
   };
 
   // "Punto Medio": descarga de maqueta de composición (MP3 acuñado) en beats de pago
   // habilitados por el productor con allowFreeDownload.
   const handleDownloadAudition = (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
-    downloadAuditionDemo(track);
+    void downloadAuditionDemo(track).catch((error) => window.alert((error as Error).message));
   };
 
   const filteredTracks = useMemo(() => {

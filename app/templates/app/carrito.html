@@ -347,7 +347,7 @@
                   {% if venta.track.usuario %}
                     <small class="text-muted">
                       Productor:
-                      {{ venta.track.usuario.user.username|capfirst }}
+                      {{ venta.track.usuario.nombre_artistico|default:venta.track.usuario.user.username|capfirst }}
                     </small>
                   {% endif %}
                 </div>

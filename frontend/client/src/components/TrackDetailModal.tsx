@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Track } from '../types';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
@@ -25,6 +25,9 @@ import {
   Scale,
 } from 'lucide-react';
 import { LicenseCertificateModal } from './LicenseCertificateModal';
+import type { LicenseContract } from '../types';
+import DjangoApi from '../api/django.service';
+import { mapLicense } from '../api/mappers';
 
 interface TrackDetailModalProps {
   trackId: string | null;
@@ -53,13 +56,28 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
     generateLicenseForTrack,
     addComment,
     deleteComment,
+    refreshTrackComments,
+    configuredMode,
     currentUser,
   } = useApp();
 
   const [commentText, setCommentText] = useState('');
+  const [commentsError, setCommentsError] = useState<string | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [auditionSuccess, setAuditionSuccess] = useState(false);
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
+  const [viewingContract, setViewingContract] = useState<LicenseContract | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!trackId?.startsWith('dj-') || configuredMode !== 'hybrid') return;
+    setCommentsError(null);
+    refreshTrackComments(trackId).catch(() =>
+      setCommentsError('No se pudieron cargar los comentarios de Django.'),
+    );
+    // Load once per opened track; context updates must not restart the request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackId, configuredMode]);
 
   if (!trackId) return null;
 
@@ -88,45 +106,52 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
     setCommentText('');
   };
 
-  const handleDownloadFree = () => {
-    setDownloadSuccess(true);
-    claimFreeTrack(track.id);
-    const blob = new Blob(
-      [
-        `BeatsCloud Licencia Gratuita (Non-Profit / Demo)\n` +
-        `Track: ${track.title}\n` +
-        `Productor: ${track.producerName}\n` +
-        `BPM: ${track.bpm} | Key: ${track.scaleKey}\n` +
-        `Descargado por: ${currentUser?.artistName || 'Artista'}\n\n` +
-        `Condiciones de la Licencia Gratuita:\n` +
-        `1. Permite uso libre para ensayos, maquetas y streaming no lucrativo (SoundCloud / YouTube sin monetizar).\n` +
-        `2. Requiere acreditar obligatoriamente al productor: (Prod. ${track.producerName}).\n` +
-        `3. Para distribución comercial en Spotify, Apple Music o directos pagados, se debe adquirir la Licencia Comercial en BeatsCloud.`
-      ],
-      { type: 'text/plain' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${track.title.replace(/[\s/]/g, '_')}_Demo_Gratis_BeatsCloud.txt`;
-    a.click();
-    setTimeout(() => setDownloadSuccess(false), 3000);
+  const handleDownloadFree = async () => {
+    setDownloadError(null);
+    if (configuredMode !== 'hybrid' || !track.id.startsWith('dj-')) {
+      setDownloadError('Las descargas de audio requieren el backend Django conectado.');
+      return;
+    }
+    try {
+      const claimed = await claimFreeTrack(track.id);
+      if (!claimed) throw new Error('Inicia sesión para reclamar esta pista gratuita.');
+      await DjangoApi.downloadTrack(Number(track.id.slice(3)), track.title);
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 3000);
+    } catch (error) {
+      setDownloadError((error as Error).message);
+    }
   };
 
-  const handleDownload = () => {
-    setDownloadSuccess(true);
-    const blob = new Blob(
-      [
-        `BeatsCloud License & Stems Certificate\nTrack: ${track.title}\nProducer: ${track.producerName}\nResource Type: ${track.resourceType}\nBPM: ${track.bpm}\nKey: ${track.scaleKey}\nPurchased by: ${currentUser?.artistName || 'Artist'}\nLicense: Full Commercial Rights (Unlimited Distribution)`,
-      ],
-      { type: 'text/plain' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${track.title.replace(/[\s/]/g, '_')}_Licencia_BeatsCloud.txt`;
-    a.click();
-    setTimeout(() => setDownloadSuccess(false), 3000);
+  const handleDownload = async () => {
+    setDownloadError(null);
+    if (configuredMode !== 'hybrid' || !track.id.startsWith('dj-')) {
+      setDownloadError('Las descargas de audio requieren el backend Django conectado.');
+      return;
+    }
+    try {
+      await DjangoApi.downloadTrack(Number(track.id.slice(3)), track.title);
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 3000);
+    } catch (error) {
+      setDownloadError((error as Error).message);
+    }
+  };
+
+  const handleOpenLicense = async () => {
+    setDownloadError(null);
+    if (configuredMode === 'hybrid' && track.id.startsWith('dj-')) {
+      try {
+        const license = await DjangoApi.license(Number(track.id.slice(3)));
+        setViewingContract(mapLicense(license));
+      } catch (error) {
+        setDownloadError((error as Error).message);
+        return;
+      }
+    } else {
+      setViewingContract(generateLicenseForTrack(track));
+    }
+    setCertificateModalOpen(true);
   };
 
   return (
@@ -210,7 +235,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
               <div className="flex flex-wrap items-center gap-3">
                 <div className="bg-[#151926] border border-[#23283b] px-4 py-2 rounded-xl">
                   <span className="text-[10px] text-zinc-400 block uppercase font-mono font-bold">
-                    Precio Licencia
+                    Precio de la pista
                   </span>
                   {track.isFree || track.price === 0 ? (
                     <span className="text-lg font-black text-emerald-400 font-mono">
@@ -226,7 +251,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                 {!isPurchased ? (
                   track.isFree || track.price === 0 ? (
                     <button
-                      onClick={handleDownloadFree}
+                      onClick={() => void handleDownloadFree()}
                       className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black px-5 py-3 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 hover:scale-102"
                     >
                       <Download className="w-4 h-4 stroke-[2.5]" />
@@ -239,22 +264,23 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                         className="flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black px-5 py-3 rounded-xl text-xs transition-all shadow-md shadow-amber-400/20 hover:scale-102"
                       >
                         <ShoppingCart className="w-4 h-4" />
-                        <span>Comprar Licencia Comercial (WAV + Stems)</span>
+                        <span>Comprar pista</span>
                       </button>
 
                       {/* Sweet spot action: Writing / Audition demo (solo si el productor la habilitó) */}
                       {canDownloadAuditionDemo && (
                         <button
                           onClick={() => {
-                            setAuditionSuccess(true);
-                            downloadAuditionDemo(track);
-                            setTimeout(() => setAuditionSuccess(false), 3000);
+                            void downloadAuditionDemo(track).then(() => {
+                              setAuditionSuccess(true);
+                              setTimeout(() => setAuditionSuccess(false), 3000);
+                            }).catch((error) => setDownloadError((error as Error).message));
                           }}
                           className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-bold px-4 py-3 rounded-xl text-xs border border-zinc-700 transition-colors"
-                          title="Descarga una copia MP3 con marca de agua para probar tu voz y componer antes de comprar"
+                          title="Descarga el preview disponible de esta pista"
                         >
                           <Mic2 className="w-4 h-4 text-amber-400" />
-                          <span>{auditionSuccess ? '¡Maqueta Descargada!' : 'Descargar Maqueta para Composición'}</span>
+                          <span>{auditionSuccess ? '¡Preview descargado!' : 'Descargar preview'}</span>
                         </button>
                       )}
                     </div>
@@ -262,22 +288,23 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                 ) : (
                   <div className="flex flex-wrap items-center gap-2.5">
                     <button
-                      onClick={handleDownload}
+                      onClick={() => void handleDownload()}
                       className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black px-5 py-3 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20"
                     >
                       <Download className="w-4 h-4" />
-                      <span>{downloadSuccess ? '¡Descargado!' : 'Descargar Master WAV + Stems'}</span>
+                      <span>{downloadSuccess ? '¡Descargado!' : 'Descargar archivo de audio'}</span>
                     </button>
 
                     <button
-                      onClick={() => setCertificateModalOpen(true)}
+                      onClick={() => void handleOpenLicense()}
                       className="flex items-center gap-2 bg-[#161a29] hover:bg-[#1e2338] text-amber-300 border border-amber-400/30 font-bold px-4 py-3 rounded-xl text-xs transition-colors"
                     >
                       <FileText className="w-4 h-4 text-amber-400" />
-                      <span>Ver Certificado de Licencia Oficial</span>
+                      <span>Ver comprobante de compra</span>
                     </button>
                   </div>
                 )}
+                {downloadError && <p role="alert" className="mt-3 text-xs text-rose-400">{downloadError}</p>}
 
                 <button
                   onClick={() => toggleLike(track.id)}
@@ -301,7 +328,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   </div>
                   <p className="text-[11px] leading-relaxed text-zinc-300">
                     <strong>1. Para cantar y probar:</strong> Descarga la <em>Maqueta de Composición</em> para grabar tus voces en tu DAW o teléfono y comprobar si tu estilo calza con el beat.<br />
-                    <strong>2. Para distribución comercial:</strong> Adquiere la <em>Licencia Comercial</em> para desbloquear el master en WAV 24-bit sin marcas, los Stems separados y el <strong>Certificado Oficial con Hash para SCD y Spotify</strong>.
+                    <strong>2. Para comprar:</strong> agrega la pista al carrito. Django confirmará el pago antes de registrar la compra.
                   </p>
                 </div>
               )}
@@ -311,14 +338,14 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   <div className="flex items-center gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                     <span>
-                      <strong>Licencia Master Adquirida:</strong> Tienes acceso perpetuo a descargar WAV 24-bit, Stems multitrack y tu Cédula Oficial de Licencia comercial.
+                      <strong>Compra registrada:</strong> Django autoriza la descarga del archivo disponible para esta pista.
                     </span>
                   </div>
                   <button
-                    onClick={() => setCertificateModalOpen(true)}
+                    onClick={() => void handleOpenLicense()}
                     className="text-xs font-mono font-bold text-amber-400 hover:text-amber-300 underline flex-shrink-0"
                   >
-                    Ver Contrato
+                    Ver comprobante
                   </button>
                 </div>
               )}
@@ -327,7 +354,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                 <div className="mt-3.5 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-200 flex items-center gap-2.5">
                   <Sparkles className="w-4 h-4 text-sky-400 flex-shrink-0" />
                   <span>
-                    <strong>Pista Gratuita:</strong> Puedes utilizar esta instrumental libremente para ensayos, demos y proyectos sin fines de lucro acreditando a <strong>{track.producerName}</strong>.
+                    <strong>Pista gratuita:</strong> Consulta al productor las condiciones de uso de esta pista.
                   </span>
                 </div>
               )}
@@ -448,6 +475,9 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
               </form>
 
               <div className="space-y-2">
+                {commentsError && (
+                  <p role="alert" className="text-xs text-rose-300">{commentsError}</p>
+                )}
                 {track.comments.length === 0 ? (
                   <p className="text-xs text-zinc-500 italic py-2">
                     Aún no hay comentarios. ¡Sé el primero en opinar!
@@ -527,11 +557,11 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
         </div>
       </div>
 
-      {/* Official License Certificate Modal */}
+      {/* Purchase record and verification details */}
       <LicenseCertificateModal
         isOpen={certificateModalOpen}
         onClose={() => setCertificateModalOpen(false)}
-        contract={generateLicenseForTrack(track)}
+        contract={viewingContract}
       />
     </div>
   );

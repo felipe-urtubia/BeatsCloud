@@ -530,6 +530,7 @@ def registro(request):
                     Usuario.objects.create(
                         user=user,
                         tipo_usu=form.cleaned_data['tipo_usu'],
+                        nombre_artistico=form.cleaned_data['nombre_artistico'].strip(),
                         foto_perfil=request.FILES.get('foto_perfil'),
                         foto_fondo=request.FILES.get('foto_fondo'),
                     )
@@ -796,7 +797,18 @@ def upload_file(request):
         return redirect('perfil')
 
     if request.method == 'POST':
-        form = TrackForm(request.POST, request.FILES)
+        post_data = request.POST.copy()
+        post_data.setdefault('resource_type', 'instrumental')
+        post_data.setdefault('bpm', '140')
+        post_data.setdefault('scale_key', 'Am')
+        post_data.setdefault('mood', 'Oscuro')
+        post_data.setdefault('has_stems', 'false')
+        post_data.setdefault('has_wav', 'true')
+        post_data.setdefault('has_midi', 'false')
+        post_data.setdefault('allow_free_download', 'false')
+        post_data.setdefault('has_watermark', 'true')
+        post_data.setdefault('duration', '30')
+        form = TrackForm(post_data, request.FILES)
 
         # Primero dejamos que Django ejecute todas las validaciones del formulario.
         formulario_valido = form.is_valid()
@@ -1223,39 +1235,18 @@ def carrito(request):
     return render(request, 'app/carrito.html', context)
 
 def _marcar_cancelada_desde_retorno_webpay(request, *, es_suscripcion):
-    """
-    Marca como CANCELLED una transacción PENDING cuando Webpay devuelve
-    TBK_ORDEN_COMPRA/TBK_ID_SESION sin token_ws después de una cancelación.
-    """
-    if not request.user.is_authenticated:
-        return False
-
-    buy_order = (
-        request.POST.get('TBK_ORDEN_COMPRA')
-        or request.GET.get('TBK_ORDEN_COMPRA')
-    )
-    session_id = (
-        request.POST.get('TBK_ID_SESION')
-        or request.GET.get('TBK_ID_SESION')
-    )
-
-    if not buy_order or not session_id:
-        return False
-
-    actualizadas = WebpayTransaction.objects.filter(
-        buy_order=str(buy_order),
-        session_id=str(session_id),
-        user=request.user,
-        status=WebpayTransaction.ESTADO_PENDIENTE,
-        suscripcion__isnull=not es_suscripcion,
-    ).update(
-        status=WebpayTransaction.ESTADO_CANCELADO
-    )
-
-    return actualizadas == 1
+    """No cancelar pagos sin confirmacion del proveedor."""
+    return False
 
 
-@login_required
+def _respuesta_retorno_webpay(request, resultado):
+    if request.GET.get('spa') != '1':
+        return None
+    frontend_url = settings.FRONTEND_URL.rstrip('/')
+    separador = '&' if '?' in frontend_url else '?'
+    return HttpResponseRedirect(f'{frontend_url}{separador}pago={resultado}')
+
+
 @csrf_exempt
 def exito(request):
     """
@@ -1266,18 +1257,19 @@ def exito(request):
     """
     token_ws = request.POST.get('token_ws') or request.GET.get('token_ws')
 
+    def retorno_revision():
+        from django.http import HttpResponse
+        return _respuesta_retorno_webpay(
+            request, 'revision'
+        ) or HttpResponse(
+            'El estado del pago requiere verificacion. '
+            'Contacta a soporte antes de intentar otro cobro.',
+            status=409,
+        )
+
+
     if not token_ws:
-        cancelada = _marcar_cancelada_desde_retorno_webpay(
-            request,
-            es_suscripcion=True,
-        )
-        print(
-            "PAGO SUSCRIPCION CANCELADO O SIN TOKEN:",
-            dict(request.POST) if request.method == 'POST' else dict(request.GET),
-            "TRANSACCION_CANCELADA_LOCALMENTE:",
-            cancelada,
-        )
-        return redirect('cancelado')
+        return retorno_revision()
 
     try:
         tx = Transaction(
@@ -1308,7 +1300,7 @@ def exito(request):
 
         if not response_code_ok or str(status).upper() != 'AUTHORIZED':
             print("PAGO SUSCRIPCION RECHAZADO POR TRANSBANK")
-            return redirect('cancelado')
+            return _respuesta_retorno_webpay(request, 'fracaso') or redirect('cancelado')
 
         webpay_transaction = WebpayTransaction.objects.filter(
             buy_order=buy_order
@@ -1316,14 +1308,18 @@ def exito(request):
 
         if webpay_transaction is None:
             print("PAGO SUSCRIPCION: buy_order no encontrado:", buy_order)
-            return redirect('cancelado')
+            return retorno_revision()
+
+        if webpay_transaction.archived_for_review:
+            print("WEBPAY: orden VIP archivada")
+            return retorno_revision()
 
         try:
             expected_amount = int(round(float(webpay_transaction.amount)))
             paid_amount = int(round(float(amount)))
         except (TypeError, ValueError):
             print("PAGO SUSCRIPCION: monto inválido")
-            return redirect('cancelado')
+            return retorno_revision()
 
         if expected_amount != paid_amount:
             print(
@@ -1331,32 +1327,75 @@ def exito(request):
                 "Esperado:", expected_amount,
                 "Pagado:", paid_amount,
             )
-            return redirect('cancelado')
+            return retorno_revision()
 
-        if session_id and str(webpay_transaction.session_id) != session_id:
+        if not session_id or str(webpay_transaction.session_id) != session_id:
             print("PAGO SUSCRIPCION: session_id no coincide")
-            return redirect('cancelado')
+            return retorno_revision()
 
-        if webpay_transaction.user_id != request.user.id:
-            print("PAGO SUSCRIPCION: la transacción pertenece a otro usuario")
-            return redirect('cancelado')
+        # La autorizacion pertenece a la orden, no a la
+        # sesion de navegador que regreso de Transbank.
+        if (
+            webpay_transaction.webpay_token is not None
+            and webpay_transaction.webpay_token != token_ws
+        ):
+            print("PAGO SUSCRIPCION: token no coincide")
+            return retorno_revision()
 
         if webpay_transaction.suscripcion_id is None:
             print("PAGO SUSCRIPCION: la transacción no tiene una suscripción asociada")
-            return redirect('cancelado')
+            return retorno_revision()
 
         # Solo después de que Transbank confirmó AUTHORIZED marcamos
         # la suscripción como comprada.
-        if webpay_transaction.status != WebpayTransaction.ESTADO_AUTORIZADO:
-            webpay_transaction.status = WebpayTransaction.ESTADO_AUTORIZADO
-            webpay_transaction.save(update_fields=['status'])
+        from django.db import transaction as db_transaction
+        from django.utils import timezone
+
+        with db_transaction.atomic():
+            orden = WebpayTransaction.objects.select_for_update().get(
+                pk=webpay_transaction.pk
+            )
+
+            if orden.archived_for_review:
+                print("WEBPAY: orden VIP archivada bajo bloqueo")
+                return retorno_revision()
+
+            if orden.status not in (
+                WebpayTransaction.ESTADO_PENDIENTE,
+                WebpayTransaction.ESTADO_AUTORIZADO,
+            ):
+                return retorno_revision()
+
+            if (
+                orden.user_id != webpay_transaction.user_id
+                or orden.suscripcion_id != webpay_transaction.suscripcion_id
+                or orden.amount != webpay_transaction.amount
+                or (
+                    orden.webpay_token is not None
+                    and orden.webpay_token != token_ws
+                )
+            ):
+                return retorno_revision()
+
+            perfil = Usuario.objects.select_for_update().get(
+                user_id=orden.user_id
+            )
+
+            # ManyToMany: agregar otra vez no duplica la membresia.
+            perfil.sus.add(orden.suscripcion_id)
+
+            orden.status = WebpayTransaction.ESTADO_AUTORIZADO
+            if orden.fulfilled_at is None:
+                orden.fulfilled_at = timezone.now()
+
+            orden.save(update_fields=["status", "fulfilled_at"])
 
         # El carrito mantiene su retorno seguro independiente: exito_carrito().
-        return render(request, 'app/exito.html')
+        return _respuesta_retorno_webpay(request, 'exito') or render(request, 'app/exito.html')
 
     except Exception as e:
         print("ERROR CONFIRMANDO PAGO SUSCRIPCION:", repr(e))
-        return redirect('cancelado')
+        return retorno_revision()
 
 
 @csrf_exempt
@@ -1368,6 +1407,18 @@ def exito_carrito(request):
     mediante commit() y SOLO si está autorizada se registra la compra.
     """
     token_ws = request.POST.get('token_ws') or request.GET.get('token_ws')
+
+    def retorno_revision_inconsistente():
+        from django.http import HttpResponse
+
+        return _respuesta_retorno_webpay(
+            request, 'revision'
+        ) or HttpResponse(
+            'La respuesta de Webpay requiere verificacion. '
+            'No vuelvas a pagar antes de contactar a soporte.',
+            status=409,
+        )
+
 
     # Cuando el usuario cancela/abandona Webpay, Transbank puede retornar
     # parámetros TBK_* en vez de token_ws.
@@ -1382,7 +1433,9 @@ def exito_carrito(request):
             "TRANSACCION_CANCELADA_LOCALMENTE:",
             cancelada,
         )
-        return redirect('cancelado')
+        return _respuesta_retorno_webpay(request, 'revision') or retorno_revision_inconsistente()
+
+    orden_autorizada_id = None
 
     try:
         tx = Transaction(
@@ -1427,7 +1480,7 @@ def exito_carrito(request):
 
         if not response_code_ok or str(status).upper() != 'AUTHORIZED':
             print("PAGO CARRITO RECHAZADO POR TRANSBANK")
-            return redirect('cancelado')
+            return _respuesta_retorno_webpay(request, 'fracaso') or redirect('cancelado')
 
         # Verificar que la respuesta corresponde a una transacción creada
         # previamente por BeatCloud.
@@ -1437,14 +1490,22 @@ def exito_carrito(request):
 
         if webpay_transaction is None:
             print("PAGO CARRITO: buy_order no encontrado:", buy_order)
-            return redirect('cancelado')
+            return retorno_revision_inconsistente()
+
+        if webpay_transaction.archived_for_review:
+            print("WEBPAY: orden de carrito archivada")
+            from django.http import HttpResponse
+            return _respuesta_retorno_webpay(request, 'revision') or HttpResponse(
+                "Orden archivada: requiere revision manual.",
+                status=409,
+            )
 
         try:
             expected_amount = int(round(float(webpay_transaction.amount)))
             paid_amount = int(round(float(amount)))
         except (TypeError, ValueError):
             print("PAGO CARRITO: monto inválido en la respuesta")
-            return redirect('cancelado')
+            return retorno_revision_inconsistente()
 
         if expected_amount != paid_amount:
             print(
@@ -1452,62 +1513,177 @@ def exito_carrito(request):
                 "Esperado:", expected_amount,
                 "Pagado:", paid_amount
             )
-            return redirect('cancelado')
+            return retorno_revision_inconsistente()
 
         if session_id and str(webpay_transaction.session_id) != session_id:
             print("PAGO CARRITO: session_id no coincide")
-            return redirect('cancelado')
+            return retorno_revision_inconsistente()
 
-        usuario_comprador = Usuario.objects.get(
-            user=webpay_transaction.user
-        )
-        ventas = Venta.objects.filter(
-            usuario_id=usuario_comprador,
-            completada=False,
-        )
+        # Orden asociada a una respuesta autorizada y validada.
+        orden_autorizada_id = webpay_transaction.pk
 
-        if not ventas.exists():
-            print("PAGO CARRITO: no hay productos pendientes en el carrito")
-            return redirect('cancelado')
-
-        # Validación adicional: el carrito actual debe coincidir con el monto
-        # que efectivamente fue pagado.
-        total_actual = int(round(sum(
-            float(venta.precio) + float(venta.iva)
-            for venta in ventas
-        )))
-
-        if total_actual != paid_amount:
-            print(
-                "PAGO CARRITO: el total actual del carrito cambió.",
-                "Carrito:", total_actual,
-                "Pagado:", paid_amount
+        # Procesar exclusivamente el pedido original, nunca el carrito actual.
+        def respuesta_revision():
+            from django.http import HttpResponse
+            return _respuesta_retorno_webpay(request, 'revision') or HttpResponse(
+                'Pago autorizado pendiente de revision. No vuelvas a pagar; contacta a soporte.',
+                status=409,
             )
-            return redirect('cancelado')
 
-        # Registrar la compra únicamente después del commit exitoso.
         with transaction.atomic():
-            # La transacción del carrito también debe quedar registrada como
-            # AUTHORIZED después de que Transbank confirmó el pago.
-            if webpay_transaction.status != WebpayTransaction.ESTADO_AUTORIZADO:
-                webpay_transaction.status = WebpayTransaction.ESTADO_AUTORIZADO
-                webpay_transaction.save(update_fields=['status'])
+            orden = WebpayTransaction.objects.select_for_update().get(
+                pk=webpay_transaction.pk
+            )
 
-            for venta in ventas:
+            if orden.archived_for_review:
+                print("WEBPAY: carrito archivado bajo bloqueo")
+                from django.http import HttpResponse
+                return _respuesta_retorno_webpay(request, 'revision') or HttpResponse(
+                    "Orden archivada: requiere revision manual.",
+                    status=409,
+                )
+
+            # Una entrega completada no puede registrarse nuevamente.
+            if orden.fulfilled_at is not None:
+                return _respuesta_retorno_webpay(request, 'exito') or render(
+                    request, 'app/exito.html'
+                )
+
+            # Una autorizacion antigua sin entrega requiere conciliacion.
+            if orden.status == WebpayTransaction.ESTADO_AUTORIZADO:
+                return respuesta_revision()
+
+            snapshot = orden.cart_snapshot
+
+            try:
+                if (
+                    orden.suscripcion_id is not None
+                    or not isinstance(snapshot, list)
+                    or not snapshot
+                ):
+                    raise ValueError("Pedido original no disponible")
+
+                items = []
+
+                for registro in snapshot:
+                    if not isinstance(registro, dict):
+                        raise ValueError("Elemento invalido")
+
+                    valores = (
+                        registro.get("venta_id"),
+                        registro.get("track_id"),
+                        registro.get("precio"),
+                        registro.get("iva"),
+                    )
+
+                    if any(type(valor) is not int for valor in valores):
+                        raise ValueError("Datos invalidos")
+
+                    venta_id, track_id, precio, iva = valores
+
+                    if venta_id <= 0 or track_id <= 0 or precio < 0 or iva < 0:
+                        raise ValueError("Valores invalidos")
+
+                    items.append(valores)
+
+                if (
+                    len({item[0] for item in items}) != len(items)
+                    or len({item[1] for item in items}) != len(items)
+                ):
+                    raise ValueError("Productos duplicados")
+
+                if sum(item[2] + item[3] for item in items) != paid_amount:
+                    raise ValueError("Monto del pedido no coincide")
+
+            except (TypeError, ValueError) as error:
+                print("PEDIDO WEBPAY REQUIERE REVISION:", str(error))
+                orden.status = WebpayTransaction.ESTADO_AUTORIZADO
+                orden.save(update_fields=["status"])
+                return respuesta_revision()
+
+            # Serializar entregas de distintas ordenes del comprador.
+            usuario_comprador = Usuario.objects.select_for_update().filter(
+                user_id=orden.user_id
+            ).first()
+
+            tracks = Track.objects.in_bulk(
+                [item[1] for item in items]
+            )
+
+            if (
+                usuario_comprador is None
+                or len(tracks) != len(items)
+            ):
+                orden.status = WebpayTransaction.ESTADO_AUTORIZADO
+                orden.save(update_fields=["status"])
+                return respuesta_revision()
+
+            # Verificar el pedido original antes de registrar historial.
+            # El bloqueo tambien protege frente a cambios concurrentes.
+            ventas_originales = {
+                venta.pk: venta
+                for venta in Venta.objects.select_for_update().filter(
+                    pk__in=[item[0] for item in items],
+                    usuario_id=usuario_comprador,
+                    completada=False,
+                ).order_by("pk")
+            }
+
+            pedido_disponible = (
+                len(ventas_originales) == len(items)
+                and all(
+                    ventas_originales[venta_id].track_id == track_id
+                    and int(ventas_originales[venta_id].precio) == precio
+                    and int(ventas_originales[venta_id].iva) == iva
+                    for venta_id, track_id, precio, iva in items
+                )
+            )
+
+            # Tampoco registrar nuevamente una cancion ya comprada.
+            canciones_ya_compradas = HistorialCompra.objects.filter(
+                usuario=usuario_comprador,
+                track_id__in=[item[1] for item in items],
+            ).exists()
+
+            if not pedido_disponible or canciones_ya_compradas:
+                print(
+                    "PAGO CARRITO: pedido ya entregado o modificado.",
+                    "Orden:", orden.buy_order,
+                )
+                orden.status = WebpayTransaction.ESTADO_AUTORIZADO
+                orden.save(update_fields=["status"])
+                return respuesta_revision()
+
+            # Registrar la entrega una sola vez.
+            for venta_id, track_id, precio, iva in items:
+                track = tracks[track_id]
+
                 HistorialCompra.objects.get_or_create(
                     usuario=usuario_comprador,
-                    track=venta.track
+                    track=track,
                 )
 
                 HistorialVenta.objects.create(
                     comprador=usuario_comprador.user,
-                    precio=venta.track.precio,
-                    track=venta.track
+                    precio=precio,
+                    track=track,
                 )
 
-                venta.delete()
+                # Eliminar solo la venta asociada al pedido original.
+                Venta.objects.filter(
+                    pk=venta_id,
+                    usuario_id=usuario_comprador,
+                    track_id=track_id,
+                    completada=False,
+                ).delete()
 
-        return render(
+            from django.utils import timezone
+
+            orden.status = WebpayTransaction.ESTADO_AUTORIZADO
+            orden.fulfilled_at = timezone.now()
+            orden.save(update_fields=["status", "fulfilled_at"])
+
+        return _respuesta_retorno_webpay(request, 'exito') or render(
             request,
             'app/exito.html',
             {
@@ -1518,8 +1694,36 @@ def exito_carrito(request):
         )
 
     except Exception as e:
-        print("ERROR COMMIT TRANSBANK CARRITO:", repr(e))
-        return redirect('cancelado')
+        print(
+            "ERROR PROCESANDO PAGO CARRITO - REQUIERE REVISION:",
+            repr(e),
+        )
+
+        # Si la respuesta autorizada ya fue validada, conservar
+        # su estado fuera de cualquier transaccion que haya fallado.
+        if orden_autorizada_id is not None:
+            try:
+                WebpayTransaction.objects.filter(
+                    pk=orden_autorizada_id,
+                    archived_for_review=False
+                ).update(
+                    status=WebpayTransaction.ESTADO_AUTORIZADO,
+                )
+            except Exception as error_guardado:
+                print(
+                    "ERROR GUARDANDO AUTORIZACION WEBPAY:",
+                    repr(error_guardado),
+                )
+
+        # Si commit() fallo, el resultado tambien puede ser incierto.
+        # No afirmar que el pago fue rechazado.
+        from django.http import HttpResponse
+
+        return _respuesta_retorno_webpay(request, 'revision') or HttpResponse(
+            'No fue posible verificar o completar el pago. '
+            'Revisa tu historial y contacta a soporte antes de pagar nuevamente.',
+            status=409,
+        )
 
 
 @csrf_exempt
@@ -1537,11 +1741,11 @@ def cancelar_pago_pendiente(request, transaction_id):
     )
 
     if webpay_transaction.status == WebpayTransaction.ESTADO_PENDIENTE:
-        webpay_transaction.status = WebpayTransaction.ESTADO_CANCELADO
-        webpay_transaction.save(update_fields=['status'])
-        messages.info(
+        messages.warning(
             request,
-            'El pago fue cancelado correctamente. No se realizó ningún cobro.'
+            'El estado de este pago no se ha verificado en Webpay. '
+            'La orden permanece pendiente. Contacta a soporte '
+            'antes de iniciar otro pago.'
         )
     else:
         messages.info(
@@ -1564,14 +1768,24 @@ def pago(request):
     usuario = get_object_or_404(Usuario, user=request.user)
 
     # Solo se incluyen productos que todavía están pendientes de pago.
-    ventas = Venta.objects.filter(
+    ventas = list(Venta.objects.filter(
         usuario_id=usuario,
         completada=False,
-    )
+    ).order_by("pk"))
 
-    if not ventas.exists():
+    if not ventas:
         messages.info(request, 'Tu carrito no tiene productos pendientes de pago.')
         return redirect('carrito')
+
+    cart_snapshot = [
+        {
+            "venta_id": venta.pk,
+            "track_id": venta.track_id,
+            "precio": int(venta.precio),
+            "iva": int(venta.iva),
+        }
+        for venta in ventas
+    ]
 
     precio_total = sum(venta.precio for venta in ventas)
     iva_total = sum(venta.iva for venta in ventas)
@@ -1579,12 +1793,18 @@ def pago(request):
 
     try:
         # Guardar exactamente el monto que se enviará a Webpay.
-        transaction = WebpayTransaction.objects.create(
-            user=request.user,
-            buy_order=str(random.randrange(1000000, 99999999)),
-            session_id=request.user.username,
-            amount=precio_total_con_iva,
+        from .webpay_checkout_guard import (
+            PaymentStartBlocked, create_pending_webpay_order,
         )
+        try:
+            transaction = create_pending_webpay_order(
+                user=request.user,
+                amount=precio_total_con_iva,
+                cart_snapshot=cart_snapshot,
+            )
+        except PaymentStartBlocked as error:
+            messages.warning(request, str(error))
+            return redirect('carrito')
 
         buy_order = transaction.buy_order
         session_id = transaction.session_id
@@ -1608,6 +1828,10 @@ def pago(request):
         )
 
         token_ws = response['token']
+        if not isinstance(token_ws, str) or not 1 <= len(token_ws) <= 255:
+            raise ValueError("Token Webpay invalido.")
+        transaction.webpay_token = token_ws
+        transaction.save(update_fields=["webpay_token"])
         url_webpay = response['url']
 
         context = {
@@ -1818,14 +2042,21 @@ def realizar_pago(request, suscripcion_id):
     if request.method == 'POST':
         try:
             # Crear una instancia de WebpayTransaction y guardarla en la base de datos
-            transaction = WebpayTransaction.objects.create(
-                user=request.user,
-                buy_order=str(random.randrange(1000000, 99999999)),
-                session_id=request.user.username,
-                amount=suscripcion.precio,
-                suscripcion=suscripcion,
-                status=WebpayTransaction.ESTADO_PENDIENTE,
+            from .webpay_checkout_guard import (
+                PaymentStartBlocked, create_pending_webpay_order,
             )
+            try:
+                transaction = create_pending_webpay_order(
+                    user=request.user,
+                    amount=int(round(float(suscripcion.precio))),
+                    suscripcion=suscripcion,
+                )
+            except PaymentStartBlocked as error:
+                messages.warning(request, str(error))
+                return redirect(
+                    'perfil_productor1',
+                    username=suscripcion.user.user.username,
+                )
             # Obtener los datos necesarios de la transacción
             buy_order = transaction.buy_order
             session_id = transaction.session_id
@@ -1847,6 +2078,10 @@ def realizar_pago(request, suscripcion_id):
                 return_url,
             )
             token_ws = response['token']
+            if not isinstance(token_ws, str) or not 1 <= len(token_ws) <= 255:
+                raise ValueError("Token Webpay invalido.")
+            transaction.webpay_token = token_ws
+            transaction.save(update_fields=["webpay_token"])
             url_webpay = response['url']
 
             # Realizar el proceso de pago con Transbank

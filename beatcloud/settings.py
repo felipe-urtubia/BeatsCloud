@@ -224,3 +224,31 @@ DEFAULT_FROM_EMAIL = os.getenv(
 )
 EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))
 
+# URL pública de React que recibe los enlaces de activación enviados por la API.
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000').rstrip('/')
+
+# BEATCLOUD_WEBPAY_INTEGRATION_TYPE_NORMALIZATION
+from transbank.common.integration_type import (
+    IntegrationType as _WebpayIntegrationType,
+)
+
+_modo_webpay = TRANSBANK_INTEGRATION_TYPE
+
+if isinstance(_modo_webpay, str):
+    _modo_webpay = _modo_webpay.strip().upper()
+    _modos_webpay = {
+        "TEST": _WebpayIntegrationType.TEST,
+        "LIVE": _WebpayIntegrationType.LIVE,
+    }
+
+    if _modo_webpay not in _modos_webpay:
+        raise ValueError(
+            "TRANSBANK_INTEGRATION_TYPE debe ser TEST o LIVE."
+        )
+
+    TRANSBANK_INTEGRATION_TYPE = _modos_webpay[_modo_webpay]
+
+elif not isinstance(_modo_webpay, _WebpayIntegrationType):
+    raise TypeError(
+        "Tipo de configuracion Transbank no reconocido."
+    )

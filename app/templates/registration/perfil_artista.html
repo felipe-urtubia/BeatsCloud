@@ -414,7 +414,7 @@
         {% endif %}
 
         <div class="perfil-name">
-          <h1>{{ user.username|capfirst }}</h1>
+          <h1>{{ user.usuario.nombre_artistico|default:user.username|capfirst }}</h1>
           <span class="perfil-role">🎤 Artista</span>
         </div>
 
@@ -547,7 +547,7 @@
                         <strong>{{ compra.track.nombre_track }}</strong>
                         <br>
                         <small class="text-muted">
-                          {{ compra.track.usuario.user.username|capfirst }}
+                          {{ compra.track.usuario.nombre_artistico|default:compra.track.usuario.user.username|capfirst }}
                         </small>
                       </div>
                     </div>
@@ -594,7 +594,7 @@
                       <br>
                       <small class="text-muted">
                         Productor:
-                        {{ pago.suscripcion.user.user.username|capfirst }}
+                        {{ pago.suscripcion.user.nombre_artistico|default:pago.suscripcion.user.user.username|capfirst }}
                       </small>
                     </div>
                   </td>
@@ -670,7 +670,7 @@
                   <div class="liked-producer">
                     Por
                     <a href="{% url 'perfil_productor1' track.usuario.user.username %}">
-                      {{ track.usuario.user.username|capfirst }}
+                      {{ track.usuario.nombre_artistico|default:track.usuario.user.username|capfirst }}
                     </a>
                   </div>
 

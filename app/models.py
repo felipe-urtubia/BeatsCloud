@@ -14,6 +14,7 @@ class Usuario(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     descripcion = models.TextField(max_length=500, null=True, blank=True)
     tipo_usu = models.IntegerField(choices=TIPO_USUARIO_CHOICES)
+    nombre_artistico = models.CharField(max_length=100, blank=True, default="")
     foto_perfil = models.ImageField(upload_to="media/perfil",null=True, blank=True)
     foto_fondo = models.ImageField(upload_to="media/fondo",null=True,blank=True)
     spotify = models.URLField(null=True, blank=True) 
@@ -80,6 +81,17 @@ class Track(models.Model):
     foto = models.ImageField(upload_to="tracks", null=True, blank=True)
     genero = models.ForeignKey(Genero_Musical, on_delete=models.PROTECT)
     usuario= models.ForeignKey(Usuario, on_delete=models.CASCADE )
+    subgenre = models.CharField(max_length=100, blank=True, default="")
+    resource_type = models.CharField(max_length=20, default="instrumental")
+    bpm = models.PositiveSmallIntegerField(default=140)
+    scale_key = models.CharField(max_length=20, default="Am")
+    mood = models.CharField(max_length=40, default="Oscuro")
+    has_stems = models.BooleanField(default=False)
+    has_wav = models.BooleanField(default=True)
+    has_midi = models.BooleanField(default=False)
+    allow_free_download = models.BooleanField(default=False)
+    has_watermark = models.BooleanField(default=True)
+    duration = models.PositiveIntegerField(default=30)
 
     def __str__(self):
         return self.nombre_track
@@ -125,7 +137,7 @@ class HistorialCompra(models.Model):
     fecha_compra = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.usuario.username} - {self.track.nombre}'
+        return f'{self.usuario.user.username} - {self.track.nombre_track}'
 
     class Meta:
         verbose_name_plural = 'Historial de compras'
@@ -153,6 +165,9 @@ class Compra(models.Model):
         return str(self.id)
 
 class WebpayTransaction(models.Model):
+    archived_for_review = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archive_reason = models.CharField(max_length=160, blank=True)
     ESTADO_PENDIENTE = 'PENDING'
     ESTADO_AUTORIZADO = 'AUTHORIZED'
     ESTADO_CANCELADO = 'CANCELLED'
@@ -164,10 +179,26 @@ class WebpayTransaction(models.Model):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    buy_order = models.CharField(max_length=50)
+    buy_order = models.CharField(max_length=50, unique=True)
     session_id = models.CharField(max_length=50)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     timestamp = models.DateTimeField(auto_now_add=True)
+
+    # Token de conciliacion devuelto por Webpay.
+    # Nunca mostrarlo en logs ni respuestas administrativas.
+    webpay_token = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    # Pedido original asociado a la transaccion.
+    cart_snapshot = models.JSONField(default=list, blank=True)
+
+    # Fecha en que se completo el registro de la compra.
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
 
     # Si esta transacción corresponde a una suscripción, se guarda aquí.
     # Para pagos del carrito queda en NULL.
