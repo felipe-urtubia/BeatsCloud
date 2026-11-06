@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
-  Search,
   ShoppingCart,
   Plus,
   Sliders,
@@ -15,7 +14,6 @@ import {
   Disc3,
   X,
   Menu,
-  Trash2,
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -42,8 +40,6 @@ export const TopBar: React.FC<TopBarProps> = ({
     configuredMode,
     logout,
     cart,
-    globalSearchQuery,
-    setGlobalSearchQuery,
   } = useApp();
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -69,12 +65,6 @@ export const TopBar: React.FC<TopBarProps> = ({
     }
   };
 
-  const handleSearchChange = (val: string) => {
-    setGlobalSearchQuery(val);
-    if (val.trim() && currentTab !== 'catalogo') {
-      setCurrentTab('catalogo');
-    }
-  };
 
   return (
     <header className="h-16 bg-[#0a0c10]/95 backdrop-blur-md border-b border-[#1a1e2b] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 gap-3">
@@ -89,26 +79,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
       )}
 
-      {/* Search Bar */}
-      <div className="relative flex-1 max-w-lg">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-        <input
-          type="text"
-          placeholder="Buscar por beat, productor, BPM (ej: 140), escala (A Minor), género..."
-          value={globalSearchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full bg-[#131620] border border-[#23283a] focus:border-amber-400/80 pl-10 pr-9 py-2 rounded-xl text-xs text-white placeholder-zinc-400 focus:outline-none transition-all shadow-inner"
-        />
-        {globalSearchQuery && (
-          <button
-            onClick={() => setGlobalSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-
+      <div className="flex-1" />
       {/* Right Controls */}
       <div className="flex items-center gap-3">
         {/* Upload Button for Producers */}
