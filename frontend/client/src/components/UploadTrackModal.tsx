@@ -64,7 +64,12 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
   onClose,
   trackToEdit,
 }) => {
-  const { uploadTrack, updateTrack, configuredMode } = useApp();
+  const {
+    uploadTrack,
+    updateTrack,
+    configuredMode,
+    genreOptions,
+  } = useApp();
 
   const [title, setTitle] = useState('');
   const [resourceType, setResourceType] = useState<ResourceType>('instrumental');
@@ -172,6 +177,21 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
     }
   }, [trackToEdit, isOpen]);
 
+  useEffect(() => {
+    if (
+      !isOpen ||
+      configuredMode !== 'hybrid' ||
+      trackToEdit ||
+      genreOptions.length === 0
+    ) return;
+
+    setGenre((actual) =>
+      genreOptions.some((g) => g.descripcion === actual)
+        ? actual
+        : genreOptions[0].descripcion
+    );
+  }, [isOpen, configuredMode, trackToEdit, genreOptions]);
+
   if (!isOpen) return null;
 
   // Run the fallback audio analyzer
@@ -192,13 +212,28 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
     setScaleKey(analysisResult.detectedKey);
     setResourceType(analysisResult.detectedType);
     setMood(analysisResult.detectedMood);
-    setGenre(analysisResult.suggestedGenre);
+    if (
+      configuredMode !== 'hybrid' ||
+      genreOptions.some(
+        (g) => g.descripcion === analysisResult.suggestedGenre
+      )
+    ) {
+      setGenre(analysisResult.suggestedGenre);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     setUploadError(null);
+
+    if (
+      configuredMode === 'hybrid' &&
+      !genreOptions.some((g) => g.descripcion === genre)
+    ) {
+      setUploadError('Selecciona un genero disponible en Django.');
+      return;
+    }
 
     if (!trackToEdit && configuredMode === 'hybrid' && !audioFile) {
       setUploadError('Selecciona el archivo de audio que quieres guardar.');
@@ -435,10 +470,28 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
                 Género Principal *
               </label>
               <select
-                value={genre}
+                value={
+                  configuredMode === 'hybrid' &&
+                  !genreOptions.some((g) => g.descripcion === genre)
+                    ? ''
+                    : genre
+                }
                 onChange={(e) => setGenre(e.target.value as MusicGenre)}
                 className="w-full bg-[#121520] border border-[#232a40] focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white focus:outline-none font-medium"
               >
+                {configuredMode === 'hybrid' ? (
+                  <>
+                    <option value="" disabled>
+                      Selecciona un genero
+                    </option>
+                    {genreOptions.map((item) => (
+                      <option key={item.id} value={item.descripcion}>
+                        {item.descripcion}
+                      </option>
+                    ))}
+                  </>
+                ) : (
+                  <>
                 <option value="Trap">Trap</option>
                 <option value="Hip-Hop">Hip-Hop</option>
                 <option value="Reggaeton">Reggaetón</option>
@@ -449,6 +502,8 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
                 <option value="Pop">Pop</option>
                 <option value="Rock">Rock</option>
                 <option value="Soul">Soul</option>
+                  </>
+                )}
               </select>
             </div>
 
