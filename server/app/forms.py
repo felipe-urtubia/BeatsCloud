@@ -9,13 +9,26 @@ class RegistroUsuarioForm(UserCreationForm):
         (Usuario.PRODUCTOR, 'Productor'),
     )
     tipo_usu = forms.ChoiceField(choices=TIPO_USUARIO_CHOICES)
+    first_name = forms.CharField(max_length=150, required=True)
+    nombre_artistico = forms.CharField(max_length=100, required=True)
     email = forms.EmailField(required=True)
     foto_perfil = forms.ImageField(required=False)
     foto_fondo = forms.ImageField(required=False)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password1', 'password2', 'first_name', 'last_name', 'tipo_usu','foto_perfil', 'foto_fondo']
+        fields = [
+            'username',
+            'email',
+            'password1',
+            'password2',
+            'first_name',
+            'last_name',
+            'nombre_artistico',
+            'tipo_usu',
+            'foto_perfil',
+            'foto_fondo',
+        ]
 
     def clean_email(self):
         email = (self.cleaned_data.get('email') or '').strip().lower()
@@ -42,5 +55,9 @@ class UsuarioEditForm(forms.ModelForm):
 class TrackForm(forms.ModelForm):
     class Meta:
         model = Track
-        fields = ['nombre_track', 'precio', 'track', 'foto', 'genero', 'descripcion']
+        fields = [
+            'nombre_track', 'precio', 'track', 'foto', 'genero', 'descripcion',
+            'subgenre', 'resource_type', 'bpm', 'scale_key', 'mood', 'has_stems', 'has_wav',
+            'has_midi', 'allow_free_download', 'has_watermark', 'duration',
+        ]
     genero = forms.ModelChoiceField(queryset=Genero_Musical.objects.all().order_by('descripcion'), widget=forms.Select)

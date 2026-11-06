@@ -1,8 +1,8 @@
 # REGISTRO DE CAMBIOS — BEATSCLOUD
 
 **Proyecto:** BeatsCloud
-**Periodo cubierto:** 28-08-2026 al 04-09-2026
-**Última actualización:** 04-09-2026
+**Periodo cubierto:** 28-08-2026 al 06-11-2026
+**Última actualización:** 06-11-2026
 
 > Este documento consolida los cambios funcionales, visuales, de seguridad, configuración, documentación y pruebas realizados durante la etapa final de mejora del proyecto BeatsCloud.
 > Se revisó el registro anterior y se incorporaron los cambios realizados hasta la última prueba manual del 04-09-2026.
@@ -810,6 +810,51 @@ Se ejecutó:
 python manage.py migrate
 ```
 
+## Seguimiento de cambios recientes
+
+- Se documentaron también la corrección del borrado de usuarios desde Django
+  Admin, los mensajes en español y el rechazo de reutilizar la contraseña
+  actual al restablecerla, y los controles para mostrar u ocultar ambas claves.
+- Se registró el rediseño visual de los botones “Acceder” y “Registrarse” en
+  las barras de navegación de React.
+- Verificación final del backend: `python manage.py test app` ejecutó 48
+  pruebas correctamente.
+
+## Acceso visible a registro en navegación móvil
+
+- Se agregó una acción “Registrarse” explícita y destacada en el panel lateral
+  cuando no hay una sesión activa, junto a “Acceder”.
+- El botón abre el modo registro y cierra el menú móvil; conserva contraste,
+  icono y estados visibles de interacción.
+- Verificación: `npm run lint` y `npm run build` finalizaron correctamente.
+
+## Ajustes recientes de administración, recuperación y acceso
+
+- Se corrigió la representación de `HistorialCompra` para que la pantalla de
+  confirmación al borrar usuarios en Django Admin pueda mostrar perfiles y
+  tracks relacionados sin acceder a atributos inexistentes. Se agregó una
+  prueba de regresión para ese caso.
+- En la recuperación de contraseña, se tradujo al español el mensaje de
+  similitud de contraseña de Django y se agregó la validación para impedir que
+  la contraseña nueva sea igual a la actual.
+- En la pantalla React para restablecer contraseña se añadieron controles
+  accesibles para mostrar u ocultar la contraseña nueva y su confirmación.
+- Se hicieron más visibles las acciones “Acceder” y “Registrarse” en las barras
+  de navegación de React, con estilos destacados, iconos y estados de foco.
+- Se verificaron los correos HTML de confirmación y recuperación para conservar
+  el diseño BeatsCloud y los enlaces correctos.
+
+Verificaciones realizadas:
+
+```powershell
+python manage.py test app
+python manage.py check
+cd frontend\client
+npm run lint
+npm test
+npm run build
+```
+
 Resultado relevante:
 
 ```text
@@ -1149,3 +1194,733 @@ Resultados verificados:
 - prueba manual del preview de 30 segundos: correcta.
 
 Con esta actualización, BeatsCloud dispone de previews públicos separados del audio original y mantiene el acceso completo únicamente para compradores y propietarios del track.
+
+---
+
+# 05-11-2026 — Sincronización de registros Django con React
+
+Se amplió la lectura de datos de Django en el frontend React para que la interfaz
+en modo `hybrid` refleje los registros persistidos, sin sustituir la base de
+datos ni exponer información privada de otros usuarios.
+
+## API Django
+
+1. Se agregó `GET /api/usuarios/` para mostrar el directorio de usuarios con
+   perfil, excluyendo la cuenta técnica `UsuarioAnonimo` y sin exponer correos
+   ni relaciones privadas.
+2. La sesión privada ahora incluye los IDs de los tracks que le gustan al
+   usuario y sus suscripciones activas, incluidas las autorizadas mediante
+   Webpay.
+3. La respuesta de suscripciones ahora incluye los datos públicos del
+   productor asociado.
+4. Se amplió el endpoint de comentarios para permitir eliminar un comentario
+   mediante `DELETE`, únicamente por su autor autenticado.
+
+## Frontend React
+
+1. La sincronización inicial carga todas las páginas del catálogo, el directorio
+   público, planes de suscripción y, para el usuario autenticado, carrito,
+   historiales de compras y ventas.
+2. Los perfiles React reflejan los usuarios, tracks, compras, ventas, likes y
+   suscripciones existentes de Django.
+3. Los comentarios persistidos se cargan al abrir el detalle del track; las
+   altas y eliminaciones se guardan en Django y se vuelven a cargar desde el
+   servidor.
+4. Al cerrar sesión se limpian del estado React los historiales y datos
+   privados del usuario anterior.
+5. Se deshabilitó la contratación de suscripciones desde React en modo
+   `hybrid`, porque todavía no existe un flujo React que cree esa relación de
+   manera persistente. Los planes y membresías existentes sí se muestran.
+6. Se actualizó la documentación del README sobre lo sincronizado y las
+   integraciones aún pendientes.
+
+## Configuración y verificaciones
+
+- Se añadieron `http://localhost:3000` y `http://127.0.0.1:3000` a
+  `DJANGO_CSRF_TRUSTED_ORIGINS` en el `.env` local, conservando el origen del
+  Dev Tunnel. El `.env` es configuración personal y no debe subirse a Git.
+- Se corrigió en el README el comando de clonación para utilizar la rama
+  `main`, donde se encuentra integrado React.
+- Se añadieron pruebas para el directorio público, likes/suscripciones de la
+  sesión y eliminación autorizada de comentarios.
+
+Verificaciones realizadas:
+
+```powershell
+python manage.py test app
+python manage.py check
+python manage.py makemigrations --check --dry-run
+cd frontend\client
+npm run lint
+npm test
+npm run build
+npm audit
+```
+
+Resultados verificados: 33 pruebas Django y 4 pruebas frontend correctas,
+compilación TypeScript y build de React correctos, configuración y migraciones
+sin problemas, y `npm audit` sin vulnerabilidades reportadas.
+
+## Limitaciones pendientes
+
+- React todavía no persiste la edición de perfiles ni la subida de tracks.
+- La contratación de suscripciones debe realizarse desde Django; React solo
+  refleja los planes y membresías existentes.
+- La activación de cuentas y la confirmación final de Webpay siguen ocurriendo
+  en las vistas HTML de Django.
+- La sincronización de lectura desde la API no reemplaza la página Django ni
+  significa que todas las acciones disponibles allí estén implementadas en
+  React.
+
+## Corrección de inicio de sesión React con error 403
+
+- Se verificó el handshake CSRF del endpoint de login con `Origin:
+  http://localhost:3000` mediante una prueba Django con comprobación CSRF
+  habilitada.
+- El cliente React ahora renueva el token y reintenta una sola vez cuando
+  Django responde con su página HTML de rechazo CSRF; no reintenta los errores
+  JSON de credenciales o de cuenta inactiva.
+- El cliente distingue el 403 HTML de CSRF y muestra un mensaje indicando que
+  se debe reiniciar Django y autorizar el origen de React.
+- En README se agregó la indicación para autorizar el origen HTTPS exacto del
+  túnel de React si se usa uno en el puerto `3000`. El dominio del túnel de
+  Django en el puerto `8000` no lo reemplaza.
+
+Verificación realizada:
+
+```powershell
+python manage.py test app.test_api_shim.ApiShimSecurityTests.test_login_api_accepts_local_react_origin_with_csrf
+cd frontend\client
+npm run lint
+npm run build
+```
+
+La prueba CSRF, el chequeo TypeScript y la compilación de React finalizaron
+correctamente.
+
+## Activación de cuentas en React
+
+- Los enlaces de activación enviados por el registro de React ahora apuntan a
+  `/activar/<uid>/<token>/` en el frontend. La URL base se configura con
+  `FRONTEND_URL` en el `.env` raíz (por defecto `http://localhost:3000`).
+- Se agregó una pantalla React para mostrar el estado de validación y volver al
+  inicio de sesión.
+- Se agregó `POST /api/auth/activar/`, que verifica el token y activa la cuenta
+  sin iniciar sesión; los tokens inválidos, expirados o de usuarios
+  inexistentes se rechazan. Repetir una activación válida es seguro.
+- El formulario de registro HTML de Django conserva su enlace y flujo actuales.
+
+Verificaciones realizadas:
+
+```powershell
+python manage.py test app.test_api_shim
+python manage.py check
+cd frontend\client
+npm run lint
+npm test
+npm run build
+```
+
+## Recuperación de contraseña en React
+
+- Se agregó el acceso “¿Olvidaste tu contraseña?” al inicio de sesión React y
+  un formulario para solicitar el enlace por correo.
+- Se informa cuando el correo no está asociado a una cuenta activa, y se
+  muestra la confirmación de envío cuando sí corresponde enviar el enlace.
+- Los enlaces de restablecimiento del flujo React usan `FRONTEND_URL` y abren
+  `/restablecer/<uid>/<token>/`. React permite ingresar y confirmar la nueva
+  contraseña; Django verifica el token de un solo uso, su vencimiento y los
+  validadores configurados antes de guardarla.
+- El flujo HTML de recuperación de Django permanece disponible. Ambos flujos
+  comparten los validadores y el generador de tokens de Django.
+
+Verificaciones realizadas:
+
+```powershell
+python manage.py test app.test_api_shim
+python manage.py check
+cd frontend\client
+npm run lint
+npm test
+npm run build
+```
+
+### Mensaje para correo no asociado
+
+- En la solicitud React, Django comprueba si el correo corresponde a una
+  cuenta activa con contraseña utilizable. Si no encuentra una, responde con
+  un mensaje explícito para que la persona pueda corregirlo.
+- Si la encuentra, envía el enlace React y confirma que debe revisar su correo.
+- Esta respuesta diferencia correos existentes de no existentes, lo que
+  permite inferir si una dirección está registrada.
+
+## Registro: nombre artístico separado del usuario de acceso
+
+- Se agregó `Usuario.nombre_artistico` (máximo 100 caracteres) y la migración
+  `0016_usuario_nombre_artistico`; las cuentas existentes conservan un valor
+  vacío en la base y muestran como alternativa su nombre anterior o usuario.
+- Los formularios de React y Django ahora piden nombre, apellido, nombre
+  artístico y un usuario de acceso independiente.
+- El API guarda el nombre artístico con el perfil, lo devuelve en las
+  respuestas públicas y de sesión, y React lo usa para mostrar perfiles y
+  productores de tracks.
+- Se añadió prueba de registro con un nombre artístico con espacios, envío de
+  correo y rechazo cuando falta el nombre artístico.
+
+## Diseño de correos de registro y recuperación
+
+- Se actualizaron los correos HTML de confirmación de cuenta y recuperación
+  para reflejar la interfaz React de BeatsCloud: fondo oscuro, tarjetas
+  grafito, bordes azul grisáceo y botones/acento ámbar.
+- El estilo se aplica tanto a la recuperación desde React como al flujo HTML
+  existente de Django; se conservaron sus enlaces, textos alternativos y
+  avisos de seguridad.
+- Se agregaron comprobaciones de las plantillas HTML en pruebas de envío.
+
+La migración debe aplicarse en cada base local antes de utilizar la nueva
+columna:
+
+```powershell
+python manage.py migrate
+```
+
+## Resumen final de cambios recientes
+
+- Se documentaron la corrección del borrado de usuarios desde Django Admin,
+  los mensajes de validación de contraseña en español, el rechazo a reutilizar
+  la contraseña actual y los controles para mostrar u ocultar las contraseñas.
+- Se registró el rediseño visual de los botones “Acceder” y “Registrarse” en
+  la navegación de React.
+- Verificación final del backend: `python manage.py test app` ejecutó 48
+  pruebas correctamente.
+- En el panel lateral móvil se agregó “Registrarse” como botón visible junto
+  a “Acceder”, y al seleccionarlo se abre el formulario de registro y se cierra
+  el menú.
+- Se corrigió el estilo del botón “Registrarse” que se veía negro en la
+  navegación: se reemplazó el fondo degradado por un fondo naranja sólido y
+  estados hover/foco visibles en TopBar, Navbar y panel lateral. Lint y build
+  de React finalizaron correctamente.
+- En el formulario de acceso se agregó un control para mostrar u ocultar la
+  contraseña antes de iniciar sesión, conservando el comportamiento de envío.
+- Se conectó la subida de pistas de productores en modo `hybrid` con la API de
+  Django: el formulario envía el audio y los datos persistidos, y solo muestra
+  la pista como publicada cuando el backend confirma el guardado.
+- Se agregó una prueba de regresión que confirma que una pista subida queda
+  guardada y aparece en el catálogo y en el perfil público del productor.
+
+# 05-11-2026
+
+## Integración de funciones Django pendientes en React
+
+- Se conectó la edición del perfil propio a Django para guardar biografía,
+  enlaces sociales y archivos de avatar/banner. Se corrigió el parseo de
+  formularios `multipart/form-data` enviados mediante `PATCH`, tanto para
+  perfiles como para editar la portada de una pista.
+- La carga y edición de pistas en modo `hybrid` ahora persisten los metadatos
+  disponibles en el modelo Django: tipo de recurso, BPM, tonalidad, mood,
+  duración, opciones de archivos, género y portada subida. Las cargas antiguas
+  que omiten estos nuevos campos conservan valores predeterminados.
+- Se conectaron la creación y contratación de planes de suscripción con las API
+  y el flujo de Webpay existente. Los retornos de pago hacia React muestran el
+  resultado procesado por Django; no se efectuó una transacción real en este
+  cambio.
+- Se conectó el reclamo de pistas gratuitas, la descarga protegida del archivo
+  disponible, la descarga de la maqueta de preview y la consulta de datos de
+  compra con huella HMAC. Se eliminaron descargas `.txt` que simulaban archivos
+  de audio o términos legales. El comprobante informa que no es un contrato ni
+  establece por sí solo condiciones de licencia.
+- Se conectó la eliminación de cuenta desde React mediante verificación de
+  contraseña y código enviado por correo, reutilizando la rutina Django para
+  anonimizar o retirar datos de manera segura.
+- La biblioteca de compras y membresías del perfil de artista solo muestra los
+  datos privados de la sesión propia.
+- Se agregaron pruebas de API para creación de planes, carga y edición de
+  metadatos, edición de perfil, reclamo gratuito/licencia y eliminación de
+  cuenta con código. Se actualizó la prueba de métodos HTTP de suscripciones.
+- El README describe las funciones conectadas y los límites reales del modelo:
+  una pista almacena un archivo de audio (no WAV más stems), los planes no
+  persisten beneficios/periodo y el comprobante HMAC no equivale a una licencia
+  legal.
+
+Verificaciones ejecutadas:
+
+```powershell
+python manage.py test
+python manage.py makemigrations --check --dry-run
+python manage.py check
+cd frontend\client
+npm run lint
+npm test
+npm run build
+```
+
+Resultado: 54 pruebas Django aprobadas; 4 pruebas frontend aprobadas; lint,
+build, comprobación de migraciones y `manage.py check` finalizados correctamente.
+
+## Aclaración de comprobantes y descargas
+
+- Se reemplazó el verificador local simulado por un aviso que explica que
+  Django no ofrece una consulta pública de códigos. Los comprobantes se
+  consultan desde la biblioteca de compras de la cuenta autenticada.
+- Se retiraron de la interfaz afirmaciones de derechos, reparto de regalías,
+  archivos WAV/stems, condiciones de uso gratuito y protección ante reclamos
+  que no están respaldadas por los datos del sistema.
+- El perfil de productor conserva el historial de ventas, sin ofrecer un
+  certificado legal generado localmente.
+
+## Persistencia del subgénero
+
+- Se agregó el campo opcional `Track.subgenre` y la migración `0018_track_subgenre`.
+- El formulario de pista, la API Django y los DTO/mapeadores React ahora guardan
+  y recuperan el subgénero en modo `hybrid`.
+
+## Validación de portadas al editar pistas
+
+- La API valida las imágenes de portada de las solicitudes `PATCH` con el
+  mismo `ImageField` de Django antes de persistirlas.
+- La prueba de edición multipart usa una imagen válida y confirma que se guarda.
+
+---
+
+## Cierre de Webpay TEST - 5 y 6 de noviembre de 2026
+
+### Compras y membresias
+
+- Se verifico el checkout de canciones desde React y Django.
+- Se completo una compra de prueba por $11.900 CLP,
+  con autorizacion de Transbank, entrega y descarga.
+- Se habilito la contratacion VIP desde el perfil del productor.
+- Se probo el plan VIP de $1.000 CLP de felia7x.
+- Se identifico un problema causado por una sesion de navegador
+  diferente durante el retorno de Webpay.
+- Se corrigio el retorno para validar la orden y su token,
+  sin depender del usuario autenticado en el navegador.
+- Se incorporo activacion de membresias dentro de una
+  transaccion atomica de PostgreSQL.
+- Se recupero la orden VIP 49 consultando el estado AUTHORIZED
+  directamente a Transbank TEST, sin iniciar otro cobro.
+- Se confirmo la membresia activa en PostgreSQL y React.
+
+### Conciliacion y archivo de ordenes antiguas
+
+- Se auditaron las ordenes 19745345 y 31674163.
+- Ambas carecian de token guardado, detalle de productos
+  y evidencia suficiente para una conciliacion automatica.
+- Se creo un respaldo privado fuera del repositorio.
+- Se incorporaron archived_for_review, archived_at y
+  archive_reason al modelo WebpayTransaction.
+- Se creo y aplico la migracion 0022_archivo_legacy_webpay.
+- Las dos ordenes se archivaron conservando sus estados
+  AUTHORIZED y PENDING, respectivamente.
+- Se modifico el control de inicio para excluir exclusivamente
+  las ordenes archivadas, sin desproteger las demas.
+- Se verifico el desbloqueo de felipeurtubia y felia7x.
+- Las ordenes temporales de comprobacion se revirtieron.
+- Se agregaron barreras para impedir entregas locales
+  desde retornos de ordenes archivadas.
+- Las dos ordenes siguen pendientes de conciliacion financiera;
+  el archivo no implica cancelacion en Transbank.
+
+### Pruebas y seguridad
+
+- Se incorporaron pruebas de retorno con sesion diferente,
+  activacion de membresias, archivo y bloqueo de entregas.
+- La suite Django finalizo con 87 pruebas aprobadas.
+- python manage.py check no reporto errores.
+- No quedaron migraciones pendientes.
+- Se verificaron las cuatro ordenes existentes y la membresia VIP.
+- Se auditaron archivos preparados para Git, incluyendo tokens,
+  credenciales y archivos privados.
+- Se sustituyeron ejemplos de credenciales del README por
+  marcadores explicitos.
+- La auditoria automatica no sustituye la revision manual.
+
+### Control de versiones
+
+- Se prepararon 67 archivos de Django, React, pruebas y documentacion.
+- Se creo el commit local 3ffa625:
+  feat: integrar mejoras de BeatCloud y pagos Webpay.
+- Se comprobo la rama main y la existencia de origin/main.
+- La publicacion mediante git push quedo pendiente.
+
+### Mejoras pendientes
+
+- Evaluar evitar llamadas commit a Transbank cuando una orden
+  ya esta archivada, siempre que pueda identificarse con seguridad.
+- Resolver manualmente la conciliacion financiera de las dos
+  ordenes antiguas si se obtiene evidencia suficiente.
+- No considerar probados los cobros recurrentes ni los pagos
+  de produccion: las verificaciones fueron en ambiente TEST.
+
+---
+
+## Mejoras del carrito y reproductor - 05-11-2026
+
+### Carrito de compras
+
+- Se elimino el mensaje sobre la validacion de Django.
+- Se conservo la validacion real de Webpay.
+- Se comprobo visualmente el carrito.
+
+### Reproductor de audio
+
+- Se agrego un boton X para cerrar el reproductor.
+- Al cerrar, el audio se detiene y se limpia el estado.
+- Se incorporaron controles de reproducir y pausar.
+- Se agregaron botones para retroceder y avanzar 5 segundos.
+- Se mejoro el control de progreso y duracion.
+- Se corrigio la sincronizacion del estado de reproduccion.
+- Se conserva la limitacion del archivo de vista previa.
+
+### Validaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas frontend aprobadas.
+- Funcionamiento visual confirmado en navegador.
+- No se modificaron Django, PostgreSQL ni los pagos.
+- Cambios preparados para un nuevo commit.
+
+---
+
+## Confirmacion previa de compra - 06-11-2026
+
+### Mejoras implementadas
+
+- Se incorporo una ventana de confirmacion antes de Webpay.
+- El carrito incluye el boton Revisar compra.
+- La ventana muestra canciones, subtotal, IVA y total estimado.
+- Se agrego la opcion Volver al carrito.
+- Se permite cerrar la confirmacion con Escape.
+- El usuario conserva sus productos al regresar al carrito.
+- Solo el boton de confirmacion inicia el checkout existente.
+- La validacion definitiva del pago permanece en Django.
+
+### Verificaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas frontend aprobadas.
+- Apertura de la ventana confirmada en navegador.
+- Cierre mediante boton y tecla Escape confirmado.
+- No se inicio un nuevo pago durante las pruebas visuales.
+- No se modificaron Django, PostgreSQL ni Webpay.
+- La confirmacion final contra Webpay queda pendiente de prueba.
+
+---
+
+## Mejoras del catalogo React - 06-11-2026
+
+### Filtros de precios
+
+- Se incorporaron cuatro rangos de precios en pesos chilenos.
+- Se conservaron los filtros Todos, De pago y Gratis.
+- Se actualizaron las opciones de restablecimiento.
+
+### Ordenamiento
+
+- Se agrego el ordenamiento por antiguedad.
+- Se agrego el ordenamiento por precio mayor.
+- Se agrego el ordenamiento alfabetico A-Z y Z-A.
+- Se conservaron las opciones anteriores.
+
+### Paginacion
+
+- Se agrego paginacion de 6, 12 y 24 canciones.
+- Se incorporaron botones Primera, Anterior, Siguiente y Ultima.
+- Se actualizaron las vistas de tabla y cuadricula.
+- Los cambios de filtros reinician la navegacion de paginas.
+- La paginacion se realiza en React, sobre las pistas cargadas.
+
+### Validaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Filtros y ordenamiento verificados visualmente.
+- Paginacion verificada visualmente.
+- No se modificaron Django, PostgreSQL ni los pagos.
+
+---
+
+## Generos dinamicos Django y React - 06-11-2026
+
+### Catalogo
+
+- Se reemplazo el selector fijo de generos por opciones dinamicas.
+- Se reutilizan los generos recibidos desde la API de Django.
+- Se conserva el genero original de cada cancion.
+- Se eliminaron las conversiones Jazz a Boom-Bap y Metal a Drill.
+- Se mantienen los filtros, ordenamiento y paginacion.
+
+### Publicacion y edicion
+
+- El formulario React utiliza los generos registrados en Django.
+- Se conservan los identificadores reales de cada genero.
+- La publicacion envia el ID del genero seleccionado.
+- La edicion envia el ID correspondiente cuando cambia el genero.
+- Se conserva el modo de demostracion.
+- Se valida la seleccion del genero antes de guardar.
+
+### Validaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Catalogo y selector de generos verificados visualmente.
+- Selector de publicacion verificado visualmente.
+- Formulario de edicion y genero original verificados visualmente.
+- No se realizaron publicaciones ni ediciones reales en la prueba.
+- Persistencia real de generos pendiente de prueba controlada.
+- Django y PostgreSQL no fueron modificados.
+
+---
+
+## Pruebas automatizadas de generos - 06-11-2026
+
+### Pruebas incorporadas
+
+- Se agrego app/test_generos_api.py con cuatro pruebas Django.
+- Se verifico la publicacion con el ID real del genero Jazz.
+- Se verifico la edicion de una cancion de Jazz a Metal.
+- Se verifico el rechazo de un ID inexistente al editar.
+- Se verifico el rechazo de un ID inexistente al publicar.
+
+### Resultados
+
+- Cuatro pruebas ejecutadas: 4 aprobadas y 0 fallidas.
+- Django System Check: sin problemas.
+- Las pruebas utilizaron una base PostgreSQL temporal.
+- La base temporal fue eliminada al finalizar.
+- No se realizaron modificaciones a la base beatsbd.
+- No se modificaron canciones ni pagos existentes.
+- No se cambio la logica de produccion de Django.
+- El archivo de pruebas queda disponible para futuras regresiones.
+
+### Estado
+
+- Persistencia de generos verificada mediante pruebas aisladas.
+- Publicacion y edicion visual verificadas previamente.
+- No se ejecuto en este paso la suite completa de Django.
+
+---
+
+## Enlaces directos a canciones React - 06-11-2026
+
+### Navegacion
+
+- Se incorporaron enlaces directos utilizando el parametro track.
+- La URL se actualiza cuando se abre el detalle de una cancion.
+- El detalle puede abrirse directamente desde una URL compartida.
+- Se sincronizo la navegacion con los botones Atras y Adelante.
+- Se actualizo el cierre del detalle para mantener la URL coherente.
+- Se conservaron los parametros existentes de la direccion.
+- Se mantuvo el sistema de navegacion actual de React.
+
+### Verificaciones
+
+- Compilacion React/Vite aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Apertura desde el catalogo verificada visualmente.
+- Apertura del enlace en otra pestana verificada.
+- Recarga conservando la cancion verificada.
+- Navegacion Atras y Adelante verificada.
+- Cierre del detalle mediante X verificado.
+- Cierre despues de recargar verificado.
+
+### Alcance
+
+- Cambio realizado exclusivamente en App.tsx.
+- No se modificaron rutas existentes de Django.
+- No se modificaron canciones, usuarios ni pagos.
+- No se realizaron cambios en PostgreSQL.
+- Enlaces a perfiles publicos pendientes de desarrollo.
+- Compartir enlaces fuera del entorno local requiere despliegue.
+
+---
+
+## Enlaces directos a perfiles publicos React - 06-11-2026
+
+### Funcionalidades incorporadas
+
+- Se incorporaron enlaces directos a perfiles mediante el parametro profile.
+- Las direcciones utilizan el nombre de usuario publico.
+- React resuelve el identificador interno y el rol del usuario.
+- Se habilitaron enlaces compartibles para artistas y productores.
+- Los perfiles pueden abrirse en nuevas pestanas y recargarse.
+- Se sincronizo la navegacion con los botones Atras y Adelante.
+- Se mantuvo el acceso a productores desde el detalle de canciones.
+- Los perfiles no encontrados muestran Perfil no disponible.
+- Se evito mostrar otra cuenta como alternativa ante perfiles inexistentes.
+
+### Verificaciones realizadas
+
+- Compilacion React y TypeScript aprobada.
+- Cuatro pruebas automatizadas existentes de Webpay aprobadas.
+- Prueba visual de enlace a productor aprobada.
+- Prueba visual de enlace a artista aprobada.
+- Prueba visual de perfil inexistente aprobada.
+- Prueba visual de Atras y Adelante aprobada.
+- Prueba visual de navegacion desde cancion a productor aprobada.
+- Se comprobaron visualmente los controles privados de perfiles ajenos.
+
+### Alcance y pendientes
+
+- Archivos React modificados: App.tsx y TrackDetailModal.tsx.
+- No se modifico Django ni PostgreSQL.
+- No se alteraron canciones, cuentas, compras ni pagos.
+- La validacion visual no sustituye una auditoria completa de seguridad.
+- Pendiente publicar el commit en GitHub.
+
+---
+
+## Pruebas automatizadas de navegacion - 06-11-2026
+
+### Implementacion
+
+- Se creo frontend/client/src/navigation/urlState.ts.
+- Se incorporaron funciones reutilizables para leer y construir URLs.
+- Se centralizo la resolucion de perfiles publicos por username.
+- Se incorporo la validacion de usuarios por ID y rol.
+- App.tsx utiliza las funciones del modulo de navegacion.
+- Se creo frontend/client/src/navigation/urlState.test.mjs.
+- Se actualizo npm test para ejecutar ambas suites.
+- No se instalaron dependencias nuevas.
+
+### Pruebas automatizadas
+
+- Once pruebas nuevas de navegacion.
+- Cuatro pruebas existentes de Webpay.
+- Total ejecutado: 15 pruebas.
+- Pruebas aprobadas: 15.
+- Pruebas fallidas: 0.
+- Compilacion TypeScript y Vite aprobada.
+
+### Verificaciones visuales
+
+- Apertura de enlaces a canciones aprobada.
+- Apertura de perfiles publicos aprobada.
+- Navegacion combinada aprobada.
+- Validacion de perfil inexistente aprobada.
+- Navegacion habitual y reproductor aprobados.
+- Total: cinco comprobaciones visuales aprobadas.
+
+### Alcance
+
+- No se modifico el backend Django.
+- No se realizaron operaciones en PostgreSQL.
+- No se alteraron canciones, usuarios, compras ni pagos.
+- Las pruebas automatizadas cubren funciones de navegacion.
+- Las comprobaciones visuales complementan las pruebas unitarias.
+- No se incorporaron pruebas automatizadas de navegador completo.
+
+---
+
+## Totales oficiales del carrito - 06-11-2026
+
+### Correccion implementada
+
+- CartPage.tsx consulta los totales mediante DjangoApi.carrito().
+- Django mantiene la responsabilidad del subtotal, IVA y total.
+- React valida la coincidencia entre los productos locales y los del servidor.
+- Los totales se verifican antes de permitir continuar hacia el pago.
+- Si falla la consulta, se informa al usuario y se ofrece reintentar.
+- El modo de demostracion conserva su calculo local.
+
+### Verificaciones realizadas
+
+- Compilacion TypeScript y Vite aprobada.
+- Quince pruebas automatizadas existentes aprobadas.
+- Verificacion visual del carrito con productos existentes aprobada.
+- Subtotal, IVA y total coinciden con la respuesta de Django.
+- No se realizaron pagos durante la comprobacion.
+
+### Alcance
+
+- Modificacion limitada a CartPage.tsx.
+- No se modificaron Django ni las tablas de PostgreSQL.
+- No se altero el procedimiento de confirmacion de Webpay.
+- Las pruebas automatizadas existentes no cubren directamente
+  la nueva integracion de totales del carrito.
+
+---
+
+## Enlaces individuales y menu principal - 06-11-2026
+
+### Mejoras implementadas
+
+- Se incorporaron enlaces directos a las secciones principales.
+- El catalogo conserva enlaces a sus categorias de audio.
+- Se actualizaron los manejadores del historial del navegador.
+- Los enlaces soportan recarga, Atras y Adelante.
+- Se conservaron los enlaces de canciones y perfiles publicos.
+- Se mantuvieron las restricciones de las vistas privadas.
+- Se retiro el buscador de la barra superior.
+- La busqueda de canciones permanece disponible en el catalogo.
+- Se corrigieron dos manejadores de clic en DiscoverPage.tsx.
+
+### Verificacion tecnica
+
+- Compilacion TypeScript y Vite aprobada.
+- Pruebas automatizadas: 23 aprobadas, 0 fallidas.
+- Ocho pruebas nuevas sobre enlaces y navegacion.
+
+### Verificaciones visuales
+
+- Enlaces de secciones principales aprobados.
+- Enlaces de categorias de audio aprobados.
+- Apartados de usuario comprobados.
+- Buscador del catalogo comprobado.
+- Historial Atras y Adelante comprobado.
+- Enlaces a canciones y perfiles comprobados.
+- Total: 6 verificaciones visuales aprobadas.
+
+### Alcance y seguridad
+
+- Sin cambios en Django ni PostgreSQL.
+- Sin modificar canciones, compras ni pagos.
+- Sin dependencias nuevas para las pruebas.
+- No se realizaron operaciones en Webpay.
+
+---
+
+## Correccion de acentos del buscador - 06-11-2026
+
+- Se corrigieron los textos accesibles y visibles del buscador del catalogo.
+- Se restauraron correctamente los acentos de catalogo, cancion y genero.
+- Se verifico visualmente que el buscador funciona correctamente.
+- Compilacion aprobada y 23 pruebas automatizadas aprobadas.
+- Sin cambios en Django, PostgreSQL, canciones o pagos.
+
+---
+
+## Acceso a biblioteca tras Webpay - 06-11-2026
+
+### Mejora implementada
+
+- Se incorpora un boton para acceder a compras y descargas
+  desde el aviso de retorno exitoso de Webpay.
+- El acceso se muestra a cuentas de artista tras intentar
+  sincronizar sus datos con Django.
+- La navegacion abre Mi perfil, donde se encuentra la
+  biblioteca y las descargas.
+- No se ofrece el boton en retornos fallidos o en revision.
+- Django conserva el control de autorizacion de descargas.
+
+### Comprobaciones
+
+- Compilacion React y TypeScript aprobada.
+- 23 pruebas automatizadas existentes aprobadas.
+- Biblioteca de artista abierta correctamente.
+- Compras existentes visibles sin realizar pagos.
+
+### Limitaciones pendientes
+
+- No se ha realizado una prueba integral del retorno real
+  de Webpay y posterior descarga.
+- La sincronizacion de datos no demuestra por si sola
+  la aprobacion de una transaccion concreta.
+- Las pruebas existentes no cubren directamente el nuevo
+  comportamiento del aviso de retorno.
+
+### Seguridad
+
+- Sin modificaciones en Django ni PostgreSQL.
+- Sin compras ni operaciones Webpay durante las pruebas.
+- Cambios de interfaz limitados a App.tsx y AppContext.tsx.

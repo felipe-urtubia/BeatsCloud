@@ -25,7 +25,7 @@ export const AboutPage: React.FC = () => {
             <span>El Desafío de la Música Urbana</span>
           </h2>
           <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-            Históricamente, los artistas independientes enfrentan grandes barreras para encontrar instrumentales de alta calidad con licencias comerciales claras y métodos de pago locales accesibles (como Webpay / Transbank en Chile). Por otro lado, los productores dedican horas en sus estudios sin una plataforma directa que valore y monetice sus creaciones sin intermediarios abusivos.
+            BeatsCloud busca facilitar que artistas descubran instrumentales y que productores publiquen su música y registren ventas mediante métodos de pago locales como Webpay / Transbank en Chile.
           </p>
         </div>
 
@@ -34,9 +34,9 @@ export const AboutPage: React.FC = () => {
             <div className="w-10 h-10 rounded-xl bg-zinc-800 text-amber-400 flex items-center justify-center mb-4">
               <Shield className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-white mb-2">Licenciamiento Transparente</h3>
+            <h3 className="text-base font-bold text-white mb-2">Registro transparente de compras</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Cada beat adquirido en BeatsCloud otorga derechos comerciales claros para plataformas de streaming (Spotify, Apple Music, YouTube) y presentaciones en vivo, incluyendo archivos WAV 24-bit y pistas separadas (stems).
+              BeatsCloud registra las compras y entrega el archivo de audio disponible para cada pista. Las condiciones de uso y licencia deben acordarse con el productor; la plataforma no determina porcentajes, derechos comerciales ni entrega stems que no estén publicados.
             </p>
           </div>
 

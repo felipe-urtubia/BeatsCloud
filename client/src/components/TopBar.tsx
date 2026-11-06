@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
-  Search,
   ShoppingCart,
   Plus,
   Sliders,
   Bell,
   ChevronDown,
   User,
+  LogIn,
+  UserPlus,
   LogOut,
   UserCheck,
   Disc3,
@@ -20,6 +21,7 @@ interface TopBarProps {
   setCurrentTab: (tab: string) => void;
   onOpenUpload: () => void;
   onOpenAuth: (mode: 'login' | 'register') => void;
+  onOpenAccountDeletion: () => void;
   onToggleMobileMenu?: () => void;
 }
 
@@ -28,6 +30,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   setCurrentTab,
   onOpenUpload,
   onOpenAuth,
+  onOpenAccountDeletion,
   onToggleMobileMenu,
 }) => {
   const {
@@ -37,8 +40,6 @@ export const TopBar: React.FC<TopBarProps> = ({
     configuredMode,
     logout,
     cart,
-    globalSearchQuery,
-    setGlobalSearchQuery,
   } = useApp();
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -64,12 +65,6 @@ export const TopBar: React.FC<TopBarProps> = ({
     }
   };
 
-  const handleSearchChange = (val: string) => {
-    setGlobalSearchQuery(val);
-    if (val.trim() && currentTab !== 'catalogo') {
-      setCurrentTab('catalogo');
-    }
-  };
 
   return (
     <header className="h-16 bg-[#0a0c10]/95 backdrop-blur-md border-b border-[#1a1e2b] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 gap-3">
@@ -84,26 +79,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
       )}
 
-      {/* Search Bar */}
-      <div className="relative flex-1 max-w-lg">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-        <input
-          type="text"
-          placeholder="Buscar por beat, productor, BPM (ej: 140), escala (A Minor), género..."
-          value={globalSearchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full bg-[#131620] border border-[#23283a] focus:border-amber-400/80 pl-10 pr-9 py-2 rounded-xl text-xs text-white placeholder-zinc-400 focus:outline-none transition-all shadow-inner"
-        />
-        {globalSearchQuery && (
-          <button
-            onClick={() => setGlobalSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-
+      <div className="flex-1" />
       {/* Right Controls */}
       <div className="flex items-center gap-3">
         {/* Upload Button for Producers */}
@@ -239,6 +215,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </p>
                 )}
 
+                {configuredMode === 'hybrid' && (
+                  <div className="border-t border-[#23283a] pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenAccountDeletion();
+                        setShowUserDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-zinc-800 flex items-center gap-2 font-semibold"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Eliminar cuenta</span>
+                    </button>
+                  </div>
+                )}
+
                 <div className="border-t border-[#23283a] pt-1">
                   <button
                     type="button"
@@ -257,14 +249,16 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onOpenAuth('login')}
-              className="px-3 py-1.5 text-xs font-bold text-zinc-300 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-400 px-4 py-2 text-xs font-extrabold text-zinc-950 shadow-[0_0_18px_rgba(251,191,36,0.22)] transition-all hover:-translate-y-0.5 hover:bg-amber-300 hover:shadow-[0_0_24px_rgba(251,191,36,0.38)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0c10]"
             >
+              <LogIn className="h-3.5 w-3.5" />
               Acceder
             </button>
             <button
               onClick={() => onOpenAuth('register')}
-              className="px-3.5 py-1.5 text-xs font-bold bg-amber-400 hover:bg-amber-300 text-zinc-950 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-400 px-4 py-2 text-xs font-extrabold text-zinc-950 shadow-[0_0_20px_rgba(251,146,60,0.35)] transition-all hover:-translate-y-0.5 hover:bg-orange-300 hover:shadow-[0_0_26px_rgba(251,146,60,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0c10]"
             >
+              <UserPlus className="h-3.5 w-3.5" />
               Registrarse
             </button>
           </div>

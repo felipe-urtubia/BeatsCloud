@@ -6,8 +6,10 @@ Repositorio unificado del sprint 2. El frontend React/Vite está en `client/` y 
 
 - Django sirve la API JSON que consume `client/src/api/`, además de las vistas HTML históricas.
 - La autenticación implementada usa sesión Django, cookie y protección CSRF (decisión DDPB-66: sin JWT ni DRF).
-- `VITE_API_MODE=real` conecta con Django; `VITE_API_MODE=mock` mantiene la demo local. `hybrid` se acepta como alias temporal de `real`. La validación del flujo de compra y descarga con backend real sigue pendiente.
-- Webpay requiere credenciales de integración propias para probar un pago. No se incluyen credenciales en el repositorio.
+- `VITE_API_MODE=real` conecta con Django; `VITE_API_MODE=mock` mantiene la demo local. `hybrid` se acepta como alias temporal de `real`.
+- El catálogo incluye filtros, ordenamiento y paginación; los géneros se cargan desde Django. La SPA conserva enlaces directos a secciones, canciones y perfiles.
+- Django calcula los totales del carrito y valida el pedido original y el retorno de Webpay. React muestra una compra aprobada solo después de comprobarla en la cuenta Django.
+- Las pruebas automatizadas simulan respuestas de Webpay; no constituyen validación en producción ni reemplazan una prueba manual con credenciales de integración.
 
 ## Requisitos
 
@@ -48,9 +50,9 @@ Abre <http://localhost:3000>. `client/vite.config.ts` envía `/api` y `/media` a
 
 ## Verificaciones
 
-Desde `server/`: `python manage.py test app`.
+Desde `server/`: configura `DJANGO_SECRET_KEY` y `DJANGO_CSRF_TRUSTED_ORIGINS` para el entorno local y ejecuta `python manage.py check`, `python manage.py makemigrations --check --dry-run` y `python manage.py test`.
 
-Desde `client/`: `npx tsc -b` y `npx vite build` (o `npm run build`, que ejecuta ambos). El resultado y la fecha se registran en [Evidencia de verificación](Fase%202/Evidencias%20Proyecto/Evidencias%20de%20documentación/VERIFICACION_SPRINT_2.md).
+Desde `client/`: ejecuta `npm run test`, `npm run lint` y `npm run build`.
 
 El registro histórico de cambios está en [Registro de cambios](Fase%202/Evidencias%20Proyecto/Evidencias%20de%20documentación/REGISTRO_CAMBIOS_BEATSCLOUD.md); para los pasos vigentes de instalación, usa las instrucciones de este README.
 

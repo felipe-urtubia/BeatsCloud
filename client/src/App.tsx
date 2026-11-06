@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -13,31 +13,49 @@ import { AboutPage } from './components/AboutPage';
 import { TrackDetailModal } from './components/TrackDetailModal';
 import { UploadTrackModal } from './components/UploadTrackModal';
 import { AuthModal } from './components/AuthModal';
-import { Track, UserType } from './types';
+import { Track, UserType, ResourceType } from './types';
+import {
+  readNavigation,
+  makeTrackUrl,
+  makeProfileUrl,
+  readPageNavigation,
+  makeTabUrl,
+  lookupPublicProfile,
+  lookupPublicProfileForRoute,
+} from './navigation/urlState';
 import { BackendStatusBanner } from './components/BackendStatusBanner';
+import { X } from 'lucide-react';
+import { AccountDeletionModal } from './components/AccountDeletionModal';
 
 export const App: React.FC = () => {
-  const {
-    currentUser,
-    sessionExpiredMessage,
-    clearSessionExpiredMessage,
-    paymentNotice,
-    clearPaymentNotice,
-    configuredMode,
-  } = useApp();
+  const { currentUser, users, paymentNotice, paymentReturnReady, clearPaymentNotice, setActiveResourceFilter, configuredMode, sessionExpiredMessage, clearSessionExpiredMessage } = useApp();
 
-  const [currentTab, setCurrentTab] = useState<string>('descubrir');
-  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [currentTab, setCurrentTab] = useState<string>(
+    () => readNavigation(window.location.search).profileUsername
+      ? 'perfil_externo'
+      : readPageNavigation(window.location.search).tab,
+  );
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(
+    () => readNavigation(window.location.search).trackId,
+  );
 
   // Profile view state
-  const [viewedProfileId, setViewedProfileId] = useState<string | null>(null);
-  const [viewedProfileRole, setViewedProfileRole] = useState<UserType>('productor');
+  const [viewedProfileUsername, setViewedProfileUsername] = useState<string | null>(
+    () => readNavigation(window.location.search).profileUsername,
+  );
+
+  const viewedProfile = lookupPublicProfile(
+    users, viewedProfileUsername
+  );
 
   // Modals & Mobile state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [trackToEdit, setTrackToEdit] = useState<Track | null>(null);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(
+    () => new URLSearchParams(window.location.search).get('auth') === 'login',
+  );
+  const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   useEffect(() => {
@@ -46,6 +64,69 @@ export const App: React.FC = () => {
     setAuthMode('login');
     setAuthModalOpen(true);
   }, [sessionExpiredMessage]);
+
+  useEffect(() => {
+    const syncTrackFromUrl = () => {
+      const { trackId, profileUsername: username } =
+        readNavigation(window.location.search);
+
+      setSelectedTrackId(trackId);
+
+      setViewedProfileUsername(username);
+      const page = readPageNavigation(window.location.search);
+      setActiveResourceFilter(page.resource);
+
+      setCurrentTab(username ? 'perfil_externo' : page.tab);
+    };
+
+    syncTrackFromUrl();
+    window.addEventListener('popstate', syncTrackFromUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncTrackFromUrl);
+    };
+  }, [setActiveResourceFilter]);
+
+  const handleOpenTrackDetail = (id: string) => {
+    if (!id) return;
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('track') !== id) {
+      const previousState = window.history.state;
+      const state =
+        typeof previousState === 'object' && previousState !== null
+          ? { ...previousState, beatcloudTrackOverlay: true }
+          : { beatcloudTrackOverlay: true };
+
+      window.history.pushState(
+        state,
+        '',
+        makeTrackUrl(window.location.href, id)
+      );
+    }
+
+    setSelectedTrackId(id);
+  };
+
+  const handleCloseTrackDetail = () => {
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.has('track')) {
+      if (window.history.state?.beatcloudTrackOverlay === true) {
+        window.history.back();
+      } else {
+        url.searchParams.delete('track');
+        window.history.replaceState(
+          window.history.state,
+          '',
+          `${url.pathname}${url.search}${url.hash}`
+        );
+      }
+    }
+
+    setSelectedTrackId(null);
+  };
 
   const handleOpenAuth = (mode: 'login' | 'register') => {
     setAuthMode(mode);
@@ -66,16 +147,69 @@ export const App: React.FC = () => {
     setUploadModalOpen(true);
   };
 
-  const handleOpenProducerProfile = (producerId: string) => {
-    setViewedProfileId(producerId);
-    setViewedProfileRole('productor');
+  const handleNavigateTab = (tab: string, resource?: ResourceType) => {
+    const chosenResource = tab === 'catalogo' ? resource ?? 'all' : 'all';
+    const destination = makeTabUrl(window.location.href, tab, chosenResource);
+    const actual =
+      `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+    if (destination !== actual) {
+      window.history.pushState({ beatcloudTab: tab }, '', destination);
+    }
+
+    setActiveResourceFilter(chosenResource);
+    setSelectedTrackId(null);
+    setViewedProfileUsername(null);
+    setCurrentTab(readPageNavigation(new URL(destination, window.location.origin).search).tab);
+  };
+
+  const handleOpenPublicProfile = (userId: string, role: UserType) => {
+    const target = lookupPublicProfileForRoute(
+      users, userId, role
+    );
+
+    if (!target) return;
+
+    const destino = makeProfileUrl(
+      window.location.href, target.username
+    );
+    const actual =
+      `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+    if (destino !== actual) {
+      if (!new URLSearchParams(window.location.search).has('profile')) {
+        const previousState = window.history.state;
+
+        const state =
+          typeof previousState === 'object' && previousState !== null
+            ? previousState
+            : {};
+
+        window.history.replaceState(
+          { ...state, beatcloudTab: currentTab },
+          '',
+          actual
+        );
+      }
+
+      window.history.pushState(
+        { beatcloudPublicProfile: true },
+        '',
+        destino
+      );
+    }
+
+    setSelectedTrackId(null);
+    setViewedProfileUsername(target.username);
     setCurrentTab('perfil_externo');
   };
 
+  const handleOpenProducerProfile = (producerId: string) => {
+    handleOpenPublicProfile(producerId, 'productor');
+  };
+
   const handleSelectCommunityUser = (userId: string, role: UserType) => {
-    setViewedProfileId(userId);
-    setViewedProfileRole(role);
-    setCurrentTab('perfil_externo');
+    handleOpenPublicProfile(userId, role);
   };
 
   return (
@@ -83,10 +217,7 @@ export const App: React.FC = () => {
       {/* Studio Left Sidebar */}
       <Sidebar
         currentTab={currentTab}
-        setCurrentTab={(tab) => {
-          setViewedProfileId(null);
-          setCurrentTab(tab);
-        }}
+        setCurrentTab={handleNavigateTab}
         onOpenAuth={handleOpenAuth}
         onOpenUpload={handleOpenUpload}
         isMobileOpen={isMobileMenuOpen}
@@ -98,11 +229,9 @@ export const App: React.FC = () => {
         {/* TopBar */}
         <TopBar
           currentTab={currentTab}
-          setCurrentTab={(tab) => {
-            setViewedProfileId(null);
-            setCurrentTab(tab);
-          }}
+          setCurrentTab={handleNavigateTab}
           onOpenAuth={handleOpenAuth}
+          onOpenAccountDeletion={() => setAccountDeletionOpen(true)}
           onOpenUpload={handleOpenUpload}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
@@ -110,38 +239,58 @@ export const App: React.FC = () => {
         {paymentNotice && (
           <div
             role={paymentNotice.status === 'approved' ? 'status' : 'alert'}
-            className={`flex items-center justify-between gap-3 border-b px-4 py-3 text-sm ${
-              paymentNotice.status === 'approved'
-                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
-                : 'border-amber-400/20 bg-amber-400/10 text-amber-100'
-            }`}
+            className={`flex items-center justify-between gap-3 border-b px-4 py-3 text-sm ${paymentNotice.status === 'approved' ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/20 bg-amber-400/10 text-amber-100'}`}
           >
             <span>{paymentNotice.message}</span>
-            <button onClick={clearPaymentNotice} className="rounded px-2 py-1 hover:bg-white/10" aria-label="Cerrar aviso">×</button>
+            <div className="flex items-center gap-2">
+              {paymentReturnReady && currentUser?.role === 'artista' && (
+                <button type="button" onClick={() => { handleNavigateTab('perfil'); clearPaymentNotice(); }} className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-zinc-950 hover:bg-amber-300">
+                  Ir a mis compras y descargas
+                </button>
+              )}
+              <button onClick={clearPaymentNotice} className="rounded px-2 py-1 hover:bg-white/10" aria-label="Cerrar aviso de pago"><X className="h-4 w-4" /></button>
+            </div>
           </div>
         )}
 
         {/* Dynamic Main Views Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28">
+          {(
+            (currentTab === 'perfil' && !currentUser) ||
+            (currentTab === 'ventas' && currentUser?.role !== 'productor') ||
+            (currentTab === 'favoritos' && currentUser?.role !== 'artista')
+          ) && (
+            <div role="status" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-200">
+              <h2 className="text-lg font-bold mb-2">Secci?n de cuenta no disponible</h2>
+              <p className="text-sm text-zinc-400">
+                Inicia sesi?n con la cuenta y el rol correspondientes para acceder.
+              </p>
+              <button type="button" onClick={() => handleNavigateTab('descubrir')}
+                className="mt-4 rounded-lg bg-amber-400 px-4 py-2 font-bold text-zinc-950">
+                Volver al inicio
+              </button>
+            </div>
+          )}
           {(currentTab === 'descubrir' || currentTab === 'inicio') && (
             <DiscoverPage
-              onNavigateCatalog={() => setCurrentTab('catalogo')}
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onNavigateCatalog={(resource) => handleNavigateTab('catalogo', resource)}
+              onOpenTrackDetail={handleOpenTrackDetail}
               onOpenProducerProfile={handleOpenProducerProfile}
             />
           )}
 
           {currentTab === 'catalogo' && (
             <CatalogPage
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onSelectResource={(resource) => handleNavigateTab('catalogo', resource === 'all' ? undefined : resource)}
+              onOpenTrackDetail={handleOpenTrackDetail}
               onOpenProducerProfile={handleOpenProducerProfile}
             />
           )}
 
           {currentTab === 'carrito' && (
             <CartPage
-              onNavigateCatalog={() => setCurrentTab('catalogo')}
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onNavigateCatalog={() => handleNavigateTab('catalogo')}
+              onOpenTrackDetail={handleOpenTrackDetail}
             />
           )}
 
@@ -152,58 +301,79 @@ export const App: React.FC = () => {
           {currentTab === 'sobre_nosotros' && <AboutPage />}
 
           {/* Current Logged-in User Profile */}
-          {currentTab === 'perfil' && (
+          {currentTab === 'perfil' && currentUser && (
             currentUser?.role === 'productor' ? (
               <ProducerProfilePage
                 initialTab="beats"
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+                onOpenTrackDetail={handleOpenTrackDetail}
                 onOpenUploadModal={handleOpenUpload}
                 onEditTrack={handleEditTrack}
               />
             ) : (
               <ArtistProfilePage
                 initialTab="compras"
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
-                onNavigateCatalog={() => setCurrentTab('catalogo')}
+                onOpenTrackDetail={handleOpenTrackDetail}
+                onNavigateCatalog={() => handleNavigateTab('catalogo')}
               />
             )
           )}
 
           {/* Producer Sales View */}
-          {currentTab === 'ventas' && (
+          {currentTab === 'ventas' && currentUser?.role === 'productor' && (
             <ProducerProfilePage
               initialTab="ventas"
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+              onOpenTrackDetail={handleOpenTrackDetail}
               onOpenUploadModal={handleOpenUpload}
               onEditTrack={handleEditTrack}
             />
           )}
 
           {/* Artist Favorites View */}
-          {currentTab === 'favoritos' && (
+          {currentTab === 'favoritos' && currentUser?.role === 'artista' && (
             <ArtistProfilePage
               initialTab="favoritos"
-              onOpenTrackDetail={(id) => setSelectedTrackId(id)}
-              onNavigateCatalog={() => setCurrentTab('catalogo')}
+              onOpenTrackDetail={handleOpenTrackDetail}
+              onNavigateCatalog={() => handleNavigateTab('catalogo')}
             />
           )}
 
           {/* External Viewed Profile */}
-          {currentTab === 'perfil_externo' && viewedProfileId && (
-            viewedProfileRole === 'productor' ? (
+          {currentTab === 'perfil_externo' && viewedProfile && (
+            viewedProfile.role === 'productor' ? (
               <ProducerProfilePage
-                producerId={viewedProfileId}
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
+                producerId={viewedProfile.id}
+                onOpenTrackDetail={handleOpenTrackDetail}
                 onOpenUploadModal={handleOpenUpload}
                 onEditTrack={handleEditTrack}
               />
             ) : (
               <ArtistProfilePage
-                artistId={viewedProfileId}
-                onOpenTrackDetail={(id) => setSelectedTrackId(id)}
-                onNavigateCatalog={() => setCurrentTab('catalogo')}
+                artistId={viewedProfile.id}
+                onOpenTrackDetail={handleOpenTrackDetail}
+                onNavigateCatalog={() => handleNavigateTab('catalogo')}
               />
             )
+          )}
+          {currentTab === 'perfil_externo' && !viewedProfile && (
+            <div
+              role="status"
+              className="rounded-2xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-200"
+            >
+              <h2 className="text-lg font-bold mb-2">
+                Perfil no disponible
+              </h2>
+              <p className="text-sm text-zinc-400">
+                No pudimos encontrar este perfil entre los usuarios cargados.
+                Comprueba el enlace y la conexion con el servidor.
+              </p>
+              <button
+                type="button"
+                className="mt-4 rounded-lg bg-amber-400 px-4 py-2 font-bold text-zinc-950"
+                onClick={() => handleNavigateTab('usuarios')}
+              >
+                Ver comunidad
+              </button>
+            </div>
           )}
         </main>
       </div>
@@ -211,7 +381,7 @@ export const App: React.FC = () => {
       {/* Track Detail Modal */}
       <TrackDetailModal
         trackId={selectedTrackId}
-        onClose={() => setSelectedTrackId(null)}
+        onClose={handleCloseTrackDetail}
         onOpenProducerProfile={handleOpenProducerProfile}
       />
 
@@ -232,9 +402,13 @@ export const App: React.FC = () => {
         }}
         onSwitchMode={(mode) => setAuthMode(mode)}
       />
+      <AccountDeletionModal
+        isOpen={accountDeletionOpen}
+        onClose={() => setAccountDeletionOpen(false)}
+      />
 
       {/* Global Persistent Audio Player */}
-      <GlobalAudioPlayer onOpenTrackDetail={(id) => setSelectedTrackId(id)} />
+      <GlobalAudioPlayer onOpenTrackDetail={handleOpenTrackDetail} />
     </div>
   );
 };

@@ -28,7 +28,10 @@ export type MusicGenre =
   | 'Rock'
   | 'Drill'
   | 'Boom-Bap'
-  | 'Soul';
+  | 'Soul'
+  | 'Jazz'
+  | 'Metal'
+  | (string & {});
 
 export type ResourceType = 'instrumental' | 'acapella' | 'loop' | 'drumkit';
 
@@ -84,7 +87,7 @@ export interface ProducerSubscription {
   producerId: string;
   title: string;
   price: number;
-  period: 'mensual' | 'anual';
+  period?: 'mensual' | 'anual';
   benefits: string[];
 }
 

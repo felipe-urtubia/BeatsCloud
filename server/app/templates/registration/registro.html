@@ -357,6 +357,15 @@
           {% endfor %}
         </div>
 
+        <div class="register-field full">
+          <label for="{{ form.nombre_artistico.id_for_label }}">Nombre artístico</label>
+          {{ form.nombre_artistico }}
+
+          {% for error in form.nombre_artistico.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
 
         <div class="register-field full">
           <label for="{{ form.email.id_for_label }}">Correo electrónico</label>
@@ -374,7 +383,7 @@
 
         <div class="register-field">
           <label for="{{ form.username.id_for_label }}">
-            Usuario / nombre artístico
+            Nombre de usuario para iniciar sesión
           </label>
 
           {{ form.username }}

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { DjangoApi } from '../api/django.service';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
 import {
   ShoppingCart,
   Trash2,
-  ShieldCheck,
   ArrowRight,
   LoaderCircle,
 } from 'lucide-react';
@@ -18,18 +18,167 @@ export const CartPage: React.FC<CartPageProps> = ({
   onNavigateCatalog,
   onOpenTrackDetail,
 }) => {
-  const { cart, cartTotals, cartError, removeFromCart, clearCart, checkoutCart, backendStatus, backendError, refreshFromBackend } = useApp();
+  const { cart, cartError, removeFromCart, clearCart, checkoutCart, configuredMode, currentUser, backendStatus, backendError, refreshFromBackend } = useApp();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+  const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
-  const subtotal = cartTotals?.subtotal ?? cart.reduce((sum, item) => sum + item.track.price, 0);
-  const iva = cartTotals?.iva ?? Math.round(subtotal * 0.19);
-  const total = cartTotals?.total ?? subtotal + iva;
+  const [serverTotals, setServerTotals] = useState<{
+    key: string;
+    subtotal: number;
+    iva: number;
+    total: number;
+  } | null>(null);
+
+  const [totalsIssue, setTotalsIssue] = useState<string | null>(null);
+  const [totalsRetry, setTotalsRetry] = useState(0);
+
+  const cartIds = cart.map((item) => item.track.id).sort().join('|');
+  const cartKey = `${currentUser?.id ?? ''}:${cartIds}`;
+
+  const verifiedTotals =
+    serverTotals?.key === cartKey ? serverTotals : null;
+
+  const pendingTotals =
+    configuredMode === 'hybrid' &&
+    cart.length > 0 &&
+    !verifiedTotals;
+
+  useEffect(() => {
+    if (configuredMode !== 'hybrid' || cart.length === 0) {
+      setServerTotals(null);
+      setTotalsIssue(null);
+      return;
+    }
+
+    let active = true;
+
+    setTotalsIssue(null);
+
+    void DjangoApi.carrito()
+      .then((response) => {
+        if (!active) return;
+
+        const remoteIds = response.items
+          .map((item) => `dj-${item.track}`)
+          .sort()
+          .join('|');
+
+        if (remoteIds !== cartIds) {
+          setTotalsIssue(
+            'El carrito del servidor cambi?. Actualiza los totales antes de pagar.'
+          );
+          return;
+        }
+
+        const values = [
+          response.subtotal,
+          response.iva,
+          response.total,
+        ];
+
+        if (
+          values.some((value) =>
+            !Number.isSafeInteger(value) || value < 0
+          ) ||
+          response.subtotal + response.iva !== response.total
+        ) {
+          throw new Error('Django devolvi? totales no v?lidos.');
+        }
+
+        setServerTotals({
+          key: cartKey,
+          subtotal: response.subtotal,
+          iva: response.iva,
+          total: response.total,
+        });
+
+        setTotalsIssue(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setTotalsIssue(
+          error instanceof Error
+            ? error.message
+            : 'No fue posible consultar los totales del servidor.'
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [configuredMode, cartKey, totalsRetry]);
+
+  // En modo hybrid, Django es la ?nica fuente de los totales.
+  // El c?lculo local se conserva exclusivamente para el modo de demostraci?n.
+  const demoSubtotal = configuredMode !== 'hybrid'
+    ? cart.reduce((sum, item) => sum + item.track.price, 0)
+    : 0;
+
+  const subtotal = configuredMode === 'hybrid'
+    ? verifiedTotals?.subtotal ?? 0
+    : demoSubtotal;
+
+  const iva = configuredMode === 'hybrid'
+    ? verifiedTotals?.iva ?? 0
+    : Math.round(demoSubtotal * 0.19);
+
+  const total = subtotal + iva;
+
+  const formatCartAmount = (amount: number) =>
+    pendingTotals ? '?' : amount.toLocaleString('es-CL');
+
+  const openCheckoutConfirm = () => {
+    if (isProcessing) return;
+
+    if (configuredMode === 'hybrid' && !verifiedTotals) {
+      setTotalsIssue(
+        'Debes verificar los totales de Django antes de continuar.'
+      );
+      return;
+    }
+    setCheckoutError(null);
+    setCheckoutNotice(null);
+
+    if (cart.length === 0 || total <= 0) {
+      setCheckoutError('El carrito no tiene productos de pago.');
+      return;
+    }
+
+    setShowCheckoutConfirm(true);
+  };
+
+  useEffect(() => {
+    if (!showCheckoutConfirm || isProcessing) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowCheckoutConfirm(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showCheckoutConfirm, isProcessing]);
+
+  useEffect(() => {
+    if (cart.length === 0) {
+      setShowCheckoutConfirm(false);
+    }
+  }, [cart.length]);
 
   const handleStartCheckout = async () => {
     if (isProcessing) return;
+
+    if (configuredMode === 'hybrid' && !verifiedTotals) {
+      setCheckoutError(
+        'Los totales del servidor ya no est?n verificados.'
+      );
+      return;
+    }
     setCheckoutError(null);
     setCheckoutNotice(null);
     if (total <= 0) {
@@ -81,6 +230,25 @@ export const CartPage: React.FC<CartPageProps> = ({
           </button>
         )}
       </div>
+
+      {pendingTotals && (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-400/30 bg-zinc-900 p-4 text-sm text-zinc-300"
+        >
+          <p>
+            {totalsIssue ??
+              'Verificando subtotal, IVA y total oficiales con Django...'}
+          </p>
+          <button
+            type="button"
+            className="mt-2 text-amber-400 font-bold hover:underline"
+            onClick={() => setTotalsRetry((value) => value + 1)}
+          >
+            Actualizar totales
+          </button>
+        </div>
+      )}
 
       {cart.length === 0 ? (
         backendStatus === 'checking' ? (
@@ -185,27 +353,27 @@ export const CartPage: React.FC<CartPageProps> = ({
               <div className="space-y-2.5 text-xs text-zinc-300 pb-3 border-b border-[#1b2030] font-mono">
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Subtotal ({cart.length} productos):</span>
-                  <span className="font-semibold text-white">${subtotal.toLocaleString('es-CL')}</span>
+                  <span className="font-semibold text-white">${formatCartAmount(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-400">IVA (19%):</span>
-                  <span className="font-semibold text-white">${iva.toLocaleString('es-CL')}</span>
+                  <span className="font-semibold text-white">${formatCartAmount(iva)}</span>
                 </div>
               </div>
 
               <div className="flex justify-between items-baseline font-mono">
                 <span className="text-xs font-bold text-zinc-400 uppercase">Total Final:</span>
                 <span className="text-xl font-black text-amber-400">
-                  ${total.toLocaleString('es-CL')} CLP
+                  ${formatCartAmount(total)} CLP
                 </span>
               </div>
 
               <button
-                onClick={handleStartCheckout}
+                onClick={openCheckoutConfirm}
                 disabled={isProcessing || total <= 0}
                 className="w-full bg-amber-400 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-black py-3 px-4 rounded-xl text-xs transition-all hover:scale-102 flex items-center justify-center gap-2 shadow-sm font-mono uppercase"
               >
-                <span>{isProcessing ? 'Conectando con Webpay...' : 'Continuar a Webpay'}</span>
+                <span>{isProcessing ? 'Conectando con Webpay...' : 'Revisar compra'}</span>
                 {!isProcessing && <ArrowRight className="w-3.5 h-3.5" />}
               </button>
 
@@ -225,16 +393,104 @@ export const CartPage: React.FC<CartPageProps> = ({
                 </p>
               )}
 
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-zinc-500 font-mono">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>La aprobación se valida en el retorno de Django</span>
-              </div>
             </div>
           </div>
         </div>
       )}
 
       {cartError && <p role="alert" className="text-sm text-rose-400">{cartError}</p>}
+      {showCheckoutConfirm && cart.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="checkout-confirm-title"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#111520] border border-[#2d3546] rounded-3xl p-6 shadow-2xl space-y-5"
+          >
+            <div>
+              <h2
+                id="checkout-confirm-title"
+                className="text-xl font-black text-white"
+              >
+                Confirmar compra
+              </h2>
+              <p className="text-xs text-zinc-400 mt-2">
+                Revisa tu pedido antes de continuar a Webpay.
+              </p>
+            </div>
+
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {cart.map((item) => (
+                <div
+                  key={item.track.id}
+                  className="flex justify-between gap-4 rounded-xl bg-zinc-900 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">
+                      {item.track.title}
+                    </p>
+                    <p className="text-xs text-zinc-400 truncate">
+                      {item.track.producerName}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold text-amber-400 whitespace-nowrap">
+                    ${item.track.price.toLocaleString('es-CL')}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-zinc-700 pt-4 space-y-2 text-sm">
+              <div className="flex justify-between text-zinc-300">
+                <span>Subtotal</span>
+                <span>${formatCartAmount(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-zinc-300">
+                <span>IVA (19%)</span>
+                <span>${formatCartAmount(iva)}</span>
+              </div>
+              <div className="flex justify-between text-white font-black text-lg pt-2">
+                <span>Total estimado</span>
+                <span className="text-amber-400">
+                  ${formatCartAmount(total)} CLP
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-400">
+              Django verifica el monto definitivo al iniciar la orden.
+              La compra solo se registra tras validar el pago con Webpay.
+            </p>
+
+            {checkoutError && (
+              <p role="alert" className="text-xs text-rose-400">
+                {checkoutError}
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                autoFocus
+                disabled={isProcessing}
+                onClick={() => setShowCheckoutConfirm(false)}
+                className="rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold px-4 py-3 text-xs disabled:opacity-50"
+              >
+                Volver al carrito
+              </button>
+
+              <button
+                type="button"
+                disabled={isProcessing || total <= 0}
+                onClick={handleStartCheckout}
+                className="rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black px-4 py-3 text-xs disabled:opacity-50"
+              >
+                {isProcessing ? 'Conectando...' : 'Confirmar e ir a Webpay'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
     </div>
   );

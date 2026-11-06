@@ -370,7 +370,7 @@
               <div class="track-productor">
                 Por
                 <a href="{% url 'perfil_productor1' track.usuario.user.username %}">
-                  {{ track.usuario.user.username|capfirst }}
+                  {{ track.usuario.nombre_artistico|default:track.usuario.user.username|capfirst }}
                 </a>
               </div>
 

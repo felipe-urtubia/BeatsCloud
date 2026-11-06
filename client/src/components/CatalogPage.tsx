@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { MusicGenre, ResourceType, MoodType, Track } from '../types';
 import { getResourceBadgeInfo, RESOURCE_TYPES } from '../utils/resourceHelpers';
+import DjangoApi from '../api/django.service';
 import {
   Search,
   SlidersHorizontal,
@@ -27,23 +28,11 @@ import {
 } from 'lucide-react';
 
 interface CatalogPageProps {
+  onSelectResource: (resource: ResourceType | 'all') => void;
   onOpenTrackDetail: (trackId: string) => void;
   onOpenProducerProfile: (producerId: string) => void;
 }
 
-const GENRES: ('Todos' | MusicGenre)[] = [
-  'Todos',
-  'Trap',
-  'Reggaeton',
-  'Hip-Hop',
-  'Drill',
-  'Boom-Bap',
-  'R&B',
-  'Electronica',
-  'Pop',
-  'Rock',
-  'Soul',
-];
 
 const SCALES = [
   'Todas',
@@ -60,11 +49,13 @@ const SCALES = [
 ];
 
 export const CatalogPage: React.FC<CatalogPageProps> = ({
+  onSelectResource,
   onOpenTrackDetail,
   onOpenProducerProfile,
 }) => {
   const {
     tracks,
+    genres,
     playTrack,
     activeTrack,
     isPlaying,
@@ -74,13 +65,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     downloadAuditionDemo,
     currentUser,
     configuredMode,
-    backendStatus,
-    backendError,
-    refreshFromBackend,
     globalSearchQuery,
     setGlobalSearchQuery,
     activeResourceFilter,
-    setActiveResourceFilter,
   } = useApp();
 
   const [selectedGenre, setSelectedGenre] = useState<'Todos' | MusicGenre>('Todos');
@@ -89,39 +76,54 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [minBpm, setMinBpm] = useState<number>(60);
   const [maxBpm, setMaxBpm] = useState<number>(180);
   const [onlyWithStems, setOnlyWithStems] = useState<boolean>(false);
-  const [priceFilter, setPriceFilter] = useState<'all' | 'paid' | 'free'>('all');
-  const [sortBy, setSortBy] = useState<'recientes' | 'bpm_asc' | 'bpm_desc' | 'likes' | 'precio_menor'>('recientes');
+  const [priceFilter, setPriceFilter] = useState<
+    'all' | 'paid' | 'free' |
+    '0_5000' | '5001_10000' |
+    '10001_20000' | '20001_plus'
+  >('all');
+  const [sortBy, setSortBy] = useState<
+    'recientes' | 'antiguos' |
+    'bpm_asc' | 'bpm_desc' |
+    'likes' | 'precio_menor' | 'precio_mayor' |
+    'nombre_asc' | 'nombre_desc'
+  >('recientes');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
 
-  const handleDownloadFree = (e: React.MouseEvent, track: Track) => {
+  const availableGenres = useMemo(() => {
+    const names = [...genres, ...tracks.map((track) => track.genre)]
+      .map((genre) => genre.trim())
+      .filter((genre) => genre.length > 0 && genre !== 'Todos');
+
+    return [
+      'Todos',
+      ...Array.from(new Set(names)).sort((a, b) =>
+        a.localeCompare(b, 'es', { sensitivity: 'base' })
+      ),
+    ];
+  }, [genres, tracks]);
+
+  const handleDownloadFree = async (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
-    claimFreeTrack(track.id);
-    const blob = new Blob(
-      [
-        `BeatsCloud Licencia Gratuita (Non-Profit / Demo)\n` +
-        `Track: ${track.title}\n` +
-        `Productor: ${track.producerName}\n` +
-        `BPM: ${track.bpm} | Key: ${track.scaleKey}\n` +
-        `Descargado por: ${currentUser?.artistName || currentUser?.username || 'Artista'}\n\n` +
-        `Condiciones de la Licencia Gratuita:\n` +
-        `1. Permite uso para maquetas, ensayos y proyectos no lucrativos (SoundCloud, YouTube sin monetizar).\n` +
-        `2. Requiere acreditar en título o créditos: (Prod. ${track.producerName}).\n` +
-        `3. Para distribución comercial en Spotify, Apple Music o directos remunerados, se debe adquirir la Licencia Comercial en BeatsCloud.`
-      ],
-      { type: 'text/plain' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${track.title.replace(/[\s/]/g, '_')}_Demo_Gratis_BeatsCloud.txt`;
-    a.click();
+    if (configuredMode !== 'hybrid' || !track.id.startsWith('dj-')) {
+      window.alert('Las descargas de audio requieren el backend Django conectado.');
+      return;
+    }
+    try {
+      const claimed = await claimFreeTrack(track.id);
+      if (!claimed) throw new Error('Inicia sesión para reclamar esta pista gratuita.');
+      await DjangoApi.downloadTrack(Number(track.id.slice(3)), track.title);
+    } catch (error) {
+      window.alert((error as Error).message);
+    }
   };
 
   // "Punto Medio": descarga de maqueta de composición (MP3 acuñado) en beats de pago
   // habilitados por el productor con allowFreeDownload.
   const handleDownloadAudition = (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
-    downloadAuditionDemo(track);
+    void downloadAuditionDemo(track).catch((error) => window.alert((error as Error).message));
   };
 
   const filteredTracks = useMemo(() => {
@@ -179,6 +181,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           return false;
         }
 
+        // Rangos de precio en pesos chilenos.
+        const price = track.isFree ? 0 : track.price;
+
+        if (priceFilter === '0_5000' && (!Number.isFinite(price) || price < 0 || price > 5000)) return false;
+        if (priceFilter === '5001_10000' && (!Number.isFinite(price) || price <= 5000 || price > 10000)) return false;
+        if (priceFilter === '10001_20000' && (!Number.isFinite(price) || price <= 10000 || price > 20000)) return false;
+        if (priceFilter === '20001_plus' && (!Number.isFinite(price) || price <= 20000)) return false;
+
         return true;
       })
       .sort((a, b) => {
@@ -186,6 +196,27 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         if (sortBy === 'bpm_desc') return b.bpm - a.bpm;
         if (sortBy === 'likes') return b.likesCount - a.likesCount;
         if (sortBy === 'precio_menor') return a.price - b.price;
+        if (sortBy === 'precio_mayor') return b.price - a.price;
+
+        if (sortBy === 'nombre_asc') {
+          return a.title.localeCompare(b.title, 'es', {
+            sensitivity: 'base',
+            numeric: true,
+          });
+        }
+
+        if (sortBy === 'nombre_desc') {
+          return b.title.localeCompare(a.title, 'es', {
+            sensitivity: 'base',
+            numeric: true,
+          });
+        }
+
+        if (sortBy === 'antiguos') {
+          return new Date(a.createdAt).getTime() -
+            new Date(b.createdAt).getTime();
+        }
+
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   }, [
@@ -202,13 +233,59 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     sortBy,
   ]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    activeResourceFilter,
+    globalSearchQuery,
+    selectedGenre,
+    selectedKey,
+    selectedMood,
+    minBpm,
+    maxBpm,
+    onlyWithStems,
+    priceFilter,
+    sortBy,
+    pageSize,
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredTracks.length / pageSize)
+  );
+
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+
+  const pagedTracks = filteredTracks.slice(
+    startIndex,
+    startIndex + pageSize
+  );
+
   return (
     <div className="py-5 pb-36 max-w-7xl mx-auto space-y-5">
+      <div className="relative flex flex-wrap items-center gap-2 bg-[#10131d] border border-[#1b2030] rounded-2xl p-3">
+        <Search className="w-4 h-4 text-zinc-400" />
+        <input
+          type="search"
+          aria-label="Buscar canciones en el catálogo"
+          placeholder="Buscar canción, productor, género, BPM o tonalidad..."
+          value={globalSearchQuery}
+          onChange={(event) => setGlobalSearchQuery(event.target.value)}
+          className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-zinc-500 outline-none"
+        />
+        {globalSearchQuery && (
+          <button type="button" onClick={() => setGlobalSearchQuery('')}
+            className="text-xs text-amber-400 hover:text-amber-300 font-bold">
+            Limpiar
+          </button>
+        )}
+      </div>
       {/* Top Filter Bar: Content Type Pill Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d0f17] border border-[#1b2030] p-3 rounded-2xl shadow-sm">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <button
-            onClick={() => setActiveResourceFilter('all')}
+            onClick={() => onSelectResource('all')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
               activeResourceFilter === 'all'
                 ? 'bg-amber-400 text-zinc-950 font-black shadow-sm'
@@ -227,7 +304,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             return (
               <button
                 key={t.id}
-                onClick={() => setActiveResourceFilter(t.id)}
+                onClick={() => onSelectResource(t.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
                   isSelected
                     ? `${info.badgeClass} ring-1 ring-amber-400 font-bold`
@@ -273,10 +350,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             <span className="text-zinc-400 font-semibold font-mono text-[11px]">Género:</span>
             <select
               value={selectedGenre}
-              onChange={(e) => setSelectedGenre(e.target.value as any)}
+              onChange={(e) => setSelectedGenre(e.target.value)}
               className="bg-[#171b29] border border-zinc-700/80 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
             >
-              {GENRES.map((g) => (
+              {availableGenres.map((g) => (
                 <option key={g} value={g}>
                   {g}
                 </option>
@@ -352,6 +429,30 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             </button>
           </div>
 
+          {/* Rango de precio */}
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="catalog-price-range"
+              className="text-zinc-400 font-semibold font-mono text-[11px]"
+            >
+              Precio:
+            </label>
+            <select
+              id="catalog-price-range"
+              value={['all', 'paid', 'free'].includes(priceFilter) ? 'any' : priceFilter}
+              onChange={(event) => {
+                const next = event.target.value;
+                setPriceFilter(next === 'any' ? 'all' : (next as typeof priceFilter));
+              }}
+              className="bg-[#171b29] border border-zinc-700/80 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+            >
+              <option value="any">Todos los precios</option>
+              <option value="0_5000">$0 - $5.000</option>
+              <option value="5001_10000">$5.001 - $10.000</option>
+              <option value="10001_20000">$10.001 - $20.000</option>
+              <option value="20001_plus">Mas de $20.000</option>
+            </select>
+          </div>
           {/* Stems only toggle */}
           <label className="flex items-center gap-2 cursor-pointer text-zinc-300 font-semibold text-xs">
             <input
@@ -375,10 +476,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               className="bg-[#171b29] border border-zinc-700/80 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-semibold"
             >
               <option value="recientes">Más recientes</option>
+               <option value="antiguos">Más antiguos</option>
               <option value="likes">Más populares</option>
               <option value="bpm_asc">BPM (Menor a Mayor)</option>
               <option value="bpm_desc">BPM (Mayor a Menor)</option>
               <option value="precio_menor">Precio menor</option>
+               <option value="precio_mayor">Precio mayor</option>
+               <option value="nombre_asc">Nombre A-Z</option>
+               <option value="nombre_desc">Nombre Z-A</option>
             </select>
           </div>
         </div>
@@ -400,40 +505,27 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
       {/* Content Rendering: TABLE / DAW VIEW vs GRID VIEW */}
       {filteredTracks.length === 0 ? (
-        backendStatus === 'checking' ? (
-          <div role="status" className="p-12 text-center bg-[#0d0f17] border border-[#1b2030] rounded-3xl text-sky-200">
-            <LoaderCircle className="w-8 h-8 animate-spin mx-auto mb-3" /> Cargando catálogo…
-          </div>
-        ) : backendStatus === 'offline' ? (
-          <div role="alert" className="p-12 text-center bg-[#0d0f17] border border-rose-400/20 rounded-3xl">
-            <h3 className="text-base font-bold text-white mb-1">No se pudo cargar el catálogo</h3>
-            <p className="text-xs text-zinc-400 mb-4">{backendError?.message ?? 'Conéctate a Django y vuelve a intentarlo.'}</p>
-            <button onClick={() => void refreshFromBackend().catch(() => {})} className="px-4 py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300">
-              Reintentar
-            </button>
-          </div>
-        ) : (
-          <div className="p-12 text-center bg-[#0d0f17] border border-[#1b2030] rounded-3xl">
-            <Disc3 className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-white mb-1">{tracks.length === 0 ? 'El catálogo está vacío' : 'No se encontraron resultados'}</h3>
-            <p className="text-xs text-zinc-500 mb-4">
-              {tracks.length === 0 ? 'Todavía no hay pistas publicadas.' : 'Prueba ajustando los filtros de BPM, tonalidad o género musical.'}
-            </p>
-            {tracks.length > 0 && <button
-              onClick={() => {
-                setSelectedGenre('Todos');
-                setSelectedKey('Todas');
-                setSelectedMood('Todos');
-                setOnlyWithStems(false);
-                setGlobalSearchQuery('');
-                setActiveResourceFilter('all');
-              }}
-              className="px-4 py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300"
-            >
-              Restablecer todos los filtros
-            </button>}
-          </div>
-        )
+        <div className="p-12 text-center bg-[#0d0f17] border border-[#1b2030] rounded-3xl">
+          <Disc3 className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-white mb-1">No se encontraron resultados</h3>
+          <p className="text-xs text-zinc-500 mb-4">
+            Prueba ajustando los filtros de BPM, tonalidad o género musical.
+          </p>
+          <button
+            onClick={() => {
+              setSelectedGenre('Todos');
+              setSelectedKey('Todas');
+              setSelectedMood('Todos');
+              setOnlyWithStems(false);
+              setPriceFilter('all');
+              setGlobalSearchQuery('');
+              onSelectResource('all');
+            }}
+            className="px-4 py-2 bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs hover:bg-amber-300"
+          >
+            Restablecer todos los filtros
+          </button>
+        </div>
       ) : viewMode === 'table' ? (
         /* DAW Compact Table Layout */
         <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl overflow-hidden shadow-lg">
@@ -454,7 +546,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#181d2c] font-medium text-zinc-300">
-                {filteredTracks.map((track, idx) => {
+                {pagedTracks.map((track, idx) => {
                   const isThisPlaying = isPlaying && activeTrack?.id === track.id;
                   const isLiked = currentUser?.likedTrackIds.includes(track.id);
                   const isPurchased = currentUser?.purchasedTrackIds.includes(track.id);
@@ -638,7 +730,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       ) : (
         /* Grid Layout */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredTracks.map((track) => {
+          {pagedTracks.map((track) => {
             const isThisPlaying = isPlaying && activeTrack?.id === track.id;
             const isLiked = currentUser?.likedTrackIds.includes(track.id);
             const isPurchased = currentUser?.purchasedTrackIds.includes(track.id);
@@ -775,6 +867,87 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           })}
         </div>
       )}
+      {filteredTracks.length > 0 && (
+        <nav
+          aria-label="Paginacion del catalogo"
+          className="flex flex-wrap items-center justify-between gap-4 bg-[#10131d] border border-[#1b2030] p-4 rounded-2xl"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              htmlFor="catalog-page-size"
+              className="text-xs font-semibold text-zinc-300"
+            >
+              Pistas por pagina
+            </label>
+
+            <select
+              id="catalog-page-size"
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-[#171b29] border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white"
+            >
+              <option value={6}>6</option>
+              <option value={12}>12</option>
+              <option value={24}>24</option>
+            </select>
+
+            <span className="text-xs text-zinc-400" role="status">
+              Mostrando {startIndex + 1}-
+              {Math.min(startIndex + pageSize, filteredTracks.length)}
+              {' '}de {filteredTracks.length} pistas
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={safePage === 1}
+              onClick={() => setCurrentPage(1)}
+              className="px-3 py-2 text-xs rounded-lg bg-zinc-800 text-white disabled:opacity-40"
+            >
+              Primera
+            </button>
+
+            <button
+              type="button"
+              disabled={safePage === 1}
+              onClick={() => setCurrentPage(safePage - 1)}
+              className="px-3 py-2 text-xs rounded-lg bg-zinc-800 text-white disabled:opacity-40"
+            >
+              Anterior
+            </button>
+
+            <span
+              className="px-2 text-xs font-bold text-amber-400 whitespace-nowrap"
+              aria-live="polite"
+            >
+              Pagina {safePage} de {totalPages}
+            </span>
+
+            <button
+              type="button"
+              disabled={safePage === totalPages}
+              onClick={() => setCurrentPage(safePage + 1)}
+              className="px-3 py-2 text-xs rounded-lg bg-amber-400 text-zinc-950 font-bold disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+
+            <button
+              type="button"
+              disabled={safePage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              className="px-3 py-2 text-xs rounded-lg bg-zinc-800 text-white disabled:opacity-40"
+            >
+              Ultima
+            </button>
+          </div>
+        </nav>
+      )}
+
     </div>
   );
 };

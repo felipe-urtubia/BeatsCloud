@@ -20,9 +20,16 @@ import {
   INITIAL_PURCHASES,
 } from '../data/mockData';
 import { audioEngine } from '../utils/audioEngine';
-import DjangoApi from '../api/django.service';
-import { setSessionExpiredHandler } from '../api/django.service';
-import { mapTrack, mapUser, djangoId } from '../api/mappers';
+import DjangoApi, { setSessionExpiredHandler } from '../api/django.service';
+import {
+  mapComentario,
+  mapHistorialCompra,
+  mapHistorialVenta,
+  mapSubscription,
+  mapTrack,
+  mapUser,
+  djangoId,
+} from '../api/mappers';
 import { startWebpayCheckout, submitWebpayForm } from '../api/webpayCheckout.mjs';
 import type { WebpayCheckoutResult } from '../api/webpayCheckout.mjs';
 
@@ -47,6 +54,8 @@ interface AppContextType {
   currentUser: User | null;
   users: User[];
   tracks: Track[];
+  genres: string[];
+  genreOptions: { id: number; descripcion: string }[];
   cart: CartItem[];
   cartTotals: CartTotals | null;
   cartError: string | null;
@@ -64,6 +73,7 @@ interface AppContextType {
   setActiveResourceFilter: (filter: ResourceType | 'all') => void;
   playTrack: (track: Track) => void;
   togglePlay: () => void;
+  closeAudioPlayer: () => void;
   seekAudio: (seconds: number) => void;
   setAudioVolume: (volume: number) => void;
   toggleLike: (trackId: string) => void;
@@ -90,11 +100,13 @@ interface AppContextType {
     allowFreeDownload?: boolean;
     hasWatermark?: boolean;
     duration?: number; // Segundos detectados del archivo subido (opcional)
-  }) => Track;
-  updateTrack: (trackId: string, data: Partial<Track>) => void;
+    audioFile?: File;
+    coverFile?: File;
+  }) => Promise<Track>;
+  updateTrack: (trackId: string, data: Partial<Track>, coverFile?: File) => Promise<void>;
   deleteTrack: (trackId: string) => void;
-  claimFreeTrack: (trackId: string) => boolean;
-  downloadAuditionDemo: (track: Track) => void;
+  claimFreeTrack: (trackId: string) => Promise<boolean>;
+  downloadAuditionDemo: (track: Track) => Promise<void>;
   downloadPurchasedTrack: (track: Track) => Promise<void>;
   getContractForPurchase: (purchase: PurchaseRecord) => LicenseContract;
   getContractForSale: (sale: SaleRecord) => LicenseContract;
@@ -109,19 +121,32 @@ interface AppContextType {
     | { success: true; message: string }
     | { success: false; error: string; errors?: Record<string, string[]> }
   >;
-  updateProfile: (data: Partial<User>) => void;
+  updateProfile: (data: ProfileUpdate) => Promise<void>;
   subscribeToProducer: (sub: ProducerSubscription) => boolean;
+  createSubscription: (title: string, price: number) => Promise<void>;
+  purchaseSubscription: (subscription: ProducerSubscription) => Promise<WebpayCheckoutResult>;
   // ---- Integración backend (Sprint 1, modo hybrid) ----
   apiMode: ApiMode;            // modo efectivo; hybrid no cambia automáticamente a mock
   configuredMode: ApiMode;     // modo elegido por configuración, independiente del fallback
   backendStatus: 'idle' | 'checking' | 'online' | 'offline';
   backendError: { phase: 'session' | 'catalog' | 'cart'; type: 'network' | 'api'; status?: number; message: string } | null;
   isSyncing: boolean;          // hay una petición al backend en curso
-  refreshFromBackend: () => Promise<void>;
+  paymentNotice: { status: 'approved' | 'rejected' | 'cancelled' | 'review'; message: string } | null;
+  paymentReturnReady: boolean;
   sessionExpiredMessage: string | null;
   clearSessionExpiredMessage: () => void;
-  paymentNotice: { status: 'approved' | 'rejected' | 'cancelled' | 'abandoned'; message: string } | null;
   clearPaymentNotice: () => void;
+  refreshFromBackend: () => Promise<void>;
+  refreshTrackComments: (trackId: string) => Promise<void>;
+}
+
+export interface ProfileUpdate {
+  bio?: string;
+  spotify?: string;
+  youtube?: string;
+  instagram?: string;
+  avatarFile?: File;
+  bannerFile?: File;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -155,6 +180,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  const [genres, setGenres] = useState<string[]>([]);
+  const [genreOptions, setGenreOptions] = useState<
+    { id: number; descripcion: string }[]
+  >([]);
+
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (isHybrid) return [];
     const saved = localStorage.getItem('bc_cart');
@@ -163,7 +193,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [cartTotals, setCartTotals] = useState<CartTotals | null>(isHybrid ? { subtotal: 0, iva: 0, total: 0 } : null);
   const [cartError, setCartError] = useState<string | null>(null);
 
-  const [subscriptions] = useState<ProducerSubscription[]>(isHybrid ? [] : INITIAL_SUBSCRIPTIONS);
+  const [subscriptions, setSubscriptions] = useState<ProducerSubscription[]>(isHybrid ? [] : INITIAL_SUBSCRIPTIONS);
 
   const [sales, setSales] = useState<SaleRecord[]>(() => {
     if (isHybrid) return [];
@@ -203,6 +233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
   const [paymentNotice, setPaymentNotice] = useState<AppContextType['paymentNotice']>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [paymentReturnReady, setPaymentReturnReady] = useState(false);
   const syncCount = useRef(0);
   const refreshSequence = useRef(0);
   const cartIdentityGeneration = useRef(0);
@@ -263,10 +294,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const session = await DjangoApi.getSession();
       phase = 'catalog';
-      const page = await DjangoApi.catalogo({ page: 1 });
-      const comprados = new Set(page.tracks_comprados.map((n) => `dj-${n}`));
-      const mapped = page.tracks.map((dt) =>
-        mapTrack(dt, { isPurchased: comprados.has(`dj-${dt.id_track}`), isOwner: !!session && dt.usuario.username === session.username }),
+      const firstPage = await DjangoApi.catalogo({ page: 1 });
+      const remainingPages = await Promise.all(
+        Array.from({ length: Math.max(0, firstPage.total_paginas - 1) }, (_, index) =>
+          DjangoApi.catalogo({ page: index + 2 }),
+        ),
+      );
+      const catalogPages = [firstPage, ...remainingPages];
+      const comprados = new Set(firstPage.tracks_comprados.map((n) => `dj-${n}`));
+      const mapped = catalogPages.flatMap((page) =>
+        page.tracks.map((dt) =>
+          mapTrack(dt, {
+            isPurchased: comprados.has(`dj-${dt.id_track}`),
+            isOwner: !!session && dt.usuario.username === session.username,
+          }),
+        ),
       ) as TrackWithSrc[];
 
       const uiUser = session ? mapUser(session) : null;
@@ -274,10 +316,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         uiUser.purchasedTrackIds = Array.from(comprados);
       }
 
-      // Anónimo = carrito vacío válido. Autenticado = carrito consultado obligatoriamente.
       phase = 'cart';
       const identityGeneration = cartIdentityGeneration.current;
-      const cartRes = session ? await DjangoApi.carrito() : { items: [], subtotal: 0, iva: 0, total: 0 };
+      const [publicUsers, subscriptionRows, cartRes, purchaseRows, saleRows] = await Promise.all([
+        DjangoApi.usuarios(),
+        DjangoApi.suscripciones(),
+        session ? DjangoApi.carrito() : Promise.resolve({ items: [], subtotal: 0, iva: 0, total: 0 }),
+        session ? DjangoApi.misCompras() : Promise.resolve([]),
+        session ? DjangoApi.misVentas() : Promise.resolve([]),
+      ]);
+      const mappedPurchases = session
+        ? purchaseRows.map((purchase) => mapHistorialCompra(purchase, String(session.id)))
+        : [];
+      const mappedSales = session ? saleRows.map(mapHistorialVenta) : [];
+      const usersById = new Map(publicUsers.map((user) => {
+        const mappedUser = mapUser(user);
+        return [mappedUser.id, mappedUser] as const;
+      }));
+      if (uiUser) {
+        uiUser.purchasedTrackIds = Array.from(new Set([
+          ...uiUser.purchasedTrackIds,
+          ...mappedPurchases.map((purchase) => purchase.trackId),
+        ]));
+        usersById.set(uiUser.id, uiUser);
+      }
       const byId = new Map(mapped.map((t) => [t.id, t]));
       const nextCartVentaIds: Record<string, number> = {};
       const nextCartLineTotals: Record<string, CartTotals> = {};
@@ -293,15 +355,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .filter((x): x is CartItem => x !== null);
       if (sequence !== refreshSequence.current || identityGeneration !== cartIdentityGeneration.current) return;
       cartVentaIds.current = nextCartVentaIds;
-      cartLineTotals.current = nextCartLineTotals;
+      const serverGenres = (firstPage.generos ?? [])
+        .map((genre) => genre.descripcion?.trim())
+        .filter((genre): genre is string => Boolean(genre));
+
+      setGenres(Array.from(new Set(serverGenres)));
+      setGenreOptions(
+        (firstPage.generos ?? [])
+          .filter((g) =>
+            Number.isSafeInteger(g.id) &&
+            g.id > 0 &&
+            typeof g.descripcion === 'string' &&
+            g.descripcion.trim().length > 0
+          )
+          .map((g) => ({
+            id: g.id,
+            descripcion: g.descripcion.trim(),
+          }))
+      );
       setTracks(mapped);
-      setUsers(uiUser ? [uiUser] : []);
+      setUsers(Array.from(usersById.values()));
       setCurrentUserId(uiUser?.id ?? '');
       if (uiUser) localStorage.setItem('bc_session_user_id', uiUser.id);
       else localStorage.removeItem('bc_session_user_id');
       setCart(items);
       setCartTotals({ subtotal: cartRes.subtotal, iva: cartRes.iva, total: cartRes.total });
       setCartError(null);
+      setPurchases(mappedPurchases);
+      setSales(mappedSales);
+      setSubscriptions(subscriptionRows.map(mapSubscription));
       setBackendError(null);
       setBackendStatus('online');
       audioEngine.setPlaybackMode('file');
@@ -327,29 +409,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Django valida el retorno y devuelve a la SPA con un estado explícito.
+  // Django devuelve el estado final tras validar el retorno de Transbank.
+  // React traduce ese contrato para la interfaz; nunca autoriza pagos localmente.
   useEffect(() => {
     if (modeRef.current !== 'hybrid') return;
-    const params = new URLSearchParams(window.location.search);
-    const pago = params.get('pago');
-    if (pago) {
-      const estados = {
-        approved: ['approved', 'Pago aprobado. Tu carrito se actualizó y ya puedes descargar las compras.'],
-        rejected: ['rejected', 'El pago fue rechazado. Tu carrito se mantiene para que puedas intentarlo nuevamente.'],
-        cancelled: ['cancelled', 'El pago fue anulado. Tu carrito se mantiene.'],
-        abandoned: ['abandoned', 'El pago quedó sin confirmar. Tu carrito se mantiene.'],
-        exito: ['approved', 'Pago aprobado. Tu carrito se actualizó y ya puedes descargar las compras.'],
-        cancelado: ['cancelled', 'El pago fue anulado. Tu carrito se mantiene.'],
-        fracaso: ['rejected', 'El pago fue rechazado. Tu carrito se mantiene para que puedas intentarlo nuevamente.'],
-      } as const;
-      const notice = estados[pago as keyof typeof estados];
-      if (notice) setPaymentNotice({ status: notice[0], message: notice[1] });
-      window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`);
-      withSync(loadFromBackend).catch(() => {});
+    const url = new URL(window.location.href);
+    const backendState = url.searchParams.get('pago');
+    if (!backendState) return;
+
+    url.searchParams.delete('pago');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    setPaymentReturnReady(false);
+
+    const presentations: Record<string, { status: 'rejected' | 'cancelled' | 'review'; message: string }> = {
+      fracaso: { status: 'rejected', message: 'Django confirmó que el pago no fue aprobado. El carrito se mantiene.' },
+      cancelado: { status: 'cancelled', message: 'Django confirmó la cancelación; no se registró un cobro.' },
+      revision: { status: 'review', message: 'Pago en revisión: no vuelvas a pagar y contacta a soporte.' },
+    };
+
+    if (backendState === 'exito') {
+      setPaymentNotice({ status: 'review', message: 'Django devolvió el resultado de Webpay. Verificando la compra en tu cuenta…' });
+      void (async () => {
+        try {
+          const pendingRaw = sessionStorage.getItem('bc_webpay_pending');
+          if (!pendingRaw) throw new Error('No hay una compra iniciada en esta sesión para verificar.');
+          const pending = JSON.parse(pendingRaw) as { kind: 'cart' | 'subscription'; trackIds?: number[]; subscriptionId?: number };
+          await withSync(loadFromBackend);
+          const session = await DjangoApi.getSession();
+          if (!session) throw new Error('Django no confirmó una sesión autenticada.');
+
+          let confirmed = false;
+          if (pending.kind === 'cart' && Array.isArray(pending.trackIds) && pending.trackIds.length > 0) {
+            const purchases = await DjangoApi.misCompras();
+            const purchasedIds = new Set(purchases.map((purchase) => purchase.track.id_track));
+            confirmed = pending.trackIds.every((id) => purchasedIds.has(id));
+          } else if (pending.kind === 'subscription' && Number.isSafeInteger(pending.subscriptionId)) {
+            confirmed = (session.subscription_ids ?? []).includes(pending.subscriptionId as number);
+          }
+
+          sessionStorage.removeItem('bc_webpay_pending');
+          if (!confirmed) throw new Error('La cuenta Django todavía no refleja el pedido pagado.');
+          setPaymentNotice({ status: 'approved', message: 'Django confirmó el pago y registró la compra en tu cuenta.' });
+          setPaymentReturnReady(true);
+        } catch {
+          setPaymentNotice({ status: 'review', message: 'No se pudo verificar la compra en Django. Revisa el estado de tu cuenta antes de volver a pagar.' });
+          setPaymentReturnReady(false);
+        }
+      })();
+      return;
     }
+
+    const notice = presentations[backendState];
+    if (notice) setPaymentNotice(notice);
+    void withSync(loadFromBackend).catch(() => {});
+    // `abandoned` es un estado de interfaz local, nunca un retorno confirmado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   const refreshFromBackend = () => {
     setBackendStatus('checking');
     setBackendError(null);
@@ -358,6 +473,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const clearSessionExpiredMessage = () => setSessionExpiredMessage(null);
   const clearPaymentNotice = () => setPaymentNotice(null);
+
+  const refreshTrackComments = async (trackId: string) => {
+    if (modeRef.current !== 'hybrid' || !trackId.startsWith('dj-')) return;
+    const comments = await withSync(() => DjangoApi.comentarios(djangoId(trackId)));
+    const mappedComments = comments.map(mapComentario);
+    setTracks((prev) => prev.map((track) =>
+      track.id === trackId ? { ...track, comments: mappedComments } : track,
+    ));
+    setActiveTrack((prev) =>
+      prev?.id === trackId ? { ...prev, comments: mappedComments } : prev,
+    );
+  };
 
   // Regla de seguridad central: una pista está protegida (preview amortiguada,
   // sin descarga de master) si tiene marca de agua y el usuario no la adquirió.
@@ -439,6 +566,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveTrack(track);
       audioEngine.playTrack(track.id, track.audioBeatType, track.bpm, track.duration);
     }
+  };
+
+  const closeAudioPlayer = () => {
+    audioEngine.stop();
+    setActiveTrack(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
   };
 
   const togglePlay = () => {
@@ -639,13 +774,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    return startWebpayCheckout(
+    sessionStorage.setItem('bc_webpay_pending', JSON.stringify({
+      kind: 'cart',
+      trackIds: cart.map((item) => djangoId(item.track.id)),
+    }));
+    const result = await startWebpayCheckout(
       () => withSync(() => DjangoApi.initPago()),
       submitWebpayForm,
     );
+    if (result.status === 'error') sessionStorage.removeItem('bc_webpay_pending');
+    return result;
   };
 
-  const uploadTrack = (data: {
+  const getDjangoGenreId = (name: string): string => {
+    const selected = genreOptions.find(
+      (item) => item.descripcion === name
+    );
+
+    if (!selected || !Number.isSafeInteger(selected.id) || selected.id <= 0) {
+      throw new Error('Selecciona un genero valido de Django.');
+    }
+
+    return String(selected.id);
+  };
+
+  const uploadTrack = async (data: {
     title: string;
     resourceType: ResourceType;
     genre: MusicGenre;
@@ -664,7 +817,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     allowFreeDownload?: boolean;
     hasWatermark?: boolean;
     duration?: number; // Segundos. Si no se informa, se usa la maqueta por defecto (180s)
-  }): Track => {
+    audioFile?: File;
+    coverFile?: File;
+  }): Promise<Track> => {
+    if (modeRef.current === 'hybrid') {
+      if (!data.audioFile) {
+        throw new Error('Selecciona el archivo de audio que quieres guardar.');
+      }
+
+      const form = new FormData();
+      form.set('nombre_track', data.title);
+      form.set('precio', String(data.isFree ? 0 : data.price));
+      form.set('descripcion', data.description);
+      form.set('genero', getDjangoGenreId(data.genre));
+      form.set('subgenre', data.subgenre ?? '');
+      form.set('track', data.audioFile);
+      form.set('resource_type', data.resourceType);
+      form.set('bpm', String(data.bpm));
+      form.set('scale_key', data.scaleKey);
+      form.set('mood', data.mood);
+      form.set('has_stems', String(data.hasStems));
+      form.set('has_wav', String(data.hasWav));
+      form.set('has_midi', String(data.hasMidi));
+      form.set('allow_free_download', String(data.allowFreeDownload ?? data.isFree ?? false));
+      form.set('has_watermark', String(data.hasWatermark ?? true));
+      if (data.duration) form.set('duration', String(data.duration));
+      if (data.coverFile) form.set('foto', data.coverFile);
+
+      const savedTrack = await withSync(() => DjangoApi.upload(form));
+      const mappedTrack = mapTrack(savedTrack, { isOwner: true });
+      setTracks((prev) => [mappedTrack, ...prev.filter((track) => track.id !== mappedTrack.id)]);
+      return mappedTrack;
+    }
+
     const id = 'track_' + Date.now();
     const isFree = data.isFree ?? (data.price === 0);
     const newTrack: Track = {
@@ -701,11 +886,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newTrack;
   };
 
-  const claimFreeTrack = (trackId: string): boolean => {
+  const claimFreeTrack = async (trackId: string): Promise<boolean> => {
     if (!currentUser) return false;
     const track = tracks.find((t) => t.id === trackId);
     if (!track) return false;
     if (currentUser.purchasedTrackIds.includes(trackId)) return true;
+
+    if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
+      await withSync(() => DjangoApi.claimFreeTrack(djangoId(trackId)));
+      await withSync(loadFromBackend);
+      return true;
+    }
 
     const buyOrder = 'FREE-' + Math.floor(100000 + Math.random() * 900000);
     const today = new Date().toISOString().split('T')[0];
@@ -738,23 +929,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const updateTrack = (trackId: string, data: Partial<Track>) => {
-    setTracks((prev) => prev.map((t) => (t.id === trackId ? { ...t, ...data } : t)));
-    if (activeTrack?.id === trackId) {
-      setActiveTrack((prev) => (prev ? { ...prev, ...data } : null));
-    }
-    // Modo real: PATCH /api/track/<id>/ — Django solo acepta nombre/precio/descripción.
+  const updateTrack = async (trackId: string, data: Partial<Track>, coverFile?: File) => {
     if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
-      const body: Record<string, unknown> = {};
-      if (data.title !== undefined) body.nombre_track = data.title;
-      if (data.price !== undefined) body.precio = data.price;
-      if (data.description !== undefined) body.descripcion = data.description;
-      if (Object.keys(body).length > 0) {
-        withSync(() => DjangoApi.updateTrack(djangoId(trackId), body as never)).catch((e) =>
-          console.warn('[BeatsCloud] No se pudo actualizar el track en el servidor:', e),
-        );
+      const body = new FormData();
+      const fields: Array<[keyof Track, string]> = [
+        ['title', 'nombre_track'], ['price', 'precio'], ['description', 'descripcion'],
+        ['subgenre', 'subgenre'],
+        ['resourceType', 'resource_type'], ['bpm', 'bpm'], ['scaleKey', 'scale_key'],
+        ['mood', 'mood'], ['hasStems', 'has_stems'], ['hasWav', 'has_wav'],
+        ['hasMidi', 'has_midi'], ['allowFreeDownload', 'allow_free_download'],
+        ['hasWatermark', 'has_watermark'], ['duration', 'duration'],
+      ];
+      fields.forEach(([key, field]) => {
+        const value = data[key];
+        if (value !== undefined) body.set(field, String(value));
+      });
+      if (data.genre !== undefined) {
+        body.set('genero', getDjangoGenreId(data.genre));
       }
+      if (coverFile) body.set('foto', coverFile);
+      const saved = await withSync(() => DjangoApi.updateTrack(djangoId(trackId), body));
+      const updated = mapTrack(saved, { isOwner: true });
+      setTracks((prev) => prev.map((track) => track.id === trackId ? updated : track));
+      if (activeTrack?.id === trackId) setActiveTrack(updated);
+      return;
     }
+
+    setTracks((prev) => prev.map((t) => (t.id === trackId ? { ...t, ...data } : t)));
+    if (activeTrack?.id === trackId) setActiveTrack((prev) => (prev ? { ...prev, ...data } : null));
   };
 
   const deleteTrack = (trackId: string) => {
@@ -792,6 +994,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString().split('T')[0],
     };
 
+    if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
+      withSync(async () => {
+        await DjangoApi.addComment(djangoId(trackId), content.trim());
+        await refreshTrackComments(trackId);
+      }).catch((e) => console.warn('[BeatsCloud] No se pudo guardar el comentario:', e));
+      return;
+    }
+
     setTracks((prev) =>
       prev.map((t) => (t.id === trackId ? { ...t, comments: [...t.comments, newComment] } : t))
     );
@@ -800,27 +1010,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveTrack((prev) => (prev ? { ...prev, comments: [...prev.comments, newComment] } : null));
     }
 
-    // Modo real: persistir en Comentario de Django y re-sincronizar los comentarios
-    // del track para reflejar los que ya existían en el servidor.
-    if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
-      withSync(async () => {
-        await DjangoApi.addComment(djangoId(trackId), content.trim());
-        const list = await DjangoApi.comentarios(djangoId(trackId));
-        const mapped = list.map((c) => ({
-          id: `cm-${c.id}`,
-          userId: String(c.usuario.id),
-          username: c.usuario.username,
-          userAvatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${c.usuario.username}`,
-          content: c.contenido,
-          createdAt: c.fecha_creacion,
-        }));
-        setTracks((prev) => prev.map((t) => (t.id === trackId ? { ...t, comments: mapped } : t)));
-        setActiveTrack((prev) => (prev && prev.id === trackId ? { ...prev, comments: mapped } : prev));
-      }).catch((e) => console.warn('[BeatsCloud] No se pudo guardar el comentario:', e));
-    }
   };
 
   const deleteComment = (trackId: string, commentId: string) => {
+    if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
+      const commentPk = Number(commentId.replace(/^cm-/, ''));
+      if (!Number.isInteger(commentPk) || commentPk <= 0) {
+        console.warn('[BeatsCloud] No se pudo eliminar el comentario: identificador inválido.');
+        return;
+      }
+      withSync(async () => {
+        await DjangoApi.deleteComment(djangoId(trackId), commentPk);
+        await refreshTrackComments(trackId);
+      }).catch((e) => console.warn('[BeatsCloud] No se pudo eliminar el comentario:', e));
+      return;
+    }
+
     setTracks((prev) =>
       prev.map((t) =>
         t.id === trackId ? { ...t, comments: t.comments.filter((c) => c.id !== commentId) } : t
@@ -907,6 +1112,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPurchases([]);
       setActiveTrack(null);
       localStorage.removeItem('bc_cart');
+      setPurchases([]);
+      setSales([]);
+      setUsers((prev) => prev.map((user) =>
+        user.id === currentUserId
+          ? { ...user, email: '', likedTrackIds: [], purchasedTrackIds: [], subscriptions: [] }
+          : user,
+      ));
       await withSync(loadFromBackend).catch(() => {});
     }
     if (CONFIGURED_MODE === 'hybrid') localStorage.removeItem('bc_current_user_id');
@@ -962,9 +1174,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newUser;
   };
 
-  const updateProfile = (data: Partial<User>) => {
+  const updateProfile = async (data: ProfileUpdate) => {
     if (!currentUser) return;
-    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? { ...u, ...data } : u)));
+    if (modeRef.current === 'hybrid') {
+      const form = new FormData();
+      if (data.bio !== undefined) form.set('descripcion', data.bio);
+      if (data.spotify !== undefined) form.set('spotify', data.spotify);
+      if (data.youtube !== undefined) form.set('youtube', data.youtube);
+      if (data.instagram !== undefined) form.set('instagram', data.instagram);
+      if (data.avatarFile) form.set('foto_perfil', data.avatarFile);
+      if (data.bannerFile) form.set('foto_fondo', data.bannerFile);
+      const savedUser = await withSync(() => DjangoApi.updateProfile(form));
+      const updatedUser = mapUser(savedUser);
+      setUsers((prev) => prev.map((user) =>
+        user.id === updatedUser.id
+          ? { ...user, ...updatedUser, purchasedTrackIds: user.purchasedTrackIds }
+          : user,
+      ));
+      return;
+    }
+    setUsers((prev) => prev.map((user) => user.id === currentUser.id
+      ? {
+          ...user,
+          bio: data.bio ?? user.bio,
+          spotify: data.spotify ?? user.spotify,
+          youtube: data.youtube ?? user.youtube,
+          instagram: data.instagram ?? user.instagram,
+          ...(data.avatarFile ? { avatarUrl: URL.createObjectURL(data.avatarFile) } : {}),
+          ...(data.bannerFile ? { bannerUrl: URL.createObjectURL(data.bannerFile) } : {}),
+        }
+      : user,
+    ));
   };
 
   const subscribeToProducer = (sub: ProducerSubscription): boolean => {
@@ -980,52 +1220,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const downloadAuditionDemo = (track: Track) => {
-    const textContent = `================================================================================
-       BEATSCLOUD CHILE · LICENCIA DE COMPOSICIÓN Y ENSAYO (DEMO GRATIS)
-================================================================================
+  const createSubscription = async (title: string, price: number) => {
+    if (modeRef.current === 'hybrid') {
+      const created = await withSync(() => DjangoApi.crearSuscripcion(title, price));
+      setSubscriptions((prev) => [...prev, mapSubscription(created)]);
+      return;
+    }
+  };
 
-Pista: "${track.title}"
-Productor: ${track.producerName} (@${track.producerUsername})
-Tempo: ${track.bpm} BPM | Escala: ${track.scaleKey}
-Descargado por: ${currentUser?.artistName || currentUser?.username || 'Artista'}
-Fecha de Descarga: ${new Date().toISOString().split('T')[0]}
+  const purchaseSubscription = async (subscription: ProducerSubscription) => {
+    const subscriptionId = Number(subscription.id.replace(/^sus-/, ''));
+    sessionStorage.setItem('bc_webpay_pending', JSON.stringify({ kind: 'subscription', subscriptionId }));
+    const result = await startWebpayCheckout(
+      () => withSync(() => DjangoApi.initPago(subscriptionId)),
+      submitWebpayForm,
+    );
+    if (result.status === 'error') sessionStorage.removeItem('bc_webpay_pending');
+    return result;
+  };
 
-CONDICIONES DEL PUNTO MEDIO (ENSAYO & COMPOSICIÓN VOCAL):
-1. Esta maqueta MP3 está destinada exclusivamente para que puedas grabar tu voz,
-   escribir tu letra y comprobar en tu DAW/estudio si tu flow y melodía encajan.
-2. No está permitido subir esta grabación con propósitos comerciales a Spotify,
-   Apple Music ni monetizar en YouTube sin la Licencia Comercial.
-3. Una vez que tu tema esté compuesto y listo para ser masterizado, adquiere la
-   Licencia Comercial en BeatsCloud para recibir:
-   - El máster original en WAV 24-bit sin pérdida ni marcas.
-   - Los Stems multitrack por pistas separadas (batería, bajo, sintetizadores).
-   - El Certificado de Licencia Oficial con Código Único para inscripción en SCD
-     y autorización ante distribuidoras (DistroKid, Altafonte).
-
-BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
-================================================================================`;
-
-    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Maqueta_Ensayo_${track.title.replace(/[\s/]/g, '_')}_BeatsCloud.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadAuditionDemo = async (track: Track) => {
+    if (modeRef.current === 'hybrid' && track.id.startsWith('dj-')) {
+      await DjangoApi.downloadPreview(djangoId(track.id), track.title.replace(/[\s/]/g, '_'));
+      return;
+    }
+    throw new Error('Las descargas de audio requieren el backend Django conectado.');
   };
 
   const downloadPurchasedTrack = async (track: Track) => {
     if (modeRef.current !== 'hybrid' || !track.id.startsWith('dj-')) {
       throw new Error('La descarga del archivo original requiere una compra confirmada en Django.');
     }
-    const { blob, filename } = await withSync(() => DjangoApi.downloadTrack(djangoId(track.id)));
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    await withSync(() => DjangoApi.downloadTrack(djangoId(track.id), track.title.replace(/[\s/]/g, '_')));
   };
 
   const getContractForPurchase = (purchase: PurchaseRecord): LicenseContract => {
@@ -1158,6 +1384,8 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
         currentUser,
         users,
         tracks,
+        genres,
+        genreOptions,
         cart,
         cartTotals,
         cartError,
@@ -1175,6 +1403,7 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
         setActiveResourceFilter,
         playTrack,
         togglePlay,
+        closeAudioPlayer,
         seekAudio,
         setAudioVolume,
         toggleLike,
@@ -1200,16 +1429,20 @@ BeatsCloud Chile SpA · Regularizando la música en Chile y Latinoamérica.
         registerAccount,
         updateProfile,
         subscribeToProducer,
+        createSubscription,
+        purchaseSubscription,
         apiMode,
         configuredMode: CONFIGURED_MODE,
         backendStatus,
         backendError,
         isSyncing,
+        paymentNotice,
+        paymentReturnReady,
+        clearPaymentNotice,
         refreshFromBackend,
         sessionExpiredMessage,
         clearSessionExpiredMessage,
-        paymentNotice,
-        clearPaymentNotice,
+        refreshTrackComments,
       }}
     >
       {children}
