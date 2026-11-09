@@ -20,7 +20,7 @@ import {
   INITIAL_PURCHASES,
 } from '../data/mockData';
 import { audioEngine } from '../utils/audioEngine';
-import DjangoApi, { setSessionExpiredHandler } from '../api/django.service';
+import DjangoApi, { subscribeToSessionInvalidation } from '../api/django.service';
 import {
   mapComentario,
   mapHistorialCompra,
@@ -135,6 +135,8 @@ interface AppContextType {
   paymentReturnReady: boolean;
   sessionExpiredMessage: string | null;
   clearSessionExpiredMessage: () => void;
+  authNotice: string | null;
+  clearAuthNotice: () => void;
   clearPaymentNotice: () => void;
   refreshFromBackend: () => Promise<void>;
   refreshTrackComments: (trackId: string) => Promise<void>;
@@ -234,6 +236,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [paymentNotice, setPaymentNotice] = useState<AppContextType['paymentNotice']>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [paymentReturnReady, setPaymentReturnReady] = useState(false);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const authenticatedId = useRef<string | null>(null);
   const syncCount = useRef(0);
   const refreshSequence = useRef(0);
   const cartIdentityGeneration = useRef(0);
@@ -244,32 +248,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Carrito real: mapa trackId UI -> ventaId de Django (DELETE /api/carrito/<venta_id>/)
   const cartVentaIds = React.useRef<Record<string, number>>({});
   const cartLineTotals = React.useRef<Record<string, CartTotals>>({});
-
-  useEffect(() => {
-    setSessionExpiredHandler(() => {
-      refreshSequence.current += 1;
-      cartIdentityGeneration.current += 1;
-      cartVentaIds.current = {};
-      cartLineTotals.current = {};
-      cartOperationGeneration.current = {};
-      pendingCartAdds.current.clear();
-      setCurrentUserId('');
-      setUsers([]);
-      setTracks([]);
-      setCart([]);
-      setCartTotals({ subtotal: 0, iva: 0, total: 0 });
-      setCartError(null);
-      setSales([]);
-      setPurchases([]);
-      setActiveTrack(null);
-      setSessionExpiredMessage('Tu sesión expiró. Inicia sesión de nuevo para continuar.');
-      setBackendStatus('online');
-      setBackendError(null);
-      localStorage.removeItem('bc_session_user_id');
-      localStorage.removeItem('bc_cart');
-    });
-    return () => setSessionExpiredHandler(null);
-  }, []);
 
   /** Marca "syncing" alrededor de una llamada al backend. */
   const withSync = async <T,>(fn: () => Promise<T>): Promise<T> => {
@@ -288,11 +266,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // señalización de mutación uniforme. Se conservan sus manejadores actuales en esta tarea.
 
   /** Carga en orden y publica las colecciones solo cuando sesión, catálogo y carrito son coherentes. */
+  // D3: descartar datos privados al perder la sesion; nunca borrar compras del servidor.
+  const discardPrivateState = (expired: boolean, invalidateLoads = true) => {
+    if (invalidateLoads) refreshSequence.current += 1;
+    cartIdentityGeneration.current += 1;
+    cartVentaIds.current = {};
+    cartLineTotals.current = {};
+    cartOperationGeneration.current = {};
+    pendingCartAdds.current.clear();
+    authenticatedId.current = null;
+    setCurrentUserId('');
+    setUsers((prev) => prev.map((user) => ({
+      ...user, email: '', likedTrackIds: [], purchasedTrackIds: [], subscriptions: [],
+    })));
+    setTracks((prev) => prev.map((track) => ({ ...track, isPurchased: false, isOwner: false })));
+    setCart([]);
+    setCartTotals({ subtotal: 0, iva: 0, total: 0 });
+    setCartError(null);
+    setPurchases([]);
+    setSales([]);
+    setActiveTrack(null);
+    audioEngine.pause();
+    setPaymentReturnReady(false);
+    setPaymentNotice(null);
+    localStorage.removeItem('bc_cart');
+    localStorage.removeItem('bc_session_user_id');
+    localStorage.removeItem('bc_current_user_id');
+    if (expired) {
+      const message = 'Tu sesión expiró. Inicia sesión de nuevo para continuar.';
+      setAuthNotice(message);
+      setSessionExpiredMessage(message);
+    }
+  };
   const loadFromBackend = async () => {
     const sequence = ++refreshSequence.current;
     let phase: 'session' | 'catalog' | 'cart' = 'session';
     try {
       const session = await DjangoApi.getSession();
+      if (!session && authenticatedId.current) {
+        // Django ya no reconoce la cookie: limpiar sin interrumpir el catalogo publico.
+        discardPrivateState(true, false);
+      }
       phase = 'catalog';
       const firstPage = await DjangoApi.catalogo({ page: 1 });
       const remainingPages = await Promise.all(
@@ -376,8 +390,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTracks(mapped);
       setUsers(Array.from(usersById.values()));
       setCurrentUserId(uiUser?.id ?? '');
-      if (uiUser) localStorage.setItem('bc_session_user_id', uiUser.id);
-      else localStorage.removeItem('bc_session_user_id');
+      authenticatedId.current = session ? String(session.id) : null;
+      if (session) setAuthNotice(null);
+      localStorage.removeItem('bc_session_user_id');
       setCart(items);
       setCartTotals({ subtotal: cartRes.subtotal, iva: cartRes.iva, total: cartRes.total });
       setCartError(null);
@@ -399,6 +414,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // 401 de endpoints privados y revalidacion ligera cuando vuelve el usuario.
+  useEffect(() => {
+    if (CONFIGURED_MODE !== 'hybrid') return;
+    const unsubscribe = subscribeToSessionInvalidation(() => {
+      if (authenticatedId.current) discardPrivateState(true);
+    });
+    let checking = false;
+    const verifySession = async () => {
+      const expectedId = authenticatedId.current;
+      if (!expectedId || checking) return;
+      checking = true;
+      try {
+        const session = await DjangoApi.getSession();
+        if (authenticatedId.current === expectedId &&
+            (!session || String(session.id) !== expectedId)) {
+          discardPrivateState(true);
+        }
+      } catch {
+        // Fallo de red no equivale a expiracion: no cerrar sesion sin confirmacion.
+      } finally {
+        checking = false;
+      }
+    };
+    const onFocus = () => { void verifySession(); };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void verifySession();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    const intervalId = window.setInterval(() => { void verifySession(); }, 60000);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(intervalId);
+    };
+    // Las referencias y setState de React se mantienen estables.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Bootstrap: intentamos conectar una vez al montar (solo si el modo configurado es hybrid)
   useEffect(() => {
     if (CONFIGURED_MODE === 'hybrid') {
@@ -1070,7 +1124,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCartError(null);
         setActiveTrack(null);
         setCurrentUserId(uiUser.id);
-        localStorage.setItem('bc_session_user_id', uiUser.id);
+        authenticatedId.current = String(dUser.id);
+        setAuthNotice(null);
+        localStorage.removeItem('bc_session_user_id');
         // La autenticación ya fue confirmada por Django. Un error al recargar
         // catálogo/carrito no debe presentarse como credenciales rechazadas.
         await withSync(loadFromBackend).catch(() => {});
@@ -1093,6 +1149,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (CONFIGURED_MODE === 'hybrid') {
       try {
         await withSync(() => DjangoApi.logout());
+        authenticatedId.current = null;
+        setAuthNotice(null);
       } catch (e) {
         return { success: false, error: (e as Error).message || 'No fue posible cerrar sesión.' };
       }
@@ -1111,14 +1169,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSales([]);
       setPurchases([]);
       setActiveTrack(null);
+      audioEngine.pause();
+      setPaymentReturnReady(false);
+      setPaymentNotice(null);
+      setCartError(null);
       localStorage.removeItem('bc_cart');
-      setPurchases([]);
-      setSales([]);
-      setUsers((prev) => prev.map((user) =>
-        user.id === currentUserId
-          ? { ...user, email: '', likedTrackIds: [], purchasedTrackIds: [], subscriptions: [] }
-          : user,
-      ));
       await withSync(loadFromBackend).catch(() => {});
     }
     if (CONFIGURED_MODE === 'hybrid') localStorage.removeItem('bc_current_user_id');
@@ -1438,7 +1493,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSyncing,
         paymentNotice,
         paymentReturnReady,
-        clearPaymentNotice,
+        authNotice,
+        clearAuthNotice: () => setAuthNotice(null),
+        clearPaymentNotice: () => setPaymentNotice(null),
         refreshFromBackend,
         sessionExpiredMessage,
         clearSessionExpiredMessage,

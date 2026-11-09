@@ -42,10 +42,16 @@ import type {
 const BASE = ((import.meta.env.VITE_DJANGO_URL as string | undefined) ?? '').replace(/\/$/, '');
 
 let csrfToken: string | null = null;
-let sessionExpiredHandler: (() => void) | null = null;
-
-export function setSessionExpiredHandler(handler: (() => void) | null) {
-  sessionExpiredHandler = handler;
+const sessionInvalidationListeners = new Set<() => void>();
+export function subscribeToSessionInvalidation(listener: () => void): () => void {
+  sessionInvalidationListeners.add(listener);
+  return () => { sessionInvalidationListeners.delete(listener); };
+}
+function invalidateApiSession() {
+  csrfToken = null;
+  for (const listener of sessionInvalidationListeners) {
+    try { listener(); } catch (error) { console.error('[BeatCloud] Error al invalidar la sesion:', error); }
+  }
 }
 
 async function parse(res: Response): Promise<any> {
@@ -73,11 +79,11 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   if (!(opts.body instanceof FormData) && opts.body != null) headers.set('Content-Type', 'application/json');
   if (csrfToken && opts.method && opts.method !== 'GET') headers.set('X-CSRFToken', csrfToken);
   const res = await fetch(`${BASE}${path}`, { ...opts, headers, credentials: 'same-origin' });
-  if (res.status === 401 && !path.startsWith('/api/auth/login/') && !path.startsWith('/api/auth/registro/')) {
-    sessionExpiredHandler?.();
+  if (res.status === 401 && path !== '/api/auth/login/' && path !== '/api/auth/registro/') {
+    invalidateApiSession();
   }
   if (res.status === 403 && path.includes('/descargar/') && /inicia sesión|sesión requerida/i.test(await res.clone().text())) {
-    sessionExpiredHandler?.();
+    invalidateApiSession();
   }
   return parse(res) as Promise<T>;
 }
@@ -160,7 +166,7 @@ export const DjangoApi = {
         }),
       }),
     ),
-  logout: () => request<{ ok: boolean }>('/api/auth/logout/', { method: 'POST' }),
+  logout: () => ensureCsrf().then(() => request<{ ok: boolean }>('/api/auth/logout/', { method: 'POST' })),
   registro: (form: FormData) =>
     ensureCsrf().then(() => request<{ detail: string }>('/api/auth/registro/', { method: 'POST', body: form })),
 
@@ -181,7 +187,7 @@ export const DjangoApi = {
     if (!response.ok) {
       const detail = await response.text();
       if (response.status === 401 || (response.status === 403 && /inicia sesión|sesión requerida/i.test(detail))) {
-        sessionExpiredHandler?.();
+        invalidateApiSession();
       }
       throw new Error(detail || `No se pudo descargar la pista (${response.status}).`);
     }
