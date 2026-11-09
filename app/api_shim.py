@@ -1020,6 +1020,9 @@ def track_update_api(request, track_id):
             t.genero = genero
         else:
             return _err("El género indicado no es válido.", 400)
+    from django.core.exceptions import ValidationError
+    from .metadata_validation import validate_d9_field
+
     editable = {
         "nombre_track", "precio", "descripcion", "subgenre", "resource_type", "bpm",
         "scale_key", "mood", "has_stems", "has_wav", "has_midi",
@@ -1029,12 +1032,20 @@ def track_update_api(request, track_id):
         if campo not in body:
             continue
         valor = body[campo]
-        if campo in {"precio", "bpm", "duration"}:
+        if campo in {"bpm", "mood", "resource_type", "has_stems"}:
+            try:
+                valor = validate_d9_field(campo, valor)
+            except ValidationError as exc:
+                return JsonResponse(
+                    {"detail": "Errores de validación.", "errors": {campo: exc.messages}},
+                    status=400,
+                )
+        elif campo in {"precio", "duration"}:
             try:
                 valor = int(valor)
             except (TypeError, ValueError):
                 return _err(f"El campo {campo} debe ser un número entero.", 400)
-        elif campo in {"has_stems", "has_wav", "has_midi", "allow_free_download", "has_watermark"}:
+        elif campo in {"has_wav", "has_midi", "allow_free_download", "has_watermark"}:
             valor = str(valor).lower() in {"true", "1", "on"}
         setattr(t, campo, valor)
     if files.get("foto"):

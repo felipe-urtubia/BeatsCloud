@@ -52,6 +52,9 @@ class UsuarioEditForm(forms.ModelForm):
 
 
 
+from .metadata_validation import validate_d9_field
+
+
 class TrackForm(forms.ModelForm):
     class Meta:
         model = Track
@@ -61,3 +64,16 @@ class TrackForm(forms.ModelForm):
             'has_midi', 'allow_free_download', 'has_watermark', 'duration',
         ]
     genero = forms.ModelChoiceField(queryset=Genero_Musical.objects.all().order_by('descripcion'), widget=forms.Select)
+    def clean_bpm(self):
+        return validate_d9_field('bpm', self.cleaned_data['bpm'])
+
+    def clean_mood(self):
+        return validate_d9_field('mood', self.cleaned_data['mood'])
+
+    def clean_resource_type(self):
+        return validate_d9_field('resource_type', self.cleaned_data['resource_type'])
+
+    def clean_has_stems(self):
+        # El widget CheckboxInput trata textos arbitrarios como True.
+        # Validar el dato ORIGINAL antes de convertirlo.
+        return validate_d9_field('has_stems', self.data.get('has_stems', None))
