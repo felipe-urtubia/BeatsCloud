@@ -2010,3 +2010,15 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - **Seguridad:** `.env` eliminado del arbol activo de entrega y `.env.example` disponible en `client/` y `server/`; no se publico una contrasena fija en la copia nueva. El `.env` antiguo permanece en historial Git previo. La revision de secretos fue limitada; si existieron credenciales reales expuestas, deben rotarse, y eliminar el archivo actual no sanea el historial.
 - **Pendientes:** obtener acceso de escritura al repositorio de `yaeaelo` (invitacion a `felipe-urtubia` o autenticacion autorizada de una cuenta con permiso), verificar nuevamente el remoto antes de publicar sin `force push`, comprobar en GitHub la presencia de `client/`, `server/` y documentos, mantener documentada la configuracion CSRF para pruebas locales, y realizar en otro momento la validacion real del retorno Webpay/Transbank en entorno de integracion.
 - **Esta anotacion historica:** se incorpora al registro sin crear automaticamente commits ni publicar los cambios. Cualquier actualizacion adicional de este registro debe incorporarse deliberadamente a los repositorios correspondientes.
+
+<!-- BEATCLOUD_D9_VALIDACIONES_CERRADAS -->
+## D9 - Metadatos musicales: validaciones de subida y edicion (2026-11-08)
+
+- **Estado tecnico:** implementado y probado en el repositorio principal. Publicacion GitHub pendiente de este commit.
+- **Migraciones:** 0016_usuario_nombre_artistico, 0017_track_metadata y 0018_track_subgenre existentes y aplicadas. D9 utiliza 0017 para los metadatos; no se crea otra 0016.
+- **Modelo y API:** Track incluye bpm, mood, resource_type y has_stems. GET /api/catalogo/ devolvio los cuatro campos para un catalogo local de 4 canciones.
+- **Validaciones:** se agrego app/metadata_validation.py y se reforzaron TrackForm (app/forms.py) y track_update_api (app/api_shim.py). BPM entre 1 y 300; resource_type en instrumental/acapella/loop/drumkit; mood en los seis estados definidos por React; has_stems acepta solo valores booleanos reconocidos.
+- **Compatibilidad:** upload_api y las vistas Django tradicionales ya usan TrackForm; la edicion PATCH/PUT ahora tambien valida metadatos antes de guardar. No se cambiaron valores existentes de PostgreSQL.
+- **Pruebas nuevas:** app/test_d9_metadata.py, 8 de 8 aprobadas, incluida la verificacion de rechazos sin persistir valores invalidos.
+- **Regresion:** python manage.py check sin problemas; python manage.py makemigrations --check --dry-run: No changes detected; python manage.py test app -v 1: 111 pruebas, resultado OK, 70.230 segundos, en base temporal de pruebas.
+- **Alcance de esta entrega:** codigo y documentacion de validacion D9. No incluye filtros reales del lado del servidor ni despliegue externo, que son trabajo separado.
