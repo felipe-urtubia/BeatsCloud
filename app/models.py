@@ -93,6 +93,19 @@ class Track(models.Model):
     has_watermark = models.BooleanField(default=True)
     duration = models.PositiveIntegerField(default=30)
 
+    # D8: datos de almacenamiento. Los tracks antiguos siguen en almacenamiento local.
+    storage_backend = models.CharField(
+        max_length=8, choices=(("local", "Local"), ("r2", "R2")), default="local"
+    )
+    r2_object_key = models.CharField(max_length=255, blank=True, default="")
+    r2_stems_key = models.CharField(max_length=255, blank=True, default="")
+    media_status = models.CharField(
+        max_length=12,
+        choices=(("pending", "Pending"), ("processing", "Processing"),
+                 ("ready", "Ready"), ("failed", "Failed")),
+        default="ready",
+    )
+
     def __str__(self):
         return self.nombre_track
 
@@ -233,3 +246,4 @@ class HistorialVenta(models.Model):
 
     def __str__(self):
         return f"Venta de '{self.track.nombre_track}' a {self.comprador.username}"
+from .r2_claim import R2UploadClaim

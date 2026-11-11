@@ -216,7 +216,7 @@ def ser_track(t: Track, comprador=None):
         "id_track": t.id_track,
         "nombre_track": t.nombre_track,
         "precio": t.precio,
-        "track": _media_url(t.track),          # NO usar para stream: ir a /api/track/<id>/reproducir/
+        "track": None,  # No exponer URL del original.
         "preview": _media_url(t.preview),      # idem -> /api/track/<id>/preview/
         "descripcion": t.descripcion,
         "foto": _media_url(t.foto),
@@ -531,11 +531,14 @@ def registro_api(request):
 # Catálogo — mismo queryset/paginación/filtros que catalogo() de views.py
 # --------------------------------------------------------------------------
 def catalogo_api(request):
+    from .r2_visibility import only_ready_tracks
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     tracks = Track.objects.select_related("usuario__user", "genero").exclude(
         usuario__user__username=ANON_USER_USERNAME,
     )
+    tracks = only_ready_tracks(tracks)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -601,6 +604,8 @@ def catalogo_api(request):
 
 
 def track_detail_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     """GET detalle; PATCH/PUT delega en update (misma ruta, como REST estándar)."""
     if request.method in ("PATCH", "PUT"):
         return track_update_api(request, track_id)
@@ -609,7 +614,7 @@ def track_detail_api(request, track_id):
     t = Track.objects.select_related("usuario__user", "genero").filter(
         id_track=track_id
     ).first()
-    if t is None:
+    if t is None or not is_media_ready(t):
         return _err("Track no encontrado.", 404)
     return JsonResponse(ser_track(t, request.user))
 
@@ -634,12 +639,14 @@ def _puede_escuchar_completo(request, track):
 
 
 def preview_stream_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     from django.http import FileResponse, Http404
 
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None or not track.preview:
+    if track is None or not is_media_ready(track) or not track.preview:
         raise Http404("Este track todavía no tiene una vista previa disponible.")
     archivo = track.preview.open("rb")
     content_type, _ = mimetypes.guess_type(track.preview.name)
@@ -649,16 +656,25 @@ def preview_stream_api(request, track_id):
 
 
 def full_stream_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     from django.http import FileResponse, HttpResponseForbidden, Http404
 
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None:
+    if track is None or not is_media_ready(track):
         raise Http404()
     if not _puede_escuchar_completo(request, track):
         return HttpResponseForbidden(
             "Debes comprar este track para escuchar el audio completo."
+        )
+    if getattr(track, "storage_backend", "local") == "r2":
+        from .r2_audio_bridge import serve_private_r2_audio
+        return serve_private_r2_audio(
+            request,
+            track,
+            as_attachment=False
         )
     if not track.track:
         raise Http404("El archivo de audio no está disponible.")
@@ -674,6 +690,8 @@ def full_stream_api(request, track_id):
 
 
 def download_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     from django.http import FileResponse, HttpResponseForbidden, Http404
@@ -681,11 +699,18 @@ def download_api(request, track_id):
     if not request.user.is_authenticated:
         return HttpResponseForbidden("Inicia sesión para descargar.")
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None:
+    if track is None or not is_media_ready(track):
         raise Http404()
     if not _puede_escuchar_completo(request, track):
         return HttpResponseForbidden(
             "Debes comprar este track antes de poder descargarlo."
+        )
+    if getattr(track, "storage_backend", "local") == "r2":
+        from .r2_audio_bridge import serve_private_r2_audio
+        return serve_private_r2_audio(
+            request,
+            track,
+            as_attachment=True
         )
     if not track.track:
         raise Http404("El archivo de este track no está disponible.")
@@ -715,13 +740,15 @@ def cart_list_api(request):
 
 
 def cart_add_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "POST":
         return _method_not_allowed(["POST"])
     if not request.user.is_authenticated:
         return _err("Autenticación requerida.", 401)
 
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None:
+    if track is None or not is_media_ready(track):
         return _err("Track no encontrado.", 404)
     perfil = Usuario.objects.filter(user=request.user).first()
 
@@ -1082,7 +1109,7 @@ def claim_free_track_api(request, track_id):
         return _method_not_allowed(["POST"])
     if not request.user.is_authenticated:
         return _err("Autenticación requerida.", 401)
-    track = Track.objects.filter(id_track=track_id).first()
+    track = Track.objects.filter(id_track=track_id, media_status="ready").first()
     if track is None:
         return _err("Track no encontrado.", 404)
     if track.precio != 0:
@@ -1369,6 +1396,8 @@ def confirmar_eliminacion_cuenta_api(request):
 
 
 def perfil_publico_api(request, username):
+    from .r2_visibility import only_ready_tracks
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     u = User.objects.filter(username=username).first()
@@ -1380,7 +1409,9 @@ def perfil_publico_api(request, username):
     except (Usuario.DoesNotExist, AttributeError):
         perfil = None
     if perfil is not None:
-        tracks = Track.objects.filter(usuario=perfil).order_by("-id_track")
+        tracks = only_ready_tracks(
+            Track.objects.filter(usuario=perfil)
+        ).order_by("-id_track")
         data["tracks"] = [ser_track(t, request.user) for t in tracks]
     else:
         data["tracks"] = []
@@ -1437,6 +1468,8 @@ def suscripciones_api(request):
 # --------------------------------------------------------------------------
 from django.urls import path  # noqa: E402
 
+from app.r2_presign import r2_presign_upload_api, r2_confirm_upload_api
+
 urlpatterns = [
     path("api/csrf/", csrf_token, name="api_csrf"),
     path("api/session/", session_view, name="api_session"),
@@ -1464,6 +1497,8 @@ urlpatterns = [
     path("api/carrito/<int:venta_id>/", cart_remove_api, name="api_cart_remove"),
     path("api/pago/", pago_init_api, name="api_pago"),
     path("api/pago/cancelar/<int:transaction_id>/", pago_cancel_api, name="api_pago_cancel"),
+    path("api/r2/presign/", r2_presign_upload_api, name="api_r2_presign"),
+    path("api/r2/confirm/", r2_confirm_upload_api, name="api_r2_confirm"),
     path("api/upload/", upload_api, name="api_upload"),
     path("api/mis-ventas/", mis_ventas_api, name="api_sales"),
     path("api/mis-compras/", mis_compras_api, name="api_purchases"),

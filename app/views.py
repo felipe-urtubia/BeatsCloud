@@ -773,7 +773,7 @@ def reproducir_preview_track(request, track_id):
     import mimetypes
     from django.http import FileResponse, Http404
 
-    track = get_object_or_404(Track, id_track=track_id)
+    track = get_object_or_404(Track, id_track=track_id, media_status="ready")
 
     if not track.preview:
         raise Http404("Este track todavía no tiene una vista previa disponible.")
@@ -903,6 +903,7 @@ def upload_file(request):
     return render(request, 'app/subir_archivo.html', {'form': form})
 
 def catalogo(request):
+    from .r2_visibility import only_ready_tracks
     # Cargamos los datos relacionados en la misma consulta para evitar
     # consultas repetidas al mostrar productor y género.
     tracks = Track.objects.select_related(
@@ -911,6 +912,8 @@ def catalogo(request):
     ).exclude(
         usuario__user__username=ANON_USER_USERNAME,
     )
+
+    tracks = only_ready_tracks(tracks)
 
     generos = Genero_Musical.objects.all().order_by('descripcion')
 
@@ -1017,9 +1020,10 @@ def perfil_artista1(request, username):
     return render(request, 'app/perfil_artista1.html', {'perfil': perfil})
 
 def perfil_productor1(request, username):
+    from .r2_visibility import only_ready_tracks
     usuario = get_object_or_404(User, username=username)
     perfil = get_object_or_404(Usuario, user=usuario)
-    canciones = Track.objects.filter(usuario=perfil)
+    canciones = only_ready_tracks(Track.objects.filter(usuario=perfil))
     suscripcion = Suscripcion.objects.filter(user=perfil).first()
     context = {
         'perfil': perfil,
@@ -1031,7 +1035,7 @@ def perfil_productor1(request, username):
 
 
 def detalle_track(request, track_id):
-    track = get_object_or_404(Track, id_track=track_id)
+    track = get_object_or_404(Track, id_track=track_id, media_status="ready")
     comentarios = track.comentarios.all()
 
     ya_comprado = False
@@ -1080,7 +1084,7 @@ def reproducir_track(request, track_id):
     Reproduce el audio mediante una vista de Django en lugar de exponer
     directamente la ruta física /media/canciones/...
     """
-    track = get_object_or_404(Track, id_track=track_id)
+    track = get_object_or_404(Track, id_track=track_id, media_status="ready")
 
     puede_escuchar_completo = False
 
@@ -1137,7 +1141,7 @@ def reproducir_track(request, track_id):
 
 @login_required
 def descargar_track(request, track_id):
-    track = get_object_or_404(Track, id_track=track_id)
+    track = get_object_or_404(Track, id_track=track_id, media_status="ready")
     usuario = get_object_or_404(Usuario, user=request.user)
 
     ya_comprado = (

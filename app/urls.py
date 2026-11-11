@@ -86,3 +86,19 @@ urlpatterns = [
 # API JSON para el frontend React.
 from . import api_shim
 urlpatterns += api_shim.urlpatterns
+
+
+# Integracion R2 protegida por R2_UPLOADS_ENABLED.
+# La subida tradicional permanece sin modificaciones.
+from django.urls import path as _r2_path
+from .r2_upload_http import (
+    r2_finalize_upload_api as _r2_finalize_upload_api,
+)
+
+urlpatterns += [
+    _r2_path(
+        "api/r2/finalize/",
+        _r2_finalize_upload_api,
+        name="r2_finalize_upload",
+    ),
+]

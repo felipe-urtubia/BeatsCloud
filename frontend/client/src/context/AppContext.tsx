@@ -47,7 +47,7 @@ const CONFIGURED_MODE: ApiMode =
   ((import.meta.env.VITE_API_MODE as string | undefined) || 'hybrid') === 'mock' ? 'mock' : 'hybrid';
 
 // Extensión interna del Track para URLs de audio real (la inyecta mappers.mapTrack)
-type TrackWithSrc = Track & { previewSrc?: string; fullSrc?: string; downloadSrc?: string };
+type TrackWithSrc = Track & { previewSrc?: string; fullSrc?: string; downloadSrc?: string; playbackAuthorized?: boolean };
 
 interface AppContextType {
   currentUser: User | null;
@@ -566,7 +566,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // server-side en /api/track/<id>/reproducir/); si no, suena el preview 30s.
     if (modeRef.current === 'hybrid') {
       const t = track as TrackWithSrc;
-      const src = !isTrackProtected(track) && t.fullSrc ? t.fullSrc : t.previewSrc ?? t.fullSrc ?? null;
+      const hasFullAccess = Boolean(
+        t.playbackAuthorized || currentUser?.purchasedTrackIds.includes(track.id)
+      );
+      const src = hasFullAccess && t.fullSrc ? t.fullSrc : t.previewSrc ?? null;
       audioEngine.setAudioSource(src);
     }
 

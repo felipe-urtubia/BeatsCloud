@@ -19,11 +19,30 @@ def generar_preview_audio(track):
     with tempfile.TemporaryDirectory() as temp_dir:
         salida = Path(temp_dir) / "preview.mp3"
 
+        # Conservar el camino original rapido de los archivos locales.
+        # Los storages remotos no implementan necesariamente FieldFile.path.
+        try:
+            entrada = track.track.path
+        except (AttributeError, NotImplementedError):
+            extension = Path(track.track.name).suffix.lower()
+            if not (2 <= len(extension) <= 8 and extension[1:].isalnum()):
+                extension = ".audio"
+            archivo_temporal = Path(temp_dir) / ("original" + extension)
+            # Transferencia por bloques: no acumular el WAV completo en RAM.
+            with track.track.open("rb") as origen:
+                with archivo_temporal.open("wb") as destino:
+                    while True:
+                        bloque = origen.read(1024 * 1024)
+                        if not bloque:
+                            break
+                        destino.write(bloque)
+            entrada = str(archivo_temporal)
+
         comando = [
             ffmpeg_path,
             "-y",
             "-i",
-            track.track.path,
+            entrada,
             "-t",
             "30",
             "-vn",

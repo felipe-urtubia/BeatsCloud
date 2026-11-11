@@ -98,7 +98,10 @@ export function mapTrack(d: DTrack, opts?: { isPurchased?: boolean; isOwner?: bo
     // Apuntan a las rutas /api/track/<id>/... que expone api_shim.py (Fase B):
     // el preview es abierto a anónimos; reproducir/descargar tienen guarda server-side.
     ...(d.preview ? { previewSrc: apiAudioPreviewUrl(d.id_track) } : {}),
-    ...(d.track ? { fullSrc: apiAudioFullUrl(d.id_track), downloadSrc: apiDownloadUrl(d.id_track) } : {}),
+    playbackAuthorized: Boolean(opts?.isPurchased || opts?.isOwner),
+    // Rutas protegidas por Django, sin exponer el archivo original.
+    fullSrc: apiAudioFullUrl(d.id_track),
+    downloadSrc: apiDownloadUrl(d.id_track),
   } as Track & { previewSrc?: string; fullSrc?: string; downloadSrc?: string };
 }
 
