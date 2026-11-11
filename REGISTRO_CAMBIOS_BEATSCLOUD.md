@@ -2022,3 +2022,44 @@ build, comprobación de migraciones y `manage.py check` finalizados correctament
 - **Pruebas nuevas:** app/test_d9_metadata.py, 8 de 8 aprobadas, incluida la verificacion de rechazos sin persistir valores invalidos.
 - **Regresion:** python manage.py check sin problemas; python manage.py makemigrations --check --dry-run: No changes detected; python manage.py test app -v 1: 111 pruebas, resultado OK, 70.230 segundos, en base temporal de pruebas.
 - **Alcance de esta entrega:** codigo y documentacion de validacion D9. No incluye filtros reales del lado del servidor ni despliegue externo, que son trabajo separado.
+
+## Paso D8 — Cierre técnico de integración Cloudflare R2 (11-11-2026)
+
+### Objetivo
+Registrar los avances de la implementación del almacenamiento privado de archivos de audio mediante Cloudflare R2 en BeatCloud.
+
+### Implementación backend
+- Se incorporó la estructura backend para gestionar el almacenamiento privado de archivos en Cloudflare R2.
+- Se desarrollaron las operaciones de presign, confirmación y finalización de cargas.
+- Se incorporó el mecanismo de claims para controlar las operaciones de carga.
+- Se agregaron validaciones de metadatos y del proceso de recepción de archivos.
+- Se incorporó el proceso de promoción de archivos, preparación de staging y generación de previews.
+- Se contempló la entrega privada de archivos de audio, incluyendo soporte para solicitudes HTTP Range.
+- Se incorporó el control de visibilidad de tracks según su estado de disponibilidad.
+- Se mantuvo la compatibilidad con el mecanismo anterior de cargas locales.
+
+### Configuración y protección
+- El bucket configurado es `beatcloud-media`, de carácter privado.
+- La URL pública de desarrollo permanece deshabilitada.
+- `R2_UPLOADS_ENABLED` permanece en `false`; no se habilitó la recepción de nuevas cargas mediante R2.
+- Las migraciones `0023_track_r2_fields.py` y `0024_r2uploadclaim.py` están preparadas, pero no se han aplicado a la base de datos PostgreSQL principal.
+- No se realizaron cambios de esquema en la base de datos principal durante este cierre.
+
+### Validaciones registradas
+- `python manage.py check`: ejecución correcta.
+- Pruebas específicas de integración R2: 31 de 31 aprobadas.
+- Suite de pruebas de la aplicación: 299 de 299 aprobadas.
+
+### Pendientes para completar la integración
+- Integrar el flujo de carga directa R2 en el frontend React: presign, PUT, confirmación y finalización.
+- Mantener la transferencia de metadatos y portadas durante el registro de tracks.
+- Revisar y validar la configuración CORS del bucket.
+- Ejecutar una prueba integral de carga, reproducción y descarga privada.
+- Comprobar la compatibilidad del flujo anterior de cargas locales.
+- Preparar un procedimiento de respaldo y autorización antes de aplicar las migraciones a PostgreSQL.
+- Mantener deshabilitada la activación de nuevas cargas R2 hasta completar las pruebas integrales.
+
+### Versionamiento
+- Se publicó el commit `97bd7ec` en la rama `main`.
+- Descripción del commit: `feat(r2): integra almacenamiento privado de audio en Cloudflare R2`.
+- Este registro documenta los avances backend y deja constancia de que la integración frontend y las pruebas de extremo a extremo siguen pendientes.
