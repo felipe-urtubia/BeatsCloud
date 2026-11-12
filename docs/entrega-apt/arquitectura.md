@@ -39,4 +39,4 @@ El diagrama muestra las dependencias visibles, no confirma que todos los servici
 - Producción, hosting, proxy TLS, dominios, almacenamiento durable y monitoreo no se describen con evidencia en la configuración inspeccionada.
 - Stripe aparece en variables de entorno, pero la entrega de compra documentada es Webpay; no presentar Stripe como pasarela implementada sin verificar flujo.
 - No describir la protección de audio como DRM.
-- La modificación local de `audioEngine.ts` requiere comprobación en navegador antes de marcar el reproductor como validado.
+- El cambio de `audioEngine.ts` de `frontend-trabajo` requiere comprobación en navegador antes de marcar el reproductor como validado.

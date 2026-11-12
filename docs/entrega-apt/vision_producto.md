@@ -22,7 +22,7 @@ La propuesta de valor comercial, público prioritario y diferenciadores frente a
 - API real Django en modo `hybrid`; `mock` es demostración y no valida persistencia ni pagos.
 - Webpay está integrado con estado y validación backend, pero una compra completa con retorno real de TEST sigue pendiente de evidencia en este corte.
 - La biblioteca puede ofrecer comprobante de demostración en modo no híbrido; no debe confundirse con una descarga real.
-- El cambio local pendiente en `audioEngine.ts` necesita validación real en navegador; no se considera terminado.
+- El cambio de `audioEngine.ts` incluido en `frontend-trabajo` (PR #2) necesita validación real en navegador; no se considera terminado.
 - El repositorio no acredita operación en producción ni disponibilidad/monitorización de producción.
 
 ## Indicadores propuestos para acordar
