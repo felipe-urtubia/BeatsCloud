@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { User, Track } from '../types';
+import { User, PurchaseRecord } from '../types';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
 import {
   Play,
@@ -46,12 +46,15 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     updateProfile,
     getContractForPurchase,
     configuredMode,
+    purchasesLoading,
+    purchasesError,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'compras' | 'favoritos' | 'membresias'>(initialTab);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [viewingContract, setViewingContract] = useState<LicenseContract | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [isLoadingLicense, setIsLoadingLicense] = useState(false);
 
   const targetUser: User = artistId
     ? users.find((u) => u.id === artistId) || (currentUser as User)
@@ -59,8 +62,8 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
 
   const isOwner = currentUser?.id === targetUser.id;
 
-  const purchasedTracks = isOwner
-    ? tracks.filter((t) => targetUser.purchasedTrackIds.includes(t.id))
+  const purchaseHistory = isOwner
+    ? purchases.filter((purchase) => purchase.userId === targetUser.id)
     : [];
   const likedTracks = tracks.filter((t) => targetUser.likedTrackIds.includes(t.id));
   const activeSubs = isOwner
@@ -72,15 +75,13 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     setIsEditingBio(false);
   };
 
-  const handleDownload = async (track: Track) => {
+  const handleDownload = async (purchase: PurchaseRecord) => {
     setPurchaseError(null);
     try {
-      if (configuredMode === 'hybrid' && track.id.startsWith('dj-')) {
-        await DjangoApi.downloadTrack(djangoId(track.id), track.title);
+      if (configuredMode === 'hybrid' && purchase.trackId.startsWith('dj-')) {
+        await DjangoApi.downloadTrack(djangoId(purchase.trackId), purchase.trackTitle);
         return;
       }
-      const purchase = purchases.find((item) => item.trackId === track.id && item.userId === targetUser.id);
-      if (!purchase) throw new Error('No se encontró el registro de compra de esta pista.');
       const contract = getContractForPurchase(purchase);
       const receipt = [
         'Comprobante de compra de BeatsCloud',
@@ -104,18 +105,20 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     }
   };
 
-  const handleViewContract = async (track: Track) => {
+  const handleViewContract = async (purchase: PurchaseRecord) => {
     setPurchaseError(null);
+    setViewingContract(null);
+    setIsLoadingLicense(true);
     try {
-      if (configuredMode === 'hybrid' && track.id.startsWith('dj-')) {
-        setViewingContract(mapLicense(await DjangoApi.license(djangoId(track.id))));
+      if (configuredMode === 'hybrid' && purchase.trackId.startsWith('dj-')) {
+        setViewingContract(mapLicense(await DjangoApi.license(djangoId(purchase.trackId))));
         return;
       }
-      const purchase = purchases.find((item) => item.trackId === track.id && item.userId === targetUser.id);
-      if (!purchase) throw new Error('No se encontró el registro de compra de esta pista.');
       setViewingContract(getContractForPurchase(purchase));
     } catch (error) {
-      setPurchaseError((error as Error).message);
+      setPurchaseError(`No se pudo cargar el comprobante: ${(error as Error).message}`);
+    } finally {
+      setIsLoadingLicense(false);
     }
   };
 
@@ -183,7 +186,7 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
           <div className="bg-[#0e111a] p-3.5 rounded-2xl border border-[#1b2030]">
             <span className="text-[10px] text-zinc-400 block font-mono font-semibold">PISTAS COMPRADAS</span>
-            <span className="text-xl font-black text-amber-400 font-mono">{purchasedTracks.length}</span>
+            <span className="text-xl font-black text-amber-400 font-mono">{purchaseHistory.length}</span>
           </div>
           <div className="bg-[#0e111a] p-3.5 rounded-2xl border border-[#1b2030]">
             <span className="text-[10px] text-zinc-400 block font-mono font-semibold">FAVORITOS GUARDADOS</span>
@@ -203,7 +206,7 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
               activeTab === 'compras' ? 'text-amber-400' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <span>BIBLIOTECA & DESCARGAS ({purchasedTracks.length})</span>
+            <span>BIBLIOTECA & DESCARGAS ({purchaseHistory.length})</span>
             {activeTab === 'compras' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-full" />
             )}
@@ -236,7 +239,21 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
         {activeTab === 'compras' && (
           <div className="mt-6 space-y-3">
             {purchaseError && <p role="alert" className="text-xs text-rose-400">{purchaseError}</p>}
-            {purchasedTracks.length === 0 ? (
+            {purchasesError && (
+              <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-300">
+                No se pudo cargar el historial de compras. {purchasesError}
+              </p>
+            )}
+            {isLoadingLicense && (
+              <p role="status" aria-live="polite" className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-xs text-amber-200">
+                Cargando los datos del comprobante…
+              </p>
+            )}
+            {purchasesLoading ? (
+              <div role="status" className="rounded-2xl border border-[#1b2030] bg-[#0e111a] p-8 text-center text-sm text-zinc-300">
+                Cargando compras registradas…
+              </div>
+            ) : purchasesError ? null : purchaseHistory.length === 0 ? (
               <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-10 text-center">
                 <FileMusic className="w-8 h-8 text-zinc-500 mx-auto mb-2" />
                 <p className="text-sm font-bold text-zinc-300">Aún no has adquirido pistas</p>
@@ -251,73 +268,71 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                 </button>
               </div>
             ) : (
-              purchasedTracks.map((track) => {
-                const isThisPlaying = isPlaying && activeTrack?.id === track.id;
-                const badge = getResourceBadgeInfo(track.resourceType);
+              purchaseHistory.map((purchase) => {
+                const track = tracks.find((item) => item.id === purchase.trackId);
+                const isThisPlaying = !!track && isPlaying && activeTrack?.id === track.id;
+                const badge = track ? getResourceBadgeInfo(track.resourceType) : null;
 
                 return (
                   <div
-                    key={track.id}
+                    key={purchase.id}
                     className="bg-[#0e111a] border border-[#1b2030] hover:border-amber-400/30 rounded-2xl p-3.5 flex items-center justify-between gap-4 transition-all"
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 group">
-                        <img
-                          src={track.coverUrl}
-                          alt={track.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          onClick={() => playTrack(track)}
-                          className="absolute inset-0 m-auto w-7 h-7 rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center opacity-90 group-hover:opacity-100"
-                        >
-                          {isThisPlaying ? (
-                            <Pause className="w-3.5 h-3.5 fill-current" />
-                          ) : (
-                            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                          )}
-                        </button>
+                        {track ? (
+                          <>
+                            <img src={track.coverUrl} alt={purchase.trackTitle} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              aria-label={`${isThisPlaying ? 'Pausar' : 'Reproducir'} ${purchase.trackTitle}`}
+                              onClick={() => playTrack(track)}
+                              className="absolute inset-0 m-auto w-7 h-7 rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center opacity-90 group-hover:opacity-100"
+                            >
+                              {isThisPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+                            </button>
+                          </>
+                        ) : <FileMusic className="w-full h-full p-3 text-zinc-500" aria-hidden="true" />}
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span
-                            className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded border ${badge.badgeClass}`}
-                          >
-                            {badge.label}
-                          </span>
-                          <span className="text-[11px] font-mono text-zinc-400">
-                            {track.bpm} BPM · {track.scaleKey}
-                          </span>
+                          {badge && <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded border ${badge.badgeClass}`}>{badge.label}</span>}
+                          {track && <span className="text-[11px] font-mono text-zinc-400">{track.bpm} BPM · {track.scaleKey}</span>}
                         </div>
-                        <h4
-                          onClick={() => onOpenTrackDetail(track.id)}
-                          className="font-bold text-white text-sm hover:text-amber-400 cursor-pointer truncate mt-0.5"
-                        >
-                          {track.title}
-                        </h4>
+                        {track ? (
+                          <button type="button" onClick={() => onOpenTrackDetail(track.id)} className="block max-w-full font-bold text-white text-left text-sm hover:text-amber-400 truncate mt-0.5">
+                            {purchase.trackTitle}
+                          </button>
+                        ) : <h4 className="font-bold text-white text-sm truncate mt-0.5">{purchase.trackTitle}</h4>}
                         <p className="text-[11px] text-zinc-400">
-                          Productor: <span className="text-zinc-200">{track.producerName}</span>
+                          Productor: <span className="text-zinc-200">{purchase.producerName}</span>
+                        </p>
+                        <p className="mt-1 text-[11px] text-zinc-400">
+                          Registro de compra · {purchase.date ? new Date(purchase.date).toLocaleDateString('es-CL') : 'Fecha no disponible'}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => void handleViewContract(track)}
+                        type="button"
+                        disabled={isLoadingLicense}
+                        onClick={() => void handleViewContract(purchase)}
                         className="flex items-center gap-1.5 bg-[#181d2c] hover:bg-[#22283d] text-amber-300 border border-amber-400/30 font-bold px-3 py-2 rounded-xl text-xs transition-colors shadow-sm"
                         title="Ver los datos de compra registrados para esta pista"
                       >
                         <FileText className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Ver comprobante</span>
+                        <span>{isLoadingLicense ? 'Cargando…' : 'Ver comprobante'}</span>
                       </button>
 
                       <button
-                        onClick={() => void handleDownload(track)}
+                        type="button"
+                        onClick={() => void handleDownload(purchase)}
                         className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black px-3.5 py-2 rounded-xl text-xs transition-colors shadow-sm"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Descargar archivo de audio</span>
+                        <span>{configuredMode === 'hybrid' ? 'Descargar archivo de audio' : 'Descargar comprobante de demostración'}</span>
                       </button>
                     </div>
                   </div>
