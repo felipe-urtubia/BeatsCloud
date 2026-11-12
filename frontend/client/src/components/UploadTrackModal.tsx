@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useReducer } from 'react';
 import { useApp } from '../context/AppContext';
 import { Track, MusicGenre, ResourceType, MoodType } from '../types';
 import { getResourceBadgeInfo, RESOURCE_TYPES } from '../utils/resourceHelpers';
-import { analyzeAudioFile, AudioAnalysisResult } from '../utils/audioAnalyzer';
+import { getUploadStatusLabel, uploadStatusReducer } from '../utils/uploadStatus.mjs';
 import {
   X,
   Upload,
-  Sparkles,
   Music,
   Sliders,
   Check,
   Disc,
   FileAudio,
-  Activity,
   Layers,
   HelpCircle,
   AlertCircle,
@@ -96,27 +94,30 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
   // Duración detectada localmente; el modo hybrid requiere el archivo para subirlo.
   const [detectedDuration, setDetectedDuration] = useState<number | null>(null);
 
-  // Fallback Audio Analyzer State
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AudioAnalysisResult | null>(null);
   const [fileNameInput, setFileNameInput] = useState('');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatus, dispatchUploadStatus] = useReducer(uploadStatusReducer, 'pending');
+  const isSubmitting = uploadStatus === 'uploading';
+  const isUploadComplete = uploadStatus === 'complete';
 
-  // Autodetección por nombre de archivo: si el productor sube un archivo real,
-  // se usa su nombre como insumo del analizador de fallback.
+  // Al seleccionar un archivo real se lee su duración local para completar el formulario.
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setAudioFile(file ?? null);
-    if (!file) return;
+    setUploadError(null);
+    dispatchUploadStatus({ type: 'reset' });
+    setDetectedDuration(null);
+    if (!file) {
+      setFileNameInput('');
+      return;
+    }
     setFileNameInput(file.name);
     if (!title.trim()) {
       setTitle(file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim());
     }
 
-    // Extracción de metadatos reales del audio (duración y BPM aproximado).
-    // El análisis local complementa la carga real del archivo al backend Django.
+    // Leer la duración del archivo local sin simular análisis musical.
     const url = URL.createObjectURL(file);
     const probe = new Audio();
     probe.preload = 'metadata';
@@ -169,11 +170,11 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       setIsFree(false);
       setHasWatermark(true);
       setAllowFreeDownload(false);
-      setAnalysisResult(null);
       setFileNameInput('');
       setDetectedDuration(null);
       setAudioFile(null);
       setUploadError(null);
+      dispatchUploadStatus({ type: 'reset' });
     }
   }, [trackToEdit, isOpen]);
 
@@ -194,36 +195,9 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Run the fallback audio analyzer
-  const handleRunAnalyzer = async () => {
-    setIsAnalyzing(true);
-    try {
-      const name = fileNameInput.trim() || title.trim() || `${genre}_track_${bpm}bpm_${scaleKey}.wav`;
-      const result = await analyzeAudioFile(name);
-      setAnalysisResult(result);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleApplyAnalysis = () => {
-    if (!analysisResult) return;
-    setBpm(analysisResult.detectedBpm);
-    setScaleKey(analysisResult.detectedKey);
-    setResourceType(analysisResult.detectedType);
-    setMood(analysisResult.detectedMood);
-    if (
-      configuredMode !== 'hybrid' ||
-      genreOptions.some(
-        (g) => g.descripcion === analysisResult.suggestedGenre
-      )
-    ) {
-      setGenre(analysisResult.suggestedGenre);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || isUploadComplete) return;
     if (!title.trim()) return;
     setUploadError(null);
 
@@ -232,17 +206,19 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       !genreOptions.some((g) => g.descripcion === genre)
     ) {
       setUploadError('Selecciona un genero disponible en Django.');
+      dispatchUploadStatus({ type: 'fail' });
       return;
     }
 
     if (!trackToEdit && configuredMode === 'hybrid' && !audioFile) {
       setUploadError('Selecciona el archivo de audio que quieres guardar.');
+      dispatchUploadStatus({ type: 'fail' });
       return;
     }
 
     const finalPrice = isFree ? 0 : price;
 
-    setIsSubmitting(true);
+    dispatchUploadStatus({ type: 'start' });
     try {
       if (trackToEdit) {
         await updateTrack(trackToEdit.id, {
@@ -290,13 +266,13 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
         });
       }
 
-      onClose();
+      dispatchUploadStatus({ type: 'succeed' });
+      if (trackToEdit) onClose();
     } catch (error) {
       const uploadFailure = error as Error & { errors?: Record<string, string[]> };
       const fieldErrors = Object.values(uploadFailure.errors ?? {}).flat();
       setUploadError(fieldErrors.join(' ') || uploadFailure.message || 'No se pudo guardar la pista.');
-    } finally {
-      setIsSubmitting(false);
+      dispatchUploadStatus({ type: 'fail' });
     }
   };
 
@@ -307,7 +283,10 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       <div className="relative w-full max-w-3xl bg-[#0e111a] border border-[#1f2538] rounded-3xl p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[92vh]">
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
+          disabled={isSubmitting}
+          aria-label="Cerrar formulario de subida"
           className="absolute top-5 right-5 text-zinc-400 hover:text-white p-2 rounded-full hover:bg-zinc-800 transition-colors"
         >
           <X className="w-5 h-5" />
@@ -328,30 +307,8 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
           </div>
         </div>
 
-        {/* Fallback Audio Detection System Card */}
+        {/* Archivo de audio */}
         <div className="mb-6 p-4 rounded-2xl bg-[#141824] border border-[#232a40] space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5" />
-                <span>Sistema de Reconocimiento Acústico (Fallback)</span>
-              </span>
-              <p className="text-xs text-zinc-300 mt-0.5">
-                ¿No estás seguro del tempo o la tonalidad? El analizador extrae transientes y frecuencias armónicas automáticamente.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleRunAnalyzer}
-              disabled={isAnalyzing}
-              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 font-bold px-3.5 py-2 rounded-xl text-xs border border-amber-400/30 flex items-center justify-center gap-2 transition-all flex-shrink-0 disabled:opacity-50"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>{isAnalyzing ? 'Analizando Audio...' : '⚡ Auto-Detectar'}</span>
-            </button>
-          </div>
-
           {/* El archivo seleccionado se envía al backend junto con los datos de la pista. */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0b0d13] border border-dashed border-zinc-600 hover:border-amber-400/60 cursor-pointer text-xs text-zinc-300 transition-colors">
@@ -363,44 +320,19 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
                 type="file"
                 accept=".wav,.mp3,.flac,.m4a,.aac,.ogg,audio/*"
                 className="hidden"
+                disabled={isSubmitting}
                 onChange={handleFileSelected}
               />
             </label>
             <input
               type="text"
               value={fileNameInput}
+              disabled={isSubmitting}
               onChange={(e) => setFileNameInput(e.target.value)}
               placeholder="o escribe el nombre del archivo (ej: trap_beat_140bpm_Aminor.wav)"
               className="flex-1 bg-[#0b0d13] border border-[#232a40] focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-zinc-500 focus:outline-none"
             />
           </div>
-
-          {/* Analysis Result Banner */}
-          {analysisResult && (
-            <div className="mt-3 p-3 rounded-xl bg-amber-400/10 border border-amber-400/30 text-xs animate-in fade-in duration-200">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2 font-mono">
-                <span className="text-amber-300 font-bold">
-                  ✓ Análisis completado ({analysisResult.confidence}% de coincidencia)
-                </span>
-                <span className="text-zinc-400 text-[11px]">
-                  {analysisResult.harmonicSpectrum}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-zinc-200 text-[11px] font-mono mb-2.5">
-                <div className="bg-black/40 p-1.5 rounded">BPM: <strong className="text-white">{analysisResult.detectedBpm}</strong></div>
-                <div className="bg-black/40 p-1.5 rounded">Tono: <strong className="text-white">{analysisResult.detectedKey}</strong></div>
-                <div className="bg-black/40 p-1.5 rounded">Tipo: <strong className="text-white uppercase">{analysisResult.detectedType}</strong></div>
-                <div className="bg-black/40 p-1.5 rounded">Mood: <strong className="text-white">{analysisResult.detectedMood}</strong></div>
-              </div>
-              <button
-                type="button"
-                onClick={handleApplyAnalysis}
-                className="w-full py-1.5 bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs hover:bg-amber-300 transition-colors"
-              >
-                Aplicar valores detectados al formulario
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Main Upload Form */}
@@ -408,6 +340,29 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
           {uploadError && (
             <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">
               {uploadError}
+            </div>
+          )}
+          {!trackToEdit && (audioFile || fileNameInput || isSubmitting || isUploadComplete || uploadError) && (
+            <div
+              role="status"
+              aria-live="polite"
+              className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-xs ${
+                uploadError
+                  ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                  : isSubmitting
+                    ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
+                    : isUploadComplete
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                      : 'border-zinc-700 bg-zinc-900 text-zinc-300'
+              }`}
+            >
+              <FileAudio className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="min-w-0 break-words">
+                <strong>
+                  {getUploadStatusLabel(uploadStatus, configuredMode)}
+                </strong>
+                <span className="block opacity-80">{audioFile?.name ?? fileNameInput}</span>
+              </span>
             </div>
           )}
           {/* 1. Resource Type Selection (Instrumental, Acapella, Loop, Drumkit) */}
@@ -777,16 +732,18 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
             <button
               type="button"
               onClick={onClose}
+              disabled={isSubmitting}
               className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 rounded-xl text-xs transition-colors"
             >
               Cancelar
             </button>
             <button
-              type="submit"
+              type={isUploadComplete && !trackToEdit ? 'button' : 'submit'}
+              onClick={isUploadComplete && !trackToEdit ? onClose : undefined}
               disabled={isSubmitting}
               className="flex-1 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-amber-400/20 disabled:cursor-wait disabled:opacity-60"
             >
-              {isSubmitting ? 'Guardando…' : trackToEdit ? 'Guardar Cambios' : 'Publicar en Catálogo'}
+              {isSubmitting ? 'Guardando…' : isUploadComplete && !trackToEdit ? 'Cerrar' : trackToEdit ? 'Guardar Cambios' : 'Publicar en Catálogo'}
             </button>
           </div>
         </form>

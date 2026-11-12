@@ -366,6 +366,9 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                         >
                           {track.title}
                         </h4>
+                        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-zinc-400 whitespace-pre-wrap break-words">
+                          {track.description?.trim() || 'Este track no tiene descripción.'}
+                        </p>
                       </div>
                     </div>
 
