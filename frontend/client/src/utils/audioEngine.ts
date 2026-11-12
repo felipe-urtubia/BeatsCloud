@@ -18,8 +18,10 @@ class BeatsAudioEngine {
   private timerId: number | null = null;
   private currentStep: number = 0;
   private masterGain: GainNode | null = null;
-  private previewGain: GainNode | null = null; // Atenua la preescucha no adquirida (seguridad)
   private analyser: AnalyserNode | null = null;
+  private mediaElementSource: MediaElementAudioSourceNode | null = null;
+  private mediaElementSourceAttempted = false;
+  private volume: number = 0.8;
   private onTimeUpdateCallback: ((time: number, duration: number) => void) | null = null;
   private onPlayStateChangeCallback: ((playing: boolean) => void) | null = null;
   private currentTime: number = 0;
@@ -31,20 +33,15 @@ class BeatsAudioEngine {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
-
-      // Cadena de seguridad: master -> previewGain -> analyser -> destino.
-      // previewGain atenúa la preescucha cuando el usuario no adquirió la pista.
-      this.previewGain = this.ctx.createGain();
-      this.previewGain.gain.setValueAtTime(1, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
 
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 64;
 
-      this.masterGain.connect(this.previewGain);
-      this.previewGain.connect(this.analyser);
+      this.masterGain.connect(this.analyser);
       this.analyser.connect(this.ctx.destination);
     }
+    this.connectAudioElement();
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
@@ -55,20 +52,11 @@ class BeatsAudioEngine {
   }
 
   public setVolume(vol: number) {
+    if (!Number.isFinite(vol)) return;
+    this.volume = Math.max(0, Math.min(1, vol));
     if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, vol)), this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
     }
-  }
-
-  /**
-   * Seguridad de preescucha: cuando el usuario NO adquirió la pista, se aplica
-   * atenuación al master del motor (equivalente a un "tag protegido": la
-   * preview suena amortiguada frente al master WAV full-band).
-   */
-  public setPreviewSecurityMode(isProtected: boolean) {
-    if (!this.ctx || !this.previewGain) return;
-    const target = isProtected ? 0.45 : 1;
-    this.previewGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.05);
   }
 
   public setCallbacks(
@@ -118,9 +106,8 @@ class BeatsAudioEngine {
     }
 
     if (this.mode === 'file' && this.audioEl) {
-      // Audio real servido por Django. El volumen y la atenuación de preescucha
-      // (setPreviewSecurityMode/setVolume) se aplican vía MediaStreamSource en la
-      // misma cadena master -> previewGain -> analyser -> destination.
+      // Audio real servido por Django. El volumen pasa por masterGain y el
+      // analyser mantiene disponible la señal para el visualizador.
       const audio = this.audioEl;
       const requestedTrackId = this.activeTrackId;
       audio.play().catch(() => {
@@ -176,6 +163,7 @@ class BeatsAudioEngine {
 
   /** Asigna la URL del archivo real (preview o full según seguridad server-side). */
   public setAudioSource(url: string | null) {
+    if (this.audioUrl === url) return;
     this.audioUrl = url;
     if (this.audioEl) {
       if (url) {
@@ -191,24 +179,16 @@ class BeatsAudioEngine {
     el.crossOrigin = 'anonymous';
     el.preload = 'auto';
     if (this.audioUrl) el.src = this.audioUrl;
+    this.audioEl = el;
+    this.mediaElementSource = null;
+    this.mediaElementSourceAttempted = false;
+    this.connectAudioElement();
 
-    // Enrutamos el elemento por la misma cadena de efectos para conservar
-    // visualizer (analyser) y la atenuación de preescucha no adquirida.
-    const attach = () => {
-      if (!this.ctx || !this.previewGain) return;
-      try {
-        const srcNode = this.ctx.createMediaElementSource(el);
-        srcNode.connect(this.masterGain!);
-      } catch {
-        /* createMediaElementSource solo permite una vez por elemento */
-      }
-    };
     el.addEventListener('loadedmetadata', () => {
       if (Number.isFinite(el.duration) && el.duration > 0) {
         this.duration = el.duration;
         this.onTimeUpdateCallback?.(this.currentTime, this.duration);
       }
-      attach();
     });
     el.addEventListener('timeupdate', () => {
       this.currentTime = el.currentTime;
@@ -219,7 +199,24 @@ class BeatsAudioEngine {
       this.currentTime = 0;
       if (this.onPlayStateChangeCallback) this.onPlayStateChangeCallback(false);
     });
-    this.audioEl = el;
+  }
+
+  private connectAudioElement() {
+    if (
+      !this.ctx ||
+      !this.masterGain ||
+      !this.audioEl ||
+      this.mediaElementSource ||
+      this.mediaElementSourceAttempted
+    ) return;
+
+    this.mediaElementSourceAttempted = true;
+    try {
+      this.mediaElementSource = this.ctx.createMediaElementSource(this.audioEl);
+      this.mediaElementSource.connect(this.masterGain);
+    } catch {
+      // Una fuente MediaElement solo puede crearse una vez para cada elemento.
+    }
   }
 
   public pause() {

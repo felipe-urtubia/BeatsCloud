@@ -127,6 +127,8 @@ interface AppContextType {
   backendStatus: 'idle' | 'checking' | 'online' | 'offline';
   backendError: { phase: 'session' | 'catalog' | 'cart'; type: 'network' | 'api'; status?: number; message: string } | null;
   isSyncing: boolean;          // hay una petición al backend en curso
+  purchasesLoading: boolean;
+  purchasesError: string | null;
   paymentNotice: string | null;
   paymentReturnReady: boolean;
   authNotice: string | null;
@@ -200,6 +202,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('bc_purchases');
     return saved ? JSON.parse(saved) : INITIAL_PURCHASES;
   });
+  const [purchasesLoading, setPurchasesLoading] = useState(isHybrid);
+  const [purchasesError, setPurchasesError] = useState<string | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     if (CONFIGURED_MODE === 'hybrid') return '';
@@ -271,6 +275,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTracks((prev) => prev.map((track) => ({ ...track, isPurchased: false, isOwner: false })));
     setCart([]);
     setPurchases([]);
+    setPurchasesLoading(false);
+    setPurchasesError(null);
     setSales([]);
     setActiveTrack(null);
     audioEngine.pause();
@@ -282,6 +288,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   const loadFromBackend = async () => {
     const sequence = ++refreshSequence.current;
+    setPurchasesLoading(true);
+    setPurchasesError(null);
+    let purchaseRequestStarted = false;
     let phase: 'session' | 'catalog' | 'cart' = 'session';
     try {
       const session = await DjangoApi.getSession();
@@ -314,11 +323,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       phase = 'cart';
       const identityGeneration = cartIdentityGeneration.current;
+      purchaseRequestStarted = !!session;
+      const purchaseRowsPromise = session
+        ? DjangoApi.misCompras().then((rows) => {
+            if (sequence === refreshSequence.current) {
+              setPurchases(rows.map((purchase) => mapHistorialCompra(purchase, String(session.id))));
+              setPurchasesLoading(false);
+            }
+            return rows;
+          }).catch((error: unknown) => {
+            if (sequence === refreshSequence.current) {
+              setPurchasesError(error instanceof Error ? error.message : 'No se pudo cargar el historial de compras.');
+              setPurchasesLoading(false);
+            }
+            return [];
+          })
+        : Promise.resolve([]);
       const [publicUsers, subscriptionRows, cartRes, purchaseRows, saleRows] = await Promise.all([
         DjangoApi.usuarios(),
         DjangoApi.suscripciones(),
         session ? DjangoApi.carrito() : Promise.resolve({ items: [] }),
-        session ? DjangoApi.misCompras() : Promise.resolve([]),
+        purchaseRowsPromise,
         session ? DjangoApi.misVentas() : Promise.resolve([]),
       ]);
       const mappedPurchases = session
@@ -373,6 +398,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.removeItem('bc_session_user_id');
       setCart(items);
       setPurchases(mappedPurchases);
+      setPurchasesLoading(false);
       setSales(mappedSales);
       setSubscriptions(subscriptionRows.map(mapSubscription));
       setBackendError(null);
@@ -380,6 +406,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       audioEngine.setPlaybackMode('file');
     } catch (e) {
       if (sequence !== refreshSequence.current) return;
+      if (!purchaseRequestStarted) {
+        setPurchasesLoading(false);
+        setPurchasesError('No se pudo cargar el historial de compras. Reintenta cuando el servicio esté disponible.');
+      }
       const status = (e as Error & { status?: number }).status;
       const network = e instanceof TypeError && /fetch|network/i.test(e.message);
       setBackendError({ phase, type: network ? 'network' : 'api', ...(status ? { status } : {}), message: network ? 'No se pudo conectar con Django.' : 'Django rechazó o no pudo completar la solicitud.' });
@@ -500,8 +530,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Regla de seguridad central: una pista está protegida (preview amortiguada,
-  // sin descarga de master) si tiene marca de agua y el usuario no la adquirió.
+  // Determina qué URL de audio solicitar; la autorización del archivo completo
+  // sigue validándose en el backend.
   const isTrackProtected = (track: Track | null): boolean => {
     if (!track) return false;
     const owned = currentUser?.purchasedTrackIds.includes(track.id) ?? false;
@@ -558,9 +588,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const playTrack = (track: Track) => {
-    // Seguridad de preescucha: amortiguar la preview si la pista no fue adquirida.
-    audioEngine.setPreviewSecurityMode(isTrackProtected(track));
-
     // En modo real, el <audio> apunta al archivo auténtico de Django:
     // reproducir completo solo si es gratis/dueño/comprado (la guarda vive
     // server-side en /api/track/<id>/reproducir/); si no, suena el preview 30s.
@@ -597,7 +624,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return;
     }
-    audioEngine.setPreviewSecurityMode(isTrackProtected(activeTrack));
     if (isPlaying) {
       audioEngine.pause();
     } else {
@@ -1080,6 +1106,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCart([]);
       localStorage.removeItem('bc_cart');
       setPurchases([]);
+      setPurchasesLoading(false);
+      setPurchasesError(null);
       setSales([]);
       setUsers((prev) => prev.map((user) =>
         user.id === currentUserId
@@ -1388,6 +1416,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         backendStatus,
         backendError,
         isSyncing,
+        purchasesLoading,
+        purchasesError,
         paymentNotice,
         paymentReturnReady,
         authNotice,

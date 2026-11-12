@@ -1,9 +1,9 @@
 # BeatsCloud
 
-BeatsCloud es una aplicación web desarrollada con Django para artistas, productores y usuarios de contenido musical. El proyecto permite publicar tracks, descubrir productores y artistas, comprar contenido mediante Webpay, adquirir suscripciones y gestionar perfiles musicales.
+BeatsCloud es una aplicación web con una SPA React/TypeScript y un backend Django para artistas, productores y usuarios de contenido musical. El proyecto permite publicar tracks, descubrir productores y artistas, gestionar perfiles y usar flujos de compra mediante Webpay.
 
-> Estado de esta documentación: 31-08-2026.  
-> La integración de Transbank descrita aquí está configurada para ambiente **TEST** durante el desarrollo.
+> Esta guía contiene secciones acumuladas; confirma la configuración del ambiente antes de ejecutar los pasos. La documentación para la entrega APT (19-11-2026), el estado conocido y los pendientes están en [`docs/entrega-apt/`](docs/entrega-apt/README.md).
+> Webpay Plus está integrado para ambiente de pruebas. La presencia de integración y tests automatizados no acredita un recorrido manual completo con pasarela, retorno y descarga.
 
 ---
 
@@ -61,7 +61,7 @@ BeatsCloud es una aplicación web desarrollada con Django para artistas, product
 
 ### Pagos Webpay / Transbank
 
-El proyecto integra Webpay Plus mediante `transbank-sdk` y actualmente está probado en ambiente `TEST`.
+El proyecto integra Webpay Plus mediante `transbank-sdk` y permite configurar ambiente `TEST`. La ejecución de una compra real en el simulador, el retorno a la SPA y la descarga posterior deben respaldarse con evidencia E2E reciente; consultar el [plan de pruebas APT](docs/entrega-apt/plan_pruebas.md).
 
 El flujo implementado incluye:
 

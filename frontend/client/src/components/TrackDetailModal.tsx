@@ -411,8 +411,8 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
               <h3 className="text-sm font-bold text-white mb-2 font-mono uppercase">
                 Descripción & Características
               </h3>
-              <p className="text-xs text-zinc-300 leading-relaxed bg-[#121520] p-4 rounded-xl border border-[#1b2030]">
-                {track.description}
+              <p className="whitespace-pre-wrap break-words text-xs text-zinc-300 leading-relaxed bg-[#121520] p-4 rounded-xl border border-[#1b2030]">
+                {track.description?.trim() || 'Este track no tiene descripción'}
               </p>
             </div>
 
