@@ -3071,3 +3071,118 @@ No se requirieron modificaciones adicionales al codigo,
 nuevas migraciones ni cambios en la infraestructura R2.
 
 ---
+
+---
+
+## Cierre D8 - Subida directa a Cloudflare R2 - 17-11-2026
+
+### 1. Objetivo
+
+Implementar y verificar la subida directa de archivos musicales desde
+la SPA hacia Cloudflare R2 mediante URLs presignadas PUT, evitando
+transferir los archivos pesados a través del servidor Django.
+
+### 2. Configuración del almacenamiento
+
+Se verificó mediante Django:
+
+- Subidas R2 habilitadas.
+- Configuración disponible.
+- Bucket configurado correctamente.
+
+La prueba de conectividad directa con R2 también fue satisfactoria:
+
+- Generación de URL presignada.
+- PUT HTTP 200.
+- Verificación del objeto mediante HEAD.
+- Eliminación del objeto temporal de diagnóstico.
+
+### 3. Prueba real desde la aplicación
+
+Se realizaron dos subidas desde la interfaz de BeatCloud:
+
+**Archivo de audio WAV**
+
+- Solicitud de URL presignada: HTTP 200.
+- Preflight CORS OPTIONS: HTTP 204.
+- Subida directa PUT a Cloudflare R2: HTTP 200.
+- Confirmación al backend: HTTP 200.
+
+**Archivo ZIP de STEMS**
+
+- Solicitud de URL presignada: HTTP 200.
+- Preflight CORS OPTIONS: HTTP 204.
+- Subida directa PUT a Cloudflare R2: HTTP 200.
+- Confirmación al backend: HTTP 200.
+
+### 4. Finalización y publicación
+
+Se verificó la finalización del registro:
+
+- POST /api/r2/finalize/: HTTP 201.
+- Canción incorporada al catálogo.
+- Preview generado automáticamente y visible.
+- STEMS asociados correctamente a la canción.
+- Reproducción de la canción comprobada desde la aplicación.
+
+Las solicitudes PUT se realizaron directamente contra el almacenamiento
+Cloudflare R2, no mediante una transferencia del archivo al servidor Django.
+
+### 5. Evidencia de funcionamiento
+
+Se revisó la pestaña Network de Chrome DevTools.
+
+Se identificaron:
+
+- Solicitudes presignadas.
+- Preflight CORS satisfactorio.
+- PUT de audio con respuesta 200.
+- PUT de STEMS con respuesta 200.
+- Confirmaciones del backend.
+- Finalización con respuesta 201.
+
+También se verificaron los registros de ejecución de Django.
+
+### 6. Estado de aceptación
+
+- URL presignada PUT: VERIFICADA.
+- Validación de archivos: IMPLEMENTADA.
+- Subida directa desde SPA: VERIFICADA.
+- Confirmación al backend: VERIFICADA.
+- Preview automático: VERIFICADO.
+- Archivos WAV: VERIFICADOS.
+- STEMS: VERIFICADOS.
+- Publicación en catálogo: VERIFICADA.
+
+**D8: IMPLEMENTADO Y FUNCIONALMENTE VERIFICADO.**
+
+### 7. Validación automatizada y cierre técnico
+
+**Pruebas específicas R2:**
+- 61 pruebas ejecutadas.
+- 61 pruebas aprobadas.
+- Sin errores.
+
+**Suite completa Django:**
+- 360 pruebas ejecutadas.
+- 360 pruebas aprobadas.
+- Resultado: OK.
+- Tiempo: 110.732 segundos.
+
+**Frontend:**
+- npm run build: correcto.
+- TypeScript: compilación correcta.
+- Vite: 1.926 módulos transformados.
+- Tiempo: 2.94 segundos.
+
+**Resultado:** pruebas automatizadas y compilación aprobadas.
+
+### 8. Estado de publicación
+
+- Implementación D8: verificada.
+- Pruebas automatizadas: aprobadas.
+- Compilación frontend: aprobada.
+- Commit documental: pendiente.
+- Publicación en main: pendiente.
+
+---
