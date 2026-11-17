@@ -6,14 +6,19 @@
           "http://localhost:3000"
         ],
         "methods": [
+          "GET",
           "PUT"
         ],
         "headers": [
-          "Content-Type"
+          "Content-Type",
+          "Range"
         ]
       },
       "exposeHeaders": [
-        "ETag"
+        "ETag",
+        "Content-Length",
+        "Content-Range",
+        "Accept-Ranges"
       ],
       "maxAgeSeconds": 3600
     }

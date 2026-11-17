@@ -7,6 +7,7 @@ from app.r2_presign import (
 from app.r2_upload_http import _bucket
 from app.r2_private_delivery import (
     authorized_r2_audio_response,
+    authorized_r2_audio_download_response,
 )
 
 
@@ -65,4 +66,34 @@ def serve_private_r2_audio(
         client=client,
         bucket=bucket,
         as_attachment=as_attachment,
+    )
+
+def presign_private_r2_audio_download(request, track):
+    # Genera un enlace R2 GET de cinco minutos para una descarga autorizada.
+    try:
+        config = r2_configuration()
+        if not isinstance(config, dict):
+            raise ValueError("Configuracion R2 invalida.")
+
+        bucket = _bucket(config)
+        if not bucket:
+            raise ValueError("Bucket R2 no configurado.")
+
+        client = r2_client(config)
+        if client is None:
+            raise ValueError("Cliente R2 no disponible.")
+    except Exception:
+        respuesta = HttpResponse(
+            "Almacenamiento temporalmente no disponible.",
+            status=503,
+        )
+        respuesta["Cache-Control"] = "private, no-store"
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        return respuesta
+
+    return authorized_r2_audio_download_response(
+        request,
+        track,
+        client=client,
+        bucket=bucket,
     )
