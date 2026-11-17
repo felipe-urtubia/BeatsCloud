@@ -47,7 +47,7 @@ def promote_pending_object(*, client, bucket, owner, kind, pending_key,
         raise R2PromotionError("Tamano no valido.")
     if not isinstance(pending_key, str):
         raise R2PromotionError("Clave temporal no valida.")
-    if not re.fullmatch(r"pending/[0-9]+/(track|stems)/[a-f0-9]{32}\.[a-z0-9]+", pending_key):
+    if not re.fullmatch(r"pending/[0-9]+/(track|stems|cover)/[a-f0-9]{32}\.[a-z0-9]+", pending_key):
         raise R2PromotionError("Clave temporal no valida.")
     if not pending_key.startswith(f"pending/{owner}/{kind}/"):
         raise R2PromotionError("Clave temporal de otro propietario.")

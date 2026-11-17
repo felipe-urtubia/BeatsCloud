@@ -30,6 +30,7 @@ def token_ficticio():
             "size": SIZE,
             "kind": "track",
             "mime": MIME,
+            "filename": "Beat Original.wav",
         },
         salt=TOKEN_SALT,
     )
@@ -91,6 +92,10 @@ class R2RegistrationPrepareTests(unittest.TestCase):
                 self.assertEqual(preparado.owner, OWNER)
                 self.assertEqual(preparado.pending_key, PENDING)
                 self.assertEqual(preparado.private_key, PRIVATE)
+                self.assertEqual(
+                    preparado.original_filename,
+                    "Beat Original.wav",
+                )
                 self.assertTrue(preparado.preview_path.is_file())
                 temporal = preparado.preview_path
 

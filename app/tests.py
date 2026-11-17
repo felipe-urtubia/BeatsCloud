@@ -166,6 +166,21 @@ class EliminarCuentaTests(TestCase):
             genero=genero,
             usuario=perfil_productor,
         )
+        comprado.storage_backend = "r2"
+        comprado.r2_object_key = (
+            f"private/{productor.pk}/track/{'a' * 32}.mp3"
+        )
+        comprado.r2_cover_key = (
+            f"private/{productor.pk}/cover/{'b' * 32}.jpg"
+        )
+        comprado.save(
+            update_fields=[
+                "storage_backend",
+                "r2_object_key",
+                "r2_cover_key",
+            ]
+        )
+
         sin_compras = Track.objects.create(
             nombre_track='Track sin compras',
             precio=4000,
@@ -192,6 +207,11 @@ class EliminarCuentaTests(TestCase):
         self.assertFalse(Track.objects.filter(pk=sin_compras_id).exists())
 
         comprado.refresh_from_db()
+
+        self.assertEqual(
+            comprado.r2_owner_user_id,
+            productor_id,
+        )
         self.assertEqual(
             comprado.usuario.user.username,
             'UsuarioAnonimo',

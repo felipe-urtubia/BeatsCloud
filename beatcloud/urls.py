@@ -8,7 +8,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import Http404
-from app.views import logout as app_logout
 
 
 def bloquear_acceso_directo_canciones(request, path):
@@ -33,7 +32,6 @@ urlpatterns = [
 
     path('admin/', admin.site.urls),
     path('', include('app.urls')),
-    path('accounts/logout/', app_logout, name='accounts_logout'),
     path('accounts/', include('django.contrib.auth.urls')),
 ]
 
