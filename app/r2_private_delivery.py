@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from django.http import (
     Http404,
     HttpResponse,
+    JsonResponse,
     HttpResponseForbidden,
     HttpResponseNotAllowed,
     StreamingHttpResponse,
@@ -103,6 +104,123 @@ def _iterar_audio(cuerpo):
 
     finally:
         cuerpo.close()
+
+
+
+R2_DOWNLOAD_URL_EXPIRY_SECONDS = 300
+
+
+def _respuesta_descarga_r2_no_disponible():
+    respuesta = JsonResponse(
+        {"detail": "Almacenamiento temporalmente no disponible."},
+        status=503,
+    )
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
+
+
+def authorized_r2_audio_download_response(
+    request,
+    track,
+    *,
+    client,
+    bucket,
+):
+    # Emite una URL GET temporal tras verificar los permisos de BeatCloud.
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    if (
+        not is_media_ready(track)
+        or getattr(track, "storage_backend", None) != "r2"
+    ):
+        raise Http404("Audio no disponible.")
+
+    if not request.user.is_authenticated:
+        return HttpResponseForbidden(
+            "Debes iniciar sesion para descargar."
+        )
+
+    from app.api_shim import _puede_escuchar_completo
+
+    if not _puede_escuchar_completo(request, track):
+        return HttpResponseForbidden(
+            "No tienes permiso para descargar el audio completo."
+        )
+
+    clave = _validar_clave_privada(track)
+
+    if (
+        not isinstance(bucket, str)
+        or not bucket.strip()
+        or client is None
+        or not callable(getattr(client, "head_object", None))
+        or not callable(getattr(client, "generate_presigned_url", None))
+    ):
+        raise ValueError("Configuracion del almacenamiento invalida.")
+
+    nombre_r2 = clave.rsplit("/", 1)[-1]
+    extension = "." + nombre_r2.rsplit(".", 1)[-1].lower()
+    nombre_original = getattr(track, "original_filename", "")
+
+    try:
+        nombre = validate_original_filename(
+            nombre_original,
+            expected_extension=extension,
+        )
+    except ValueError:
+        nombre = nombre_r2
+
+    tipo = (
+        mimetypes.guess_type(nombre)[0]
+        or mimetypes.guess_type(nombre_r2)[0]
+        or "application/octet-stream"
+    )
+
+    try:
+        client.head_object(Bucket=bucket, Key=clave)
+    except ClientError as exc:
+        codigo = str(exc.response.get("Error", {}).get("Code", ""))
+        estado = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        if codigo in ("NoSuchKey", "NotFound", "404") or estado == 404:
+            raise Http404("Audio no disponible.") from exc
+        return _respuesta_descarga_r2_no_disponible()
+    except Exception:
+        return _respuesta_descarga_r2_no_disponible()
+
+    try:
+        url = client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": clave,
+                "ResponseContentDisposition": content_disposition_header(
+                    True, nombre
+                ),
+                "ResponseContentType": tipo,
+                "ResponseCacheControl": "private, no-store",
+            },
+            ExpiresIn=R2_DOWNLOAD_URL_EXPIRY_SECONDS,
+            HttpMethod="GET",
+        )
+    except Exception:
+        return _respuesta_descarga_r2_no_disponible()
+
+    if not isinstance(url, str) or not url.startswith("https://"):
+        return _respuesta_descarga_r2_no_disponible()
+
+    respuesta = JsonResponse(
+        {
+            "method": "GET",
+            "url": url,
+            "filename": nombre,
+            "expires_in": R2_DOWNLOAD_URL_EXPIRY_SECONDS,
+        }
+    )
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
 
 
 def authorized_r2_audio_response(
