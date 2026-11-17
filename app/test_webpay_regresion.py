@@ -31,6 +31,7 @@ class WebpayRegresionTests(TestCase):
             session_id=self.user.username,
             amount="1190.00",
             status=WebpayTransaction.ESTADO_PENDIENTE,
+            webpay_token="token-simulado",
         )
         self.url = reverse("exito_carrito") + "?spa=1"
 
@@ -56,6 +57,8 @@ class WebpayRegresionTests(TestCase):
         escenarios = (
             ("amount", 9999),
             ("session_id", "otra_sesion"),
+            ("session_id", ""),
+            ("session_id", "   "),
             ("buy_order", "orden_desconocida"),
         )
 
@@ -96,18 +99,33 @@ class WebpayRegresionTests(TestCase):
         self.assertIn("pago=fracaso", response.url)
         self.assertEqual(HistorialCompra.objects.count(), 0)
         self.assertEqual(HistorialVenta.objects.count(), 0)
-
-    def test_retorno_sin_token_no_cancela_orden(self):
-        from django.urls import reverse
-
-        respuesta = self.client.post(
-            reverse("exito_carrito") + "?spa=1",
-            {
-                "TBK_ORDEN_COMPRA": self.payment.buy_order,
-                "TBK_ID_SESION": self.payment.session_id,
-            },
+        self.payment.refresh_from_db()
+        self.assertEqual(
+            self.payment.status,
+            WebpayTransaction.ESTADO_CANCELADO,
         )
 
+    @patch("app.views.Transaction")
+    def test_retorno_sin_token_no_cancela_orden(self, tx):
+        from django.urls import reverse
+
+        tx.return_value.status.return_value = {
+            "buy_order": self.payment.buy_order,
+            "session_id": self.payment.session_id,
+            "amount": 1190,
+            "status": "INITIALIZED",
+            "response_code": -2,
+        }
+        with patch("app.views.WebpayOptions"):
+            respuesta = self.client.post(
+                reverse("exito_carrito") + "?spa=1",
+                {
+                    "TBK_ORDEN_COMPRA": self.payment.buy_order,
+                    "TBK_ID_SESION": self.payment.session_id,
+                },
+            )
+
+        tx.return_value.status.assert_called_once_with("token-simulado")
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn("pago=revision", respuesta["Location"])
 

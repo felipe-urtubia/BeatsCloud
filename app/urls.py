@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from .views import (
-    inicio, logout, registro, activar_cuenta, perfil_artista, perfil_productor, perfil,
+    inicio, registro, activar_cuenta, perfil_artista, perfil_productor, perfil,
     editar_perfil, upload_file, editar_perfil_p, catalogo, perfil_artista1,
     perfil_productor1, detalle_track, descargar_track, reproducir_track, reproducir_preview_track,
     agregar_comentario, eliminar_comentario, perfil2, carrito,
@@ -14,7 +14,6 @@ from .views import (
 
 urlpatterns = [
     path('', inicio, name='inicio'),
-    path('logout/', logout, name='logout'),
     path('registro/', registro, name='registro'),
     path('activar/<uidb64>/<token>/', activar_cuenta, name='activar_cuenta'),
     path('perfil/', perfil, name='perfil'),
@@ -94,11 +93,20 @@ from django.urls import path as _r2_path
 from .r2_upload_http import (
     r2_finalize_upload_api as _r2_finalize_upload_api,
 )
+from .r2_stems import r2_stems_download_api as _r2_stems_download_api
 
 urlpatterns += [
     _r2_path(
         "api/r2/finalize/",
         _r2_finalize_upload_api,
         name="r2_finalize_upload",
+    ),
+]
+
+urlpatterns += [
+    _r2_path(
+        "api/track/<int:track_id>/stems/",
+        _r2_stems_download_api,
+        name="api_download_stems",
     ),
 ]

@@ -62,6 +62,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
   } = useApp();
 
   const [commentText, setCommentText] = useState('');
+  const [stemsDownloadError, setStemsDownloadError] = useState<string | null>(null);
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [auditionSuccess, setAuditionSuccess] = useState(false);
@@ -327,7 +328,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   </div>
                   <p className="text-[11px] leading-relaxed text-zinc-300">
                     <strong>1. Para cantar y probar:</strong> Descarga la <em>Maqueta de Composición</em> para grabar tus voces en tu DAW o teléfono y comprobar si tu estilo calza con el beat.<br />
-                    <strong>2. Para comprar:</strong> agrega la pista al carrito. Django confirmará el pago antes de registrar la compra.
+                    <strong>2. Para comprar:</strong> agrega la pista al carrito.
                   </p>
                 </div>
               )}
@@ -439,6 +440,32 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   <span className="text-xs font-bold text-amber-400">
                     {track.hasStems ? 'Incluidos' : 'No'}
                   </span>
+                  {track.hasStems && track.id.startsWith('dj-') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setStemsDownloadError(null);
+                        try {
+                          await DjangoApi.downloadStems(
+                            Number(track.id.slice(3)),
+                            track.title,
+                          );
+                        } catch (error) {
+                          setStemsDownloadError(
+                            error instanceof Error ? error.message : 'No se pudieron descargar los STEMS.'
+                          );
+                        }
+                      }}
+                      className="mt-2 w-full rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 font-bold px-3 py-2 text-xs transition-colors"
+                    >
+                      Descargar archivos STEMS
+                    </button>
+                  )}
+                  {stemsDownloadError && (
+                    <p role="alert" className="mt-2 text-xs text-rose-400">
+                      {stemsDownloadError}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

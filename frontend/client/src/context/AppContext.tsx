@@ -99,6 +99,7 @@ interface AppContextType {
     duration?: number; // Segundos detectados del archivo subido (opcional)
     audioFile?: File;
     coverFile?: File;
+    stemsFile?: File;
   }) => Promise<Track>;
   updateTrack: (trackId: string, data: Partial<Track>, coverFile?: File) => Promise<void>;
   deleteTrack: (trackId: string) => void;
@@ -796,34 +797,233 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     duration?: number; // Segundos. Si no se informa, se usa la maqueta por defecto (180s)
     audioFile?: File;
     coverFile?: File;
+    stemsFile?: File;
   }): Promise<Track> => {
     if (modeRef.current === 'hybrid') {
       if (!data.audioFile) {
         throw new Error('Selecciona el archivo de audio que quieres guardar.');
       }
 
-      const form = new FormData();
-      form.set('nombre_track', data.title);
-      form.set('precio', String(data.isFree ? 0 : data.price));
-      form.set('descripcion', data.description);
-      form.set('genero', getDjangoGenreId(data.genre));
-      form.set('subgenre', data.subgenre ?? '');
-      form.set('track', data.audioFile);
-      form.set('resource_type', data.resourceType);
-      form.set('bpm', String(data.bpm));
-      form.set('scale_key', data.scaleKey);
-      form.set('mood', data.mood);
-      form.set('has_stems', String(data.hasStems));
-      form.set('has_wav', String(data.hasWav));
-      form.set('has_midi', String(data.hasMidi));
-      form.set('allow_free_download', String(data.allowFreeDownload ?? data.isFree ?? false));
-      form.set('has_watermark', String(data.hasWatermark ?? true));
-      if (data.duration) form.set('duration', String(data.duration));
-      if (data.coverFile) form.set('foto', data.coverFile);
+      const audio = data.audioFile;
+      if (!audio) {
+        throw new Error('Selecciona el archivo de audio que quieres guardar.');
+      }
 
-      const savedTrack = await withSync(() => DjangoApi.upload(form));
+      const extension = audio.name.split('.').pop()?.toLowerCase() || '';
+      const mimeByExtension: Record<string, string> = {
+        mp3: 'audio/mpeg',
+        wav: 'audio/wav',
+        flac: 'audio/flac',
+        m4a: 'audio/mp4',
+        aac: 'audio/aac',
+        ogg: 'audio/ogg',
+      };
+      const contentType =
+        audio.type && audio.type !== 'application/octet-stream'
+          ? audio.type
+          : mimeByExtension[extension];
+
+      if (!contentType) {
+        throw new Error('No se pudo determinar el formato MIME del audio.');
+      }
+
+      const generoId = Number(getDjangoGenreId(data.genre));
+      if (!Number.isInteger(generoId) || generoId <= 0) {
+        throw new Error('No se pudo identificar el género musical en Django.');
+      }
+
+      // 1. Solicitar una URL firmada para subir el audio directamente a R2.
+      const presigned = await withSync(() =>
+        DjangoApi.r2Presign({
+          kind: 'track',
+          filename: audio.name,
+          content_type: contentType,
+          size: audio.size,
+        })
+      );
+
+      // 2. Subir el archivo directamente a Cloudflare R2.
+      const putResponse = await fetch(presigned.url, {
+        method: presigned.method,
+        headers: presigned.headers,
+        body: audio,
+      });
+
+      if (!putResponse.ok) {
+        const detail = await putResponse.text().catch(() => '');
+        throw new Error(
+          `Cloudflare R2 rechazo el archivo (${putResponse.status}). ${detail}`
+        );
+      }
+
+      // 3. Confirmar en Django que R2 recibió el objeto esperado.
+      const confirmation = await withSync(() =>
+        DjangoApi.r2Confirm(presigned.upload_token)
+      );
+
+      if (
+        !confirmation.verified ||
+        confirmation.kind !== 'track' ||
+        confirmation.size !== audio.size
+      ) {
+        throw new Error('R2 no pudo verificar la subida del audio.');
+      }
+
+      // 4. Subir la portada opcional directamente a Cloudflare R2.
+      let coverUploadToken: string | undefined;
+
+      if (data.coverFile) {
+        const cover = data.coverFile;
+        const coverExtension =
+          cover.name.split('.').pop()?.toLowerCase() || '';
+
+        const mimeByCoverExtension: Record<string, string> = {
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          png: 'image/png',
+          webp: 'image/webp',
+        };
+
+        const expectedCoverContentType =
+          mimeByCoverExtension[coverExtension];
+
+        if (!expectedCoverContentType) {
+          throw new Error('La portada debe ser JPG, JPEG, PNG o WEBP.');
+        }
+
+        const coverContentType =
+          cover.type && cover.type !== 'application/octet-stream'
+            ? cover.type
+            : expectedCoverContentType;
+
+        if (coverContentType !== expectedCoverContentType) {
+          throw new Error('El formato de la portada no coincide con su extension.');
+        }
+
+        if (cover.size <= 0 || cover.size > 10 * 1024 * 1024) {
+          throw new Error('La portada debe pesar como maximo 10 MB.');
+        }
+
+        const coverPresigned = await withSync(() =>
+          DjangoApi.r2Presign({
+            kind: 'cover',
+            filename: cover.name,
+            content_type: coverContentType,
+            size: cover.size,
+          })
+        );
+
+        const coverPutResponse = await fetch(coverPresigned.url, {
+          method: coverPresigned.method,
+          headers: coverPresigned.headers,
+          body: cover,
+        });
+
+        if (!coverPutResponse.ok) {
+          const detail = await coverPutResponse.text().catch(() => '');
+          throw new Error(
+            `Cloudflare R2 rechazo la portada (${coverPutResponse.status}). ${detail}`
+          );
+        }
+
+        const coverConfirmation = await withSync(() =>
+          DjangoApi.r2Confirm(coverPresigned.upload_token)
+        );
+
+        if (
+          !coverConfirmation.verified ||
+          coverConfirmation.kind !== 'cover' ||
+          coverConfirmation.size !== cover.size ||
+          coverConfirmation.content_type !== coverContentType
+        ) {
+          throw new Error('R2 no pudo verificar la subida de la portada.');
+        }
+
+        coverUploadToken = coverPresigned.upload_token;
+      }
+
+      // 5. Subir y confirmar el archivo STEMS opcional.
+      let stemsUploadToken: string | undefined;
+      if (data.hasStems) {
+        const stems = data.stemsFile;
+        if (!stems) {
+          throw new Error('Selecciona el archivo STEMS o desmarca la opcion STEMS.');
+        }
+        const stemsExtension = stems.name.split('.').pop()?.toLowerCase() || '';
+        const allowedStemsMimes: Record<string, string[]> = {
+          zip: ['application/zip', 'application/x-zip-compressed'],
+          wav: ['audio/wav', 'audio/x-wav', 'audio/wave'],
+          flac: ['audio/flac', 'audio/x-flac'],
+        };
+        const allowedMimes = allowedStemsMimes[stemsExtension];
+        if (!allowedMimes) throw new Error('STEMS debe ser ZIP, WAV o FLAC.');
+        const stemsContentType =
+          stems.type && stems.type !== 'application/octet-stream' ? stems.type : allowedMimes[0];
+        if (!allowedMimes.includes(stemsContentType)) {
+          throw new Error('El MIME del archivo STEMS no coincide con su extension.');
+        }
+        if (stems.size <= 0 || stems.size > 2 * 1024 * 1024 * 1024) {
+          throw new Error('El archivo STEMS debe pesar como maximo 2 GB.');
+        }
+        const stemsPresigned = await withSync(() => DjangoApi.r2Presign({
+          kind: 'stems', filename: stems.name,
+          content_type: stemsContentType, size: stems.size,
+        }));
+        const stemsPutResponse = await fetch(stemsPresigned.url, {
+          method: stemsPresigned.method,
+          headers: stemsPresigned.headers,
+          body: stems,
+        });
+        if (!stemsPutResponse.ok) {
+          const detail = await stemsPutResponse.text().catch(() => '');
+          throw new Error(`Cloudflare R2 rechazo STEMS (${stemsPutResponse.status}). ${detail}`);
+        }
+        const stemsConfirmation = await withSync(() =>
+          DjangoApi.r2Confirm(stemsPresigned.upload_token)
+        );
+        if (
+          !stemsConfirmation.verified || stemsConfirmation.kind !== 'stems' ||
+          stemsConfirmation.size !== stems.size ||
+          stemsConfirmation.content_type !== stemsContentType
+        ) {
+          throw new Error('R2 no pudo verificar la subida STEMS.');
+        }
+        stemsUploadToken = stemsPresigned.upload_token;
+      }
+
+      // 6. Registrar el Track con los tokens de portada y STEMS.
+      const savedTrack = await withSync(() =>
+        DjangoApi.r2Finalize({
+          upload_token: presigned.upload_token,
+          nombre_track: data.title,
+          precio: data.isFree ? 0 : data.price,
+          genero_id: generoId,
+          descripcion: data.description,
+          subgenre: data.subgenre ?? '',
+          resource_type: data.resourceType,
+          bpm: data.bpm,
+          scale_key: data.scaleKey,
+          mood: data.mood,
+          has_stems: data.hasStems,
+          has_wav: data.hasWav,
+          has_midi: data.hasMidi,
+          allow_free_download: data.allowFreeDownload ?? data.isFree ?? false,
+          has_watermark: data.hasWatermark ?? true,
+          duration: data.duration && data.duration > 0 ? data.duration : 30,
+          ...(coverUploadToken
+            ? { cover_upload_token: coverUploadToken }
+            : {}),
+          ...(stemsUploadToken
+            ? { stems_upload_token: stemsUploadToken }
+            : {}),
+        })
+      );
+
       const mappedTrack = mapTrack(savedTrack, { isOwner: true });
-      setTracks((prev) => [mappedTrack, ...prev.filter((track) => track.id !== mappedTrack.id)]);
+      setTracks((prev) => [
+        mappedTrack,
+        ...prev.filter((track) => track.id !== mappedTrack.id),
+      ]);
       return mappedTrack;
     }
 
@@ -924,7 +1124,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (data.genre !== undefined) {
         body.set('genero', getDjangoGenreId(data.genre));
       }
-      if (coverFile) body.set('foto', coverFile);
+      if (coverFile) {
+        const coverExtension =
+          coverFile.name.split('.').pop()?.toLowerCase() || '';
+        const mimeByCoverExtension: Record<string, string> = {
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          png: 'image/png',
+          webp: 'image/webp',
+        };
+        const expectedCoverContentType =
+          mimeByCoverExtension[coverExtension];
+
+        if (!expectedCoverContentType) {
+          throw new Error('La portada debe ser JPG, JPEG, PNG o WEBP.');
+        }
+
+        const coverContentType =
+          coverFile.type && coverFile.type !== 'application/octet-stream'
+            ? coverFile.type
+            : expectedCoverContentType;
+
+        if (coverContentType !== expectedCoverContentType) {
+          throw new Error('El formato de la portada no coincide con su extension.');
+        }
+
+        if (coverFile.size <= 0 || coverFile.size > 10 * 1024 * 1024) {
+          throw new Error('La portada debe pesar como maximo 10 MB.');
+        }
+
+        const coverPresigned = await withSync(() =>
+          DjangoApi.r2Presign({
+            kind: 'cover',
+            filename: coverFile.name,
+            content_type: coverContentType,
+            size: coverFile.size,
+          })
+        );
+
+        const coverPutResponse = await fetch(coverPresigned.url, {
+          method: coverPresigned.method,
+          headers: coverPresigned.headers,
+          body: coverFile,
+        });
+
+        if (!coverPutResponse.ok) {
+          const detail = await coverPutResponse.text().catch(() => '');
+          throw new Error(
+            `Cloudflare R2 rechazo la portada (${coverPutResponse.status}). ${detail}`
+          );
+        }
+
+        const coverConfirmation = await withSync(() =>
+          DjangoApi.r2Confirm(coverPresigned.upload_token)
+        );
+
+        if (
+          !coverConfirmation.verified ||
+          coverConfirmation.kind !== 'cover' ||
+          coverConfirmation.size !== coverFile.size ||
+          coverConfirmation.content_type !== coverContentType
+        ) {
+          throw new Error('R2 no pudo verificar la subida de la portada.');
+        }
+
+        body.set('cover_upload_token', coverPresigned.upload_token);
+      }
+
       const saved = await withSync(() => DjangoApi.updateTrack(djangoId(trackId), body));
       const updated = mapTrack(saved, { isOwner: true });
       setTracks((prev) => prev.map((track) => track.id === trackId ? updated : track));

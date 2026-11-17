@@ -111,6 +111,7 @@ class R2PresignTests(TestCase):
         token = signing.loads(response.json()["upload_token"], salt=TOKEN_SALT, max_age=3600)
         self.assertEqual(token["owner"], self.producer.pk)
         self.assertEqual(token["size"], 500000)
+        self.assertEqual(token["filename"], self.payload["filename"])
         self.assertIn("/track/", token["key"])
         self.assertEqual(response["Cache-Control"], "no-store")
 
@@ -127,6 +128,80 @@ class R2PresignTests(TestCase):
             response = self.post(payload)
         self.assertEqual(response.status_code, 200, response.content)
         self.assertIn("upload_token", response.json())
+
+    def test_valid_cover_extensions_are_presigned(self):
+        self.client.force_login(self.producer)
+        env = {
+            "R2_UPLOADS_ENABLED": "true",
+            "R2_ACCOUNT_ID": "a" * 32,
+            "R2_BUCKET_NAME": "test-bucket",
+            "R2_ACCESS_KEY_ID": "test-key",
+            "R2_SECRET_ACCESS_KEY": "test-secret",
+        }
+
+        casos = (
+            ("portada.jpg", "image/jpeg"),
+            ("portada.jpeg", "image/jpeg"),
+            ("portada.png", "image/png"),
+            ("portada.webp", "image/webp"),
+        )
+
+        for filename, mime in casos:
+            with self.subTest(filename=filename):
+                payload = {
+                    "kind": "cover",
+                    "filename": filename,
+                    "size": 500000,
+                    "content_type": mime,
+                }
+
+                with (
+                    patch.dict(os.environ, env),
+                    patch(
+                        "app.r2_presign.r2_client",
+                        return_value=StubR2(),
+                    ),
+                ):
+                    response = self.post(payload)
+
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertEqual(
+                    response.json()["headers"],
+                    {"Content-Type": mime},
+                )
+
+                token = signing.loads(
+                    response.json()["upload_token"],
+                    salt=TOKEN_SALT,
+                    max_age=3600,
+                )
+                self.assertEqual(token["kind"], "cover")
+                self.assertEqual(token["owner"], self.producer.pk)
+                self.assertIn("/cover/", token["key"])
+
+    def test_invalid_cover_extensions_mime_and_size_are_rejected(self):
+        self.client.force_login(self.producer)
+
+        payload = {
+            "kind": "cover",
+            "filename": "portada.webp",
+            "size": 500000,
+            "content_type": "image/webp",
+        }
+
+        with patch.dict(os.environ, {"R2_UPLOADS_ENABLED": "true"}):
+            for change in (
+                {"filename": "portada.gif"},
+                {"filename": "portada.svg", "content_type": "image/svg+xml"},
+                {"content_type": "image/png"},
+                {"filename": "../portada.webp"},
+                {"size": MAX_BYTES["cover"] + 1},
+                {"size": True},
+            ):
+                with self.subTest(change=change):
+                    response = self.post({**payload, **change})
+                    self.assertEqual(response.status_code, 400)
+
 class R2ConfirmTests(TestCase):
     def setUp(self):
         self.producer = User.objects.create_user(username="confirmproducer", password="test-only")
@@ -237,3 +312,77 @@ class R2ConfirmTests(TestCase):
         r2.head_object.side_effect = RuntimeError("network")
         with patch.dict(os.environ, self.env), patch("app.r2_presign.r2_client", return_value=r2):
             self.assertEqual(self.post().status_code, 503)
+
+    def test_matching_head_verifies_cover(self):
+        from unittest.mock import Mock
+
+        self.client.force_login(self.producer)
+
+        key = f"pending/{self.producer.pk}/cover/{'b' * 32}.webp"
+        payload = {
+            "owner": self.producer.pk,
+            "key": key,
+            "size": 500000,
+            "kind": "cover",
+            "mime": "image/webp",
+        }
+
+        token = signing.dumps(payload, salt=TOKEN_SALT)
+
+        r2 = Mock()
+        r2.head_object.return_value = {
+            "ContentLength": 500000,
+            "ContentType": "image/webp",
+        }
+
+        with (
+            patch.dict(os.environ, self.env),
+            patch("app.r2_presign.r2_client", return_value=r2),
+        ):
+            response = self.post(token)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["verified"])
+        self.assertEqual(response.json()["kind"], "cover")
+        self.assertEqual(response.json()["content_type"], "image/webp")
+
+        r2.head_object.assert_called_once_with(
+            Bucket="test-bucket",
+            Key=key,
+        )
+
+    def test_rejects_invalid_cover_extension_mime_and_size(self):
+        self.client.force_login(self.producer)
+
+        casos = (
+            (
+                f"pending/{self.producer.pk}/cover/{'c' * 32}.svg",
+                500000,
+                "image/svg+xml",
+            ),
+            (
+                f"pending/{self.producer.pk}/cover/{'d' * 32}.webp",
+                500000,
+                "image/png",
+            ),
+            (
+                f"pending/{self.producer.pk}/cover/{'e' * 32}.webp",
+                MAX_BYTES["cover"] + 1,
+                "image/webp",
+            ),
+        )
+
+        with patch.dict(os.environ, self.env):
+            for key, size, mime in casos:
+                with self.subTest(key=key):
+                    payload = {
+                        "owner": self.producer.pk,
+                        "key": key,
+                        "size": size,
+                        "kind": "cover",
+                        "mime": mime,
+                    }
+                    token = signing.dumps(payload, salt=TOKEN_SALT)
+                    response = self.post(token)
+
+                    self.assertEqual(response.status_code, 400)

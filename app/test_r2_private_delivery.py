@@ -32,6 +32,7 @@ class R2PrivateDeliveryTests(SimpleTestCase):
             media_status="ready",
             storage_backend="r2",
             r2_object_key=self.clave,
+            original_filename="Mi Nuevo Beat 2026.wav",
             usuario=SimpleNamespace(user_id=11),
         )
 
@@ -71,6 +72,11 @@ class R2PrivateDeliveryTests(SimpleTestCase):
         respuesta = self.entregar()
 
         self.assertEqual(respuesta.status_code, 200)
+
+        self.assertEqual(
+            respuesta["Content-Disposition"],
+            'inline; filename="Mi Nuevo Beat 2026.wav"',
+        )
 
         self.assertEqual(
             b"".join(respuesta.streaming_content),
@@ -156,10 +162,40 @@ class R2PrivateDeliveryTests(SimpleTestCase):
 
         self.assertEqual(respuesta.status_code, 200)
 
-        self.assertTrue(
-            respuesta["Content-Disposition"].startswith(
-                "attachment;"
-            )
+        self.assertEqual(
+            respuesta["Content-Disposition"],
+            'attachment; filename="Mi Nuevo Beat 2026.wav"',
+        )
+
+        respuesta.close()
+
+    @patch(
+        "app.api_shim._puede_escuchar_completo",
+        return_value=True,
+    )
+    def test_descarga_con_nombre_unicode(self, _):
+        self.track.original_filename = "Beat ñ.wav"
+
+        respuesta = self.entregar(as_attachment=True)
+        disposicion = respuesta["Content-Disposition"]
+
+        self.assertIn("filename*=utf-8''", disposicion.lower())
+        self.assertIn("Beat%20%C3%B1.wav", disposicion)
+
+        respuesta.close()
+
+    @patch(
+        "app.api_shim._puede_escuchar_completo",
+        return_value=True,
+    )
+    def test_track_antiguo_usa_uuid_como_respaldo(self, _):
+        self.track.original_filename = ""
+
+        respuesta = self.entregar(as_attachment=True)
+
+        self.assertIn(
+            self.clave.rsplit("/", 1)[-1],
+            respuesta["Content-Disposition"],
         )
 
         respuesta.close()

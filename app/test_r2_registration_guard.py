@@ -59,6 +59,24 @@ class R2RegistrationGuardTests(unittest.TestCase):
         self.assertEqual(resultado.expected_size, 1024)
         self.assertEqual(resultado.expected_mime, MIME)
 
+    def test_conserva_nombre_original_del_token(self):
+        token = crear_token(filename="Beat Original.wav")
+
+        resultado = validate_r2_track_token(
+            upload_token=token,
+            user_id=OWNER,
+        )
+
+        self.assertEqual(
+            resultado.original_filename,
+            "Beat Original.wav",
+        )
+
+    def test_rechaza_nombre_original_con_ruta(self):
+        self.comprobar_error(
+            crear_token(filename="../Beat Original.wav")
+        )
+
     def test_rechaza_otro_productor(self):
         self.comprobar_error(
             crear_token(),
