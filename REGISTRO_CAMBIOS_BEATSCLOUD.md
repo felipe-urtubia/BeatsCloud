@@ -3013,3 +3013,61 @@ El respaldo histórico de pruebas R2 se mantuvo fuera del control de versiones m
 **Pendiente de esta etapa:** integración del commit en main, publicación en el repositorio remoto y eliminación segura de la rama de trabajo anterior.
 
 ---
+
+
+---
+
+## Cierre D9 - Metadatos musicales - 17-11-2026
+
+### Implementacion
+
+Se verifico la integracion de los metadatos musicales:
+
+- BPM (`bpm`).
+- Estado de animo (`mood`).
+- Tipo de recurso (`resource_type`).
+- Indicador de STEMS (`has_stems`).
+
+Los campos estan incorporados al modelo Track, cuentan con
+validaciones y se integran con el flujo de subida directa a Cloudflare R2.
+
+### Migraciones
+
+- 0016_usuario_nombre_artistico: aplicada.
+- 0017_track_metadata: aplicada.
+- Migraciones 0001 a 0027: aplicadas.
+- makemigrations --check --dry-run: sin cambios pendientes.
+- migrate --plan: sin operaciones pendientes.
+
+Nota: la migracion de metadatos musicales es 0017,
+ya que 0016 estaba ocupada por nombre artistico.
+
+### API y funcionamiento
+
+Se verifico manualmente:
+
+- Subida correcta de canciones.
+- Persistencia de los metadatos musicales.
+- Exposicion de BPM, mood, tipo y STEMS en el catalogo.
+- Visualizacion correcta de los valores asociados a cada cancion.
+
+### Pruebas
+
+Se ejecutaron 38 pruebas automatizadas correspondientes a:
+
+- test_d9_metadata.
+- test_r2_track_registration.
+- test_r2_upload_workflow.
+- test_r2_stems.
+
+Resultado: 38/38 pruebas aprobadas.
+Tiempo: 2.193 segundos.
+
+### Estado final
+
+D9: IMPLEMENTADO, INTEGRADO Y VERIFICADO.
+
+No se requirieron modificaciones adicionales al codigo,
+nuevas migraciones ni cambios en la infraestructura R2.
+
+---
