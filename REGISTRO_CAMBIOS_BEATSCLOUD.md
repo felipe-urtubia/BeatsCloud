@@ -2935,3 +2935,81 @@ sección no se eliminaron cuentas, canciones de prueba ni objetos de R2.
 
 **Fin de la actualización del 16-11-2026: protección financiera, propiedad
 de archivos R2 e integración y pruebas de STEMS.**
+
+
+---
+
+## Cierre de estabilización R2 y Webpay - 17-11-2026
+
+### 1. Validación de portadas R2
+
+Se ejecutaron las pruebas específicas de almacenamiento y entrega de portadas:
+
+- 117 pruebas ejecutadas.
+- 117 pruebas aprobadas.
+- Sin errores.
+- Migraciones verificadas sin cambios pendientes.
+
+### 2. Validación funcional manual
+
+Se comprobó el funcionamiento desde el servidor local:
+
+- Acceso correcto al servidor Django.
+- Visualización correcta de la portada de una canción.
+- Persistencia de la imagen después de recargar la página.
+- Actualización correcta de la portada al reemplazarla.
+
+### 3. Validación integral del proyecto
+
+Se ejecutó:
+
+`python manage.py test`
+
+Resultado:
+- 360 pruebas ejecutadas.
+- 360 pruebas aprobadas.
+- Sin errores.
+- Tiempo aproximado: 206 segundos.
+
+También se verificó:
+
+- `python manage.py check`: correcto.
+- `makemigrations --check --dry-run`: sin cambios.
+- Migraciones 0001 a 0027 aplicadas.
+- `migrate --plan`: sin operaciones pendientes.
+- `git diff --check`: correcto.
+
+### 4. Estabilización y control de versiones
+
+Se creó el siguiente commit:
+
+`ea111ab`
+
+Mensaje:
+
+`feat: finalize R2 storage and Webpay reconciliation`
+
+Rama:
+
+`feature/d8-r2-direct-upload`
+
+Resumen:
+- 48 archivos modificados o incorporados.
+- 5.341 inserciones.
+- 397 eliminaciones.
+
+El respaldo histórico de pruebas R2 se mantuvo fuera del control de versiones mediante `.git/info/exclude`, sin eliminar los archivos locales.
+
+### 5. Estado de cierre
+
+- Integración R2: implementada y probada.
+- Portadas R2: funcionamiento manual comprobado.
+- STEMS: integración y permisos comprobados.
+- Webpay: integración y pruebas de conciliación incorporadas.
+- Suite completa: 360/360 pruebas aprobadas.
+- Migraciones: actualizadas hasta 0027.
+- Commit de estabilización: creado.
+
+**Pendiente de esta etapa:** integración del commit en main, publicación en el repositorio remoto y eliminación segura de la rama de trabajo anterior.
+
+---
