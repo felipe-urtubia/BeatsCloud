@@ -43,6 +43,11 @@ def create_pending_webpay_order(
                 "Los datos del pedido no son validos."
             )
 
+    # Resolver pagos antiguos antes de bloquear un nuevo checkout. La consulta
+    # al proveedor se hace fuera de la transacción de base de datos.
+    from .webpay_reconciliation import reconcile_stale_pending_for_user
+    reconcile_stale_pending_for_user(user.pk)
+
     with transaction.atomic():
         # Serializa solicitudes de inicio del mismo usuario.
         get_user_model().objects.select_for_update().get(pk=user.pk)

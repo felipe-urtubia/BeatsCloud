@@ -83,6 +83,22 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
   const [audioBeatType, setAudioBeatType] = useState<Track['audioBeatType']>('trap');
   const [coverUrl, setCoverUrl] = useState(PRESET_COVERS[0]);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [stemsFile, setStemsFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!coverFile) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(coverFile);
+    setCoverPreviewUrl(previewUrl);
+
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [coverFile]);
 
   // Stems checkboxes
   const [hasWav, setHasWav] = useState(true);
@@ -144,6 +160,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       setAudioBeatType(trackToEdit.audioBeatType);
       setCoverUrl(trackToEdit.coverUrl);
       setCoverFile(null);
+      setStemsFile(null);
       setHasWav(trackToEdit.hasWav);
       setHasStems(trackToEdit.hasStems);
       setHasMidi(trackToEdit.hasMidi);
@@ -163,6 +180,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       setAudioBeatType('trap');
       setCoverUrl(PRESET_COVERS[0]);
       setCoverFile(null);
+      setStemsFile(null);
       setHasWav(true);
       setHasStems(true);
       setHasMidi(false);
@@ -287,6 +305,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
           duration: detectedDuration ?? undefined,
           audioFile: audioFile ?? undefined,
           coverFile: coverFile ?? undefined,
+          stemsFile: stemsFile ?? undefined,
         });
       }
 
@@ -736,6 +755,45 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
                   onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)}
                 />
               </label>
+              {configuredMode === 'hybrid' && !trackToEdit && hasStems && (
+                <label className="inline-flex items-center gap-2 px-3 py-2 mt-3 rounded-xl bg-[#0b0d13] border border-dashed border-amber-500/50 hover:border-amber-400 cursor-pointer text-xs text-zinc-300 transition-colors">
+                  <Upload className="w-4 h-4 text-amber-400" />
+                  <span>{stemsFile?.name || 'Subir STEMS (.zip, .wav o .flac)'}</span>
+                  <input
+                    type="file"
+                    accept=".zip,.wav,.flac"
+                    className="hidden"
+                    onChange={(event) => setStemsFile(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+              )}
+              {coverPreviewUrl && (
+                <div className="mt-3 flex items-start gap-3 rounded-xl border border-zinc-700 bg-[#121520] p-3">
+                  <img
+                    src={coverPreviewUrl}
+                    alt="Vista previa de la portada"
+                    className="h-24 w-24 rounded-xl object-cover border border-amber-400/40"
+                  />
+
+                  <div className="flex flex-col gap-2 min-w-0">
+                    <span className="text-xs font-semibold text-white">
+                      Vista previa de portada
+                    </span>
+
+                    <span className="text-xs text-zinc-400 break-all">
+                      {coverFile?.name}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setCoverFile(null)}
+                      className="text-xs text-red-400 hover:text-red-300 text-left"
+                    >
+                      Quitar imagen
+                    </button>
+                  </div>
+                </div>
+              )}
               {configuredMode !== 'hybrid' && (
                 <div className="flex items-center gap-2 overflow-x-auto pt-3 pb-2 scrollbar-none">
                   {PRESET_COVERS.map((url, i) => (

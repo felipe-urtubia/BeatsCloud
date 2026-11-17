@@ -97,6 +97,22 @@ class R2UploadHTTPTests(TestCase):
             **argumentos,
         )
 
+    def crear_token_portada(self):
+        return signing.dumps(
+            {
+                "owner": self.user.pk,
+                "key": (
+                    f"pending/{self.user.pk}/cover/"
+                    + ("c" * 32)
+                    + ".jpg"
+                ),
+                "size": 500000,
+                "kind": "cover",
+                "mime": sorted(ALLOWED["cover"][".jpg"])[0],
+            },
+            salt=TOKEN_SALT,
+        )
+
     def test_desactivado_no_ejecuta_workflow(self):
         with (
             patch.dict(
@@ -216,6 +232,29 @@ class R2UploadHTTPTests(TestCase):
         )
         crear_cliente.assert_not_called()
 
+    def test_token_portada_invalido_no_conecta_r2(self):
+        datos = dict(self.datos)
+        datos["cover_upload_token"] = "token-invalido"
+
+        with (
+            patch.dict(
+                os.environ,
+                {"R2_UPLOADS_ENABLED": "true"},
+            ),
+            patch(
+                "app.r2_upload_http.r2_client"
+            ) as crear_cliente,
+        ):
+            respuesta = self.publicar(
+                datos=datos
+            )
+
+        self.assertEqual(
+            respuesta.status_code,
+            400,
+        )
+        crear_cliente.assert_not_called()
+
     def test_bucket_ausente_rechazado(self):
         with (
             patch.dict(
@@ -279,6 +318,44 @@ class R2UploadHTTPTests(TestCase):
         )
 
         ejecutar.assert_called_once()
+
+    def test_token_portada_valido_se_envia_al_workflow(self):
+        token_portada = self.crear_token_portada()
+        datos = dict(self.datos)
+        datos["cover_upload_token"] = token_portada
+
+        cancion = Mock()
+        cancion.pk = 78
+
+        with (
+            patch.dict(
+                os.environ,
+                {"R2_UPLOADS_ENABLED": "true"},
+            ),
+            patch(
+                "app.r2_upload_http.r2_configuration",
+                return_value={
+                    "R2_BUCKET_NAME": "beatcloud-media",
+                },
+            ),
+            patch(
+                "app.r2_upload_http.r2_client",
+                return_value=object(),
+            ),
+            patch(
+                "app.r2_upload_http.complete_r2_track_upload",
+                return_value=cancion,
+            ) as ejecutar,
+        ):
+            respuesta = self.publicar(
+                datos=datos
+            )
+
+        self.assertEqual(respuesta.status_code, 201)
+        self.assertEqual(
+            ejecutar.call_args.kwargs["cover_upload_token"],
+            token_portada,
+        )
 
     def test_registro_duplicado_regresa_409(self):
         with (

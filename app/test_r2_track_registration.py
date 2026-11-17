@@ -1,14 +1,19 @@
 import subprocess
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from app.models import Track, Usuario, Genero_Musical
 from app.r2_claim import R2UploadClaim
-from app.r2_registration_prepare import R2RegistrationDraft
+from app.r2_registration_prepare import (
+    R2RegistrationDraft,
+    R2CoverDraft,
+)
 from app.r2_track_registration import (
     R2TrackRegistrationError,
     register_prepared_r2_track,
@@ -18,6 +23,19 @@ from app.r2_track_registration import (
 class R2TrackRegistrationTests(TestCase):
 
     def setUp(self):
+        super().setUp()
+
+        self._media_tmp = tempfile.TemporaryDirectory(
+            prefix='beatcloud-r2-tests-'
+        )
+        self.addCleanup(self._media_tmp.cleanup)
+
+        self._media_settings = override_settings(
+            MEDIA_ROOT=self._media_tmp.name
+        )
+        self._media_settings.enable()
+        self.addCleanup(self._media_settings.disable)
+
         self.user = get_user_model().objects.create_user(
             username="productor_registro_integrado_r2",
         )
@@ -92,6 +110,7 @@ class R2TrackRegistrationTests(TestCase):
             expected_size=16044,
             expected_mime="audio/wav",
             preview_path=self.origen,
+            original_filename="Beat Original.wav",
         )
 
     def registrar(self, **cambios):
@@ -118,9 +137,15 @@ class R2TrackRegistrationTests(TestCase):
         self.assertEqual(cancion.media_status, "ready")
         self.assertEqual(cancion.track.name, "")
         self.assertEqual(
+            cancion.original_filename,
+            "Beat Original.wav",
+        )
+        self.assertEqual(
             cancion.r2_object_key,
             self.draft.private_key,
         )
+
+        self.assertEqual(cancion.r2_cover_key, "")
 
         self.assertTrue(cancion.preview.name.startswith("previews/"))
         self.assertTrue(cancion.preview.storage.exists(
@@ -199,3 +224,89 @@ class R2TrackRegistrationTests(TestCase):
         )
 
         self.assertEqual(previews, [])
+
+    def crear_cover_draft(
+        self,
+        owner=None,
+        pending_key=None,
+        private_key=None,
+        expected_size=500000,
+        expected_mime="image/jpeg",
+    ):
+        owner = self.user.pk if owner is None else owner
+
+        return R2CoverDraft(
+            owner=owner,
+            pending_key=(
+                pending_key
+                or f"pending/{owner}/cover/" + "c" * 32 + ".jpg"
+            ),
+            private_key=(
+                private_key
+                or f"private/{owner}/cover/" + "d" * 32 + ".jpg"
+            ),
+            expected_size=expected_size,
+            expected_mime=expected_mime,
+            original_filename="Portada.jpg",
+        )
+
+    def test_persiste_clave_de_portada_r2(self):
+        portada = self.crear_cover_draft()
+
+        cancion = self.registrar(cover_draft=portada)
+        cancion.refresh_from_db()
+
+        self.assertEqual(cancion.r2_cover_key, portada.private_key)
+        self.assertEqual(cancion.storage_backend, "r2")
+        self.assertEqual(cancion.media_status, "ready")
+
+    def test_rechaza_portada_de_otro_usuario(self):
+        portada = self.crear_cover_draft(owner=self.user.pk + 1)
+
+        with self.assertRaises(R2TrackRegistrationError):
+            self.registrar(cover_draft=portada)
+
+        self.assertEqual(Track.objects.count(), 0)
+
+    def test_rechaza_ruta_privada_incorrecta(self):
+        portada = self.crear_cover_draft(
+            private_key=(
+                f"private/{self.user.pk}/track/"
+                + "d" * 32 + ".jpg"
+            )
+        )
+
+        with self.assertRaises(R2TrackRegistrationError):
+            self.registrar(cover_draft=portada)
+
+        self.assertEqual(Track.objects.count(), 0)
+
+    def test_rechaza_mime_incompatible(self):
+        portada = self.crear_cover_draft(expected_mime="image/png")
+
+        with self.assertRaises(R2TrackRegistrationError):
+            self.registrar(cover_draft=portada)
+
+        self.assertEqual(Track.objects.count(), 0)
+
+    def test_rechaza_tamano_invalido(self):
+        portada = self.crear_cover_draft(expected_size=0)
+
+        with self.assertRaises(R2TrackRegistrationError):
+            self.registrar(cover_draft=portada)
+
+        self.assertEqual(Track.objects.count(), 0)
+
+    def test_no_permite_dos_portadas_simultaneas(self):
+        portada = self.crear_cover_draft()
+
+        foto = SimpleUploadedFile(
+            "portada.jpg",
+            b"contenido",
+            content_type="image/jpeg",
+        )
+
+        with self.assertRaises(R2TrackRegistrationError):
+            self.registrar(cover_draft=portada, foto=foto)
+
+        self.assertEqual(Track.objects.count(), 0)

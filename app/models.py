@@ -93,11 +93,27 @@ class Track(models.Model):
     has_watermark = models.BooleanField(default=True)
     duration = models.PositiveIntegerField(default=30)
 
+    # Conserva el nombre original del archivo subido.
+    original_filename = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
+
     # D8: datos de almacenamiento. Los tracks antiguos siguen en almacenamiento local.
     storage_backend = models.CharField(
         max_length=8, choices=(("local", "Local"), ("r2", "R2")), default="local"
     )
     r2_object_key = models.CharField(max_length=255, blank=True, default="")
+    # Clave de portada almacenada en Cloudflare R2.
+    r2_cover_key = models.CharField(max_length=255, blank=True, default="")
+    # ID original del propietario de los objetos privados R2.
+    # No es una FK: debe sobrevivir a la eliminacion de la cuenta.
+    r2_owner_user_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
     r2_stems_key = models.CharField(max_length=255, blank=True, default="")
     media_status = models.CharField(
         max_length=12,
@@ -245,5 +261,6 @@ class HistorialVenta(models.Model):
     fecha_venta = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Venta de '{self.track.nombre_track}' a {self.comprador.username}"
+        comprador = self.comprador.username if self.comprador_id else 'Usuario eliminado'
+        return f"Venta de '{self.track.nombre_track}' a {comprador}"
 from .r2_claim import R2UploadClaim

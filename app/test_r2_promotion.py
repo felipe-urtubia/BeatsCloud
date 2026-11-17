@@ -103,6 +103,39 @@ class R2PromotionTests(SimpleTestCase):
         )
         self.assertRegex(result["private_key"], r"^private/23/stems/[a-f0-9]{32}\.zip$")
 
+    def test_cover_jpeg_supported(self):
+        client = Mock()
+        client.head_object.side_effect = [
+            {
+                "ContentLength": 500000,
+                "ContentType": "image/jpeg",
+                "ETag": '"one"',
+            },
+            {
+                "ContentLength": 500000,
+                "ContentType": "image/jpeg",
+                "ETag": '"two"',
+            },
+        ]
+
+        result = promote_pending_object(
+            client=client,
+            bucket="test-bucket",
+            owner=self.owner,
+            kind="cover",
+            pending_key=f"pending/{self.owner}/cover/" + "c" * 32 + ".jpg",
+            expected_size=500000,
+            expected_mime="image/jpeg",
+        )
+
+        self.assertRegex(
+            result["private_key"],
+            r"^private/23/cover/[a-f0-9]{32}\.jpg$",
+        )
+        self.assertEqual(result["kind"], "cover")
+        self.assertEqual(client.head_object.call_count, 2)
+
+
     def test_invalid_declared_values_prevent_cloud_calls(self):
         for change in (
             {"expected_size": True},

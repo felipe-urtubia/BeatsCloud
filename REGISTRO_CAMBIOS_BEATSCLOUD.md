@@ -2063,3 +2063,875 @@ Registrar los avances de la implementación del almacenamiento privado de archiv
 - Se publicó el commit `97bd7ec` en la rama `main`.
 - Descripción del commit: `feat(r2): integra almacenamiento privado de audio en Cloudflare R2`.
 - Este registro documenta los avances backend y deja constancia de que la integración frontend y las pruebas de extremo a extremo siguen pendientes.
+
+<!-- AMPLIACION_BEATSCLOUD_2026_11_12_15 -->
+
+---
+
+# Ampliación del registro — 12 al 15 de noviembre de 2026
+
+> Esta sección se agrega al final del registro existente. No reemplaza ni modifica las anotaciones anteriores. Se documentan los cambios y verificaciones que quedaron respaldados en las conversaciones y salidas de comandos revisadas.
+
+## 12-11-2026 — R2: conservación del nombre original del audio
+
+- Se reforzó la validación de `original_filename` en `app/r2_presign.py`, rechazando caracteres de control y nombres no válidos.
+- Se incorporó el uso del nombre original validado en `app/r2_private_delivery.py` para la reproducción y descarga de archivos almacenados en R2.
+- La respuesta de entrega utiliza `Content-Disposition` seguro mediante `content_disposition_header`.
+- Para tracks antiguos que no tienen `original_filename` válido, se conserva la compatibilidad utilizando el nombre derivado de la clave del objeto R2.
+- Se ampliaron las pruebas de `app/test_r2_private_delivery.py` para comprobar el nombre original tanto en reproducción (`inline`) como en descarga (`attachment`), además de la compatibilidad con registros anteriores.
+- Se incorporó el campo `Track.original_filename` mediante la migración `0025_track_original_filename`.
+
+### Verificaciones registradas
+
+```powershell
+python manage.py test app.test_r2_private_delivery
+python manage.py test app.test_r2_presign app.test_r2_registration_guard app.test_r2_registration_prepare app.test_r2_track_registration
+python manage.py check
+```
+
+Resultados:
+- `app.test_r2_private_delivery`: 13/13 pruebas aprobadas.
+- Pruebas de presign, guard, preparación y registro R2: 44/44 aprobadas.
+- `python manage.py check`: sin problemas.
+
+## 12-11-2026 — R2: validación del flujo de carga y limpieza de rutas
+
+- Se continuó la validación del flujo backend de R2, incluyendo recepción por bloques, comprobación del tamaño, validación real del audio mediante Mutagen y limpieza de archivos temporales.
+- En el frontend, `UploadTrackModal.tsx` delega el proceso de publicación en la función `uploadTrack` de `AppContext.tsx`.
+- En esta etapa, `has_stems` seguía funcionando como indicador de metadatos; todavía no existía un selector ni una carga independiente de archivos stems.
+- Se creó un respaldo externo de los archivos de configuración y rutas antes de aplicar los ajustes:
+  `BeatCloud_backup_20261112_194830`.
+
+### Corrección de rutas Django y cierre de sesión
+
+- Se consolidó el registro de las rutas R2: `r2_presign_upload`, `r2_confirm_upload` y `r2_finalize_upload`.
+- Se retiraron las rutas R2 duplicadas de `app/urls.py`, manteniendo allí la ruta de finalización; las rutas de presign y confirmación quedan centralizadas en `api_shim`.
+- Se estandarizaron los nombres de las rutas de presign y confirmación en `app/api_shim.py`.
+- Se eliminó la ruta antigua `/logout/` y una ruta duplicada de cierre de sesión que apuntaba a `app_logout`.
+- En `app/templates/base.html`, el cierre de sesión pasó de un enlace GET a un formulario POST con token CSRF.
+- Se verificaron las rutas de logout de Django y React, las tres rutas R2, la ausencia de rutas duplicadas y la eliminación de `/logout/`.
+
+### Verificaciones registradas
+
+```powershell
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test --verbosity 1
+cd frontend\client
+npm run test
+npm run build
+```
+
+Resultados:
+- Django: 299/299 pruebas aprobadas.
+- Frontend: 23/23 pruebas aprobadas.
+- `makemigrations --check --dry-run`: `No changes detected`.
+- `python manage.py check`: sin problemas.
+- Compilación TypeScript y build Vite: correctos; 1926 módulos transformados.
+
+## 13-11-2026 — Conciliación segura de órdenes Webpay
+
+- Se incorporó `app/webpay_reconciliation.py` para consultar el estado de órdenes pendientes mediante el servicio de estado de Transbank.
+- El servicio de conciliación identifica la orden y contrasta la respuesta del proveedor con los datos locales antes de actualizar el estado financiero.
+- La conciliación no entrega canciones ni activa membresías por sí misma. Una autorización que no tenga entrega confirmada debe permanecer pendiente de revisión, sin generar una segunda entrega.
+- Se integró la conciliación de órdenes pendientes antiguas con las protecciones de inicio de pago de `app/webpay_checkout_guard.py`.
+- Se reforzaron los controles del retorno Webpay en Django para comprobar la orden, el estado de autorización, el monto y el `session_id`.
+- El procesamiento del carrito utiliza el pedido original guardado en `cart_snapshot`, no el contenido que el usuario tenga actualmente en el carrito.
+- Se utilizaron bloqueos transaccionales (`transaction.atomic()` y `select_for_update()`) para evitar entregas concurrentes o duplicadas.
+- Las órdenes archivadas para revisión manual permanecen fuera del flujo automático de entrega.
+
+### Estado de las órdenes revisadas
+
+- Orden local ID `54`: estado `PENDING`, con token Webpay, sin entrega registrada y sin archivo de revisión. Quedó pendiente de consulta/conciliación con Transbank; no se debe asumir que está cancelada ni entregada.
+- Orden local ID `46`: estado `PENDING`, sin token guardado y archivada para revisión. Se conserva archivada y no debe procesarse automáticamente.
+- La inspección de estas órdenes no constituye un cobro nuevo ni una confirmación de entrega.
+
+> No se registra aquí un resultado de suite completa para esta modificación porque la salida revisada no aporta un conteo final verificable de pruebas.
+
+## 14-11-2026 — Backend R2: almacenamiento de portadas
+
+- Se agregó el campo `Track.r2_cover_key` para asociar una portada privada almacenada en Cloudflare R2.
+- Se creó la migración `0026_track_r2_cover_key`, dependiente de `0025_track_original_filename`.
+- Se desarrollaron las validaciones del token firmado de carga de portada, la preparación/promoción del objeto desde la ruta pendiente hacia la clave privada y los controles de propiedad de la clave.
+- Se incorporó la entrega de portadas privadas mediante Django, sin exponer al frontend la clave interna ni la URL del bucket.
+- Se preparó el flujo de actualización de portada para validar el token, promover la nueva portada y limpiar la anterior después de guardar correctamente el cambio.
+- Se agregaron pruebas específicas para la validación del token, preparación, entrega y actualización de portadas R2.
+- En el PASO 46 se verificó la compilación y se aprobaron 41/41 pruebas, incluyendo promoción y validación de portadas.
+- El PASO 47 integró el flujo backend en cuatro archivos y obtuvo 56/56 pruebas aprobadas.
+- El PASO 47.1 generó `PASO47_R2_WORKFLOW_SOURCE.txt` como extracción de fuentes de solo lectura; ese paso no modificó archivos.
+- Al cierre de esta etapa, la integración del flujo de portadas en el frontend React todavía estaba pendiente.
+
+## 15-11-2026 — Integración de portadas R2 en React
+
+### Publicación de tracks
+
+- Se conectó el flujo de portada opcional de `UploadTrackModal.tsx` con la API R2 de Django.
+- El frontend solicita una URL firmada para `kind: 'cover'`, sube el archivo directamente a Cloudflare R2 y luego confirma la recepción mediante Django.
+- Se validan las extensiones JPG, JPEG, PNG y WEBP, la correspondencia entre extensión y MIME, y un tamaño máximo de 10 MB.
+- La publicación solo continúa si Django confirma que el objeto recibido corresponde al tipo, tamaño y MIME esperados.
+- El token de carga de portada (`cover_upload_token`) se entrega al proceso de finalización del track junto con los metadatos.
+- Se mantuvo el flujo de carga de audio separado del de portada: ambos utilizan presign, transferencia directa a R2 y confirmación en Django.
+
+### Edición de tracks
+
+- Se integró en `AppContext.tsx` la carga directa de una nueva portada R2 durante la edición de un track.
+- La edición solicita presign, sube el archivo directamente a R2, confirma la carga y envía `cover_upload_token` a `DjangoApi.updateTrack`.
+- En `app/api_shim.py` se incorporó la entrega de la portada mediante `GET /api/track/<track_id>/cover/`.
+- El serializador `ser_track()` devuelve esa ruta en el campo `foto` cuando el track tiene `r2_cover_key`; no expone la clave privada de R2.
+- La actualización valida el token y la propiedad de la clave. La portada anterior se limpia después de guardar la nueva; si falla el guardado, se intenta limpiar el objeto nuevo para evitar dejarlo abandonado.
+- Se incorporaron los módulos `app/r2_cover_delivery.py` y `app/r2_cover_bridge.py`, además de pruebas para entrega, guard, preparación y actualización de portadas.
+- El parche PASO 59.10 modificó `app/api_shim.py` y `frontend/client/src/context/AppContext.tsx`, y creó los módulos y pruebas nuevos correspondientes.
+- La aplicación del parche no ejecutó migraciones ni modificó canciones u objetos R2 existentes.
+
+### Vista previa de portada en el formulario
+
+- Se agregó la vista previa de la imagen seleccionada en el formulario de publicación.
+- Se corrigió la disposición del texto/etiqueta y la vista previa mediante el ajuste PASO 59.37, para que ambos elementos no se superpongan ni queden asociados visualmente de forma incorrecta.
+- La selección de portada, la vista previa, el flujo de carga R2, la respuesta de Django y la visualización en el catálogo React se comprobaron manualmente en el navegador.
+- Se verificó que el catálogo respondiera HTTP 200 con 10 resultados y que el campo `foto` apuntara al endpoint Django de portada R2.
+
+### Ajuste visual del detalle de track y texto de compra
+
+- En `frontend/client/src/components/TrackDetailModal.tsx` se eliminó únicamente la frase:
+  `Django confirmará el pago antes de registrar la compra.`
+- La modificación fue exclusivamente de texto visible. No se alteró la lógica de carrito, checkout, Webpay, confirmación ni registro de pagos.
+- Antes del cambio se creó el respaldo:
+  `TrackDetailModal.tsx.bak_remove_django_payment_20261115_195405`.
+- Se utilizó el script temporal `PASO_ELIMINAR_TEXTO_DJANGO.py` para realizar una sustitución única y comprobar que la frase ya no apareciera. El script se eliminó después de ejecutarse.
+- Se comprobó que el respaldo del componente permaneciera disponible y que la lógica de pagos no fuera modificada por este ajuste.
+
+### Verificación de compilación
+
+```powershell
+cd frontend\client
+npm run build
+```
+
+Resultado:
+- `tsc -b` finalizó correctamente.
+- Vite 6.4.5 transformó 1926 módulos.
+- Build de producción completado correctamente en 2.68 segundos.
+- No se documenta en este paso una ejecución adicional de la suite completa de pruebas frontend o backend.
+
+## 15-11-2026 — Inventario de archivos temporales y respaldos
+
+- Se realizó una inspección de solo lectura de los archivos locales candidatos a limpieza, distinguiendo respaldos, scripts/informes PASO y archivos temporales.
+- Se consultó `git status --short --untracked-files=all` para identificar archivos modificados y no rastreados.
+- El inventario detectó múltiples respaldos `.bak`, carpetas `backups`, archivos de diagnóstico y fuentes `PASO34` a `PASO59`, además de archivos de contexto R2 y `r2-cors.json`.
+- Entre los archivos identificados se encuentran respaldos de `app/api_shim.py`, `app/models.py`, módulos R2, pruebas R2, `UploadTrackModal.tsx`, `TrackDetailModal.tsx` y `AppContext.tsx`.
+- También se identificaron archivos de pruebas que forman parte de la cobertura automatizada y que no deben confundirse con scripts temporales.
+- Durante la ejecución del bloque de inspección apareció un error de sintaxis al ejecutar un `else` separado del bloque PowerShell correspondiente. El error no ejecutó operaciones de borrado.
+- Resultado explícito de la inspección: **no se eliminó ningún archivo**.
+
+### Pendiente de limpieza
+
+- Clasificar los respaldos y scripts PASO uno por uno antes de decidir su eliminación.
+- Mantener los archivos de pruebas automatizadas (`test_*.py`) y los módulos fuente que forman parte de la implementación.
+- No eliminar respaldos de archivos modificados hasta comprobar que el código actual está validado y que existe otro respaldo recuperable cuando corresponda.
+- Revisar los archivos no rastreados y el estado de Git antes de preparar el siguiente commit.
+- La limpieza del inventario queda pendiente; esta anotación no autoriza ni registra la eliminación de archivos.
+
+---
+
+**Fin de la ampliación del registro al 15-11-2026.**
+
+<!-- AMPLIACION_COMPLEMENTARIA_R2_PASOS_2026_11_15 -->
+
+---
+
+# Ampliación complementaria — hitos R2 de los chats anteriores y anteanterior
+
+> Esta ampliación complementa la sección anterior. Se incorpora al final del mismo registro y conserva íntegro todo el contenido previo. Los resultados de pruebas se anotan como ejecuciones separadas cuando corresponden a comandos o conjuntos distintos. Los datos reconstruidos desde mensajes de conversación se identifican como tales cuando no se conservó el log completo.
+
+## 11–12-11-2026 — Primera integración de carga directa a Cloudflare R2
+
+- Se aplicó la integración inicial mediante el script `BeatCloud_R2_Integracion_Desde_Descargas.ps1`.
+- Se creó el respaldo previo:
+  `backups/r2_integracion_20261112_010123`.
+- Los archivos que quedaron registrados como modificados en esta primera integración fueron:
+  - `app/models.py`
+  - `app/metadata_validation.py`
+  - `app/r2_upload_http.py`
+  - `app/r2_upload_workflow.py`
+  - `app/r2_track_registration.py`
+  - `app/urls.py`
+  - `frontend/client/src/context/AppContext.tsx`
+  - `frontend/client/src/api/django.service.ts`
+- La integración conectó la preparación de la carga, la emisión de URL firmada, la transferencia directa a R2, la confirmación del objeto y la finalización/registro del track.
+- Se incorporaron validaciones de metadatos, autorización del productor, reserva de la carga y preparación del audio antes de su publicación.
+- Se mantuvo la separación entre el objeto temporal pendiente y el objeto privado definitivo.
+- En esta etapa se reportaron 26/26 pruebas R2 aprobadas y compilación del frontend correcta.
+- Los puntos que seguían pendientes al terminar esa primera etapa eran la revisión de CORS y la prueba real de extremo a extremo. Esos puntos se verificaron posteriormente y se documentan más abajo.
+
+## 12–13-11-2026 — Resultados intermedios de pruebas R2
+
+Los siguientes resultados corresponden a ejecuciones independientes y no deben sumarse como si fueran una única suite:
+
+| Fecha / etapa | Resultado | Alcance documentado |
+|---|---:|---|
+| Integración inicial | 26/26 | Pruebas R2 reportadas tras aplicar el primer script de integración |
+| Regresión R2 posterior | 39/39 | Resultado comunicado durante la conversación; el comando completo no quedó disponible en los archivos recuperados |
+| Entrega privada y nombre original | 13/13 | `app.test_r2_private_delivery` |
+| Presign, guard, preparación y registro | 44/44 | `app.test_r2_presign`, `app.test_r2_registration_guard`, `app.test_r2_registration_prepare` y `app.test_r2_track_registration` |
+| Verificación agrupada | 57/57 | 13/13 más 44/44, registrados como dos grupos de pruebas |
+| Regresión de claims y rutas | 58/58 | Ejecución registrada en `Texto pegado(20261113-213241).txt` |
+| Regresión R2 ampliada | 74/74 | Ejecución registrada en `Texto pegado(20261113-233736).txt` |
+
+### Detalle de la regresión 58/58
+
+- La salida conservada confirma que se ejecutaron pruebas de ciclo de vida y servicio de claims, además de las pruebas de rutas R2.
+- Se verificaron, entre otros aspectos, que una reserva no se procese dos veces, que no se reinicie un procesamiento ya iniciado, que una clave de otro productor no pueda reutilizarse y que las rutas mantengan la protección CSRF.
+- Resultado de la ejecución: `Ran 58 tests ... OK`.
+
+### Detalle de la regresión 74/74
+
+El comando conservado fue:
+
+```powershell
+python manage.py test `
+    app.test_r2_presign `
+    app.test_r2_upload_http `
+    app.test_r2_upload_workflow `
+    app.test_r2_track_registration `
+    app.test_r2_registration_guard `
+    app.test_r2_registration_prepare `
+    app.test_r2_registration_cleanup `
+    app.test_r2_route_wiring `
+    --verbosity 2
+```
+
+- Resultado: 74 pruebas ejecutadas y aprobadas.
+- La salida confirmó que se aplicaron las migraciones en la base de datos temporal de pruebas, incluyendo `0023_track_r2_fields`, `0024_r2uploadclaim`, `0025_track_original_filename` y `0026_track_r2_cover_key`.
+- El sistema de comprobación de Django no identificó problemas.
+- Esta ejecución de 74/74 es distinta del resultado 72/72 comunicado posteriormente en otra conversación; ambos se conservan como resultados independientes y no se sustituyen entre sí.
+
+## 13-11-2026 — Prueba real de transferencia directa a R2
+
+- Se verificó la configuración CORS del bucket para el origen de desarrollo `http://localhost:3000`.
+- La configuración comprobada permitía el método `PUT`, el encabezado `Content-Type`, exponía `ETag` y tenía `MaxAgeSeconds` de 3600.
+- Se ejecutó una prueba real de carga del archivo:
+  `Mi_Nuevo_Beat_Rock_2026.wav`.
+- Tamaño del archivo: 23.040.044 bytes.
+- La transferencia directa desde el navegador a Cloudflare R2 respondió HTTP 200.
+- R2 devolvió un `ETag`.
+- Posteriormente, la confirmación enviada a Django respondió HTTP 200 con:
+  - `verified: true`
+  - `kind: track`
+  - `content_type: audio/wav`
+- Esta prueba confirmó que la transferencia directa y la verificación del objeto pendiente funcionaban desde el origen de desarrollo.
+- La prueba automatizada del endpoint de finalización también contiene el caso `test_solicitud_valida_regresa_201`, que comprueba la respuesta HTTP 201 al registrar una solicitud válida. Este 201 corresponde a la prueba automatizada del endpoint; no se debe confundir con los HTTP 200 de la transferencia y confirmación reales.
+
+### Prueba aislada posterior de preparación
+
+- Se preparó una comprobación aislada para validar autorización, propietario, nombre original, tamaño, MIME, existencia del objeto pendiente, preparación de copia privada y generación de preview.
+- El archivo de prueba fue `_prueba_aislada_r2.py`, eliminado al terminar el intento.
+- La ejecución recuperada no terminó correctamente: el token leído desde el portapapeles llegó contaminado con texto adicional y Django lanzó `BadSignature`.
+- Por tanto, esa ejecución no debe registrarse como una prueba aislada aprobada ni como una publicación completada.
+- La prueba real anterior de PUT y confirmación sí quedó confirmada por separado.
+
+## 13–14-11-2026 — Regresión y ampliación del pipeline de portadas
+
+### PASO 46 y PASO 47
+
+- El PASO 46 verificó la compilación y aprobó 41/41 pruebas relacionadas con promoción y validación de portadas.
+- El PASO 47 aplicó cambios en:
+  - `app/r2_upload_workflow.py`
+  - `app/r2_upload_http.py`
+  - `app/test_r2_upload_workflow.py`
+  - `app/test_r2_upload_http.py`
+- Se generaron respaldos `.paso47.bak` de esos cuatro archivos.
+- Se ejecutó `py_compile` sobre los cuatro módulos y la compilación Python fue correcta.
+- La batería seleccionada para el PASO 47 ejecutó 56/56 pruebas aprobadas. Incluyó registro de tracks, flujo de subida, endpoint HTTP, preparación/validación de portadas y promoción.
+- En esa etapa se dejó constancia de que no se modificaron modelos, migraciones, URLs ni el flujo de audio.
+- El archivo `PASO47_R2_WORKFLOW_SOURCE.txt` se generó posteriormente como extracción de fuentes para inspección; no fue un parche de código.
+
+### PASO 49 — Extracción de fuentes de rutas y portadas
+
+- Se generó el archivo `PASO49_R2_ROUTE_COVER_SOURCE.txt`.
+- El archivo contiene una extracción de lectura de:
+  - `frontend/client/src/api/mappers.ts`
+  - `frontend/client/src/api/types.ts`
+  - `app/urls.py`
+  - `beatcloud/urls.py`
+  - respaldos de rutas anteriores a la limpieza y de la primera integración R2
+  - referencias al campo y flujo backend de portadas R2
+- La extracción permitió comparar el mapeo de datos React, las rutas Django actuales, las rutas respaldadas y el cableado de portadas.
+- El PASO 49 fue una inspección/documentación de fuentes, no una modificación funcional del proyecto. No se registra como cambio de código ni como migración.
+
+### PASO 53 y PASO 54 — Diagnóstico de brechas y fuentes
+
+- Se generaron `PASO53_R2_COVER_PIPELINE_GAPS.txt` y `PASO54_R2_COVER_MISSING_SOURCE.txt` como archivos de inspección de brechas y extracción de fuentes.
+- Los documentos reunieron referencias a la entrega privada de audio, las rutas protegidas, el guard de autorización, el pipeline de preparación y las pruebas de portadas.
+- Estos archivos son artefactos de diagnóstico; no se deben contabilizar como módulos funcionales añadidos al proyecto.
+
+## 14-11-2026 — Integración frontend inicial de portadas R2 (PASO 55)
+
+- Se modificaron dos archivos:
+  - `frontend/client/src/api/django.service.ts`
+  - `frontend/client/src/context/AppContext.tsx`
+- Se creó el respaldo:
+  `backups/PASO55_R2_COVER_20261114_211501`.
+- Se incorporó el tipo `cover` al flujo de presign y confirmación.
+- El frontend solicita una URL firmada para la portada, realiza el `PUT` directamente a R2 y confirma el objeto con Django.
+- La confirmación verifica que el objeto sea de tipo `cover`, que el tamaño coincida y que el MIME sea el esperado.
+- El token de portada se incorpora al registro mediante `cover_upload_token`.
+- El PASO 55 no modificó el backend ni ejecutó migraciones.
+
+## 14–15-11-2026 — PASO 59: diagnóstico y verificación del flujo de portadas
+
+### PASO 59 — Diagnóstico de portadas R2
+
+- Se generó `PASO59_DIAGNOSTICO_PORTADAS_R2.txt` como extracción de contexto y fuentes del backend y frontend.
+- El diagnóstico incluyó, entre otros, los módulos de entrega privada de audio, endpoints de reproducción/descarga, serialización, contexto React y formulario de publicación.
+- La generación del diagnóstico fue de solo lectura: no modificó código, migraciones, pruebas ni objetos de Cloudflare R2.
+- Se generó también `PASO59_1_CONTEXTO_COMPLETO_R2.txt` como recopilación de contexto para continuar el trabajo. Ese paso tampoco modificó el proyecto ni ejecutó migraciones o pruebas.
+
+### PASO 59.10 — Conexión de actualización de portadas
+
+- Se aplicó el parche `PASO59_10_APLICAR_PATCH_PORTADAS.py`.
+- Se modificaron `app/api_shim.py` y `frontend/client/src/context/AppContext.tsx`.
+- Se incorporaron `app/r2_cover_delivery.py` y `app/r2_cover_bridge.py`, junto con sus pruebas correspondientes.
+- La actualización valida el token firmado, el tipo de archivo, el tamaño, el MIME y la propiedad de la clave R2.
+- La portada nueva se guarda antes de limpiar la anterior; si falla el guardado, se intenta limpiar el objeto nuevo para no dejar una carga huérfana.
+- El parche no ejecutó migraciones ni modificó canciones u objetos R2 existentes.
+
+### PASO 59.35 — Comprobación de vista previa
+
+- Se creó y ejecutó el script temporal `PASO59_35_PATCH_PREVIEW_PORTADA.py`.
+- El script detectó que `coverPreviewUrl` ya existía y terminó indicando: `La vista previa ya existe. No se realizaron cambios.`
+- Por ello, el PASO 59.35 no debe anotarse como una modificación efectiva de `UploadTrackModal.tsx`.
+- A continuación se ejecutó `npm run build`, que finalizó correctamente: TypeScript y Vite completaron la compilación de producción.
+
+### PASO 59.37 — Corrección de la estructura del selector de portada
+
+- Se corrigió el cierre y la separación del `label` del selector de archivo respecto del bloque de vista previa en `frontend/client/src/components/UploadTrackModal.tsx`.
+- Se creó un respaldo con sufijo `.bak_paso59_37_20261115_194245`.
+- Se mantuvo intacta la lógica de carga R2 y publicación.
+- Se volvió a ejecutar `npm run build`; TypeScript y Vite finalizaron correctamente y se transformaron 1926 módulos.
+
+## 15-11-2026 — Resultados adicionales de pruebas y verificación manual de portadas
+
+### Resultados comunicados en la conversación
+
+- Se reportó una regresión R2 de 72/72 pruebas aprobadas, junto con una comprobación seleccionada de 3/3.
+- El comando completo y el listado de casos de esa ejecución no quedaron preservados en el log recuperado; por ello se registra como resultado comunicado en conversación.
+- En otra ejecución se reportaron 218/218 pruebas de la batería R2 aprobadas en 42,637 segundos.
+- También se reportó la suite completa de Django con 350/350 pruebas aprobadas en 97,769 segundos.
+- `python manage.py makemigrations --check --dry-run` devolvió `No changes detected`.
+- Estos resultados son ejecuciones distintas de las regresiones 58/58 y 74/74 documentadas anteriormente.
+
+### Publicación y comprobación de portadas reales
+
+- Se utilizó el productor temporal `r2_test_productor` para validar la publicación de tracks con almacenamiento R2.
+- El productor tenía `user_id=25`, perfil de productor con ID 20 y cuenta activa.
+- Se publicaron y verificaron dos tracks de prueba:
+  - Track ID 12: `PRUEBA PORTADA R2`.
+  - Track ID 13: `campo`.
+- Ambos tracks quedaron con `media_status=ready`, audio en R2 y clave de portada privada asociada al propietario.
+- Se comprobó que los objetos de portada existían en el bucket privado `beatcloud-media` y que sus metadatos indicaban `image/jpeg`.
+- Se verificó el endpoint `GET /api/track/12/cover/`:
+  - HTTP 200.
+  - `Content-Type: image/jpeg`.
+  - `Cache-Control: private, no-store`.
+  - `Content-Disposition: inline`.
+  - `X-Content-Type-Options: nosniff`.
+  - 8.571 bytes recibidos y firma JPEG válida.
+- La misma ruta fue probada a través del proxy Vite:
+  `http://127.0.0.1:3000/api/track/12/cover/`.
+  Respondió HTTP 200, `image/jpeg`, 8.571 bytes.
+- Se verificó que `GET /api/catalogo/` incluyera el track 12 y devolviera `foto: /api/track/12/cover/`.
+- Para el track 13, el endpoint de portada respondió HTTP 200, `image/jpeg` y 53.545 bytes.
+- La portada del track 13 se abrió directamente en el navegador y se visualizó correctamente.
+- Esta verificación confirmó la cadena de entrega: objeto privado en R2, endpoint Django, proxy de Vite, serializador del catálogo y visualización en navegador.
+
+## Aclaraciones para mantener la trazabilidad de las pruebas
+
+- Los resultados 26/26, 39/39, 57/57, 58/58, 72/72, 74/74, 218/218 y 350/350 corresponden a ejecuciones o grupos de pruebas diferentes; no se suman entre sí.
+- El resultado 57/57 corresponde a los grupos 13/13 y 44/44 documentados en el apartado de entrega privada y validación de registro.
+- El resultado 74/74 cuenta con un comando y una salida completos conservados.
+- El resultado 72/72 se conserva como dato comunicado en conversación porque no se recuperó su log íntegro; no reemplaza el resultado 74/74.
+- La prueba real de PUT y confirmación R2 respondió HTTP 200. El HTTP 201 mencionado en el test automatizado corresponde a la respuesta esperada del endpoint de finalización, no a la transferencia PUT.
+- Los diagnósticos y extracciones de fuentes PASO 47.1, PASO 49, PASO 53, PASO 54, PASO 59 y PASO 59.1 son documentación/inspección; no deben contabilizarse como cambios funcionales por sí solos.
+
+---
+
+**Fin de la ampliación complementaria de hitos R2 al 15-11-2026.**
+
+------------------------------------------------------------------------
+
+# 15-11-2026 --- Decisión y procedimiento de limpieza de archivos auxiliares
+
+## Objetivo
+
+Se decidió mantener `REGISTRO_CAMBIOS_BEATSCLOUD.md` como el registro
+histórico único de los cambios de BeatsCloud. Los pasos ya ejecutados
+deben permanecer documentados en este archivo, pero no es necesario
+conservar indefinidamente todos los scripts, diagnósticos, extracciones
+de fuentes y archivos temporales que se utilizaron para aplicarlos o
+verificarlos.
+
+La limpieza física de esos auxiliares se realizará después de
+identificar cada archivo y comprobar que no forma parte de la
+aplicación, de las pruebas automatizadas ni de una configuración
+necesaria.
+
+## Criterios para clasificar los archivos
+
+### Candidatos a eliminación, previa comprobación
+
+-   Scripts puntuales `PASO*.py` que ya se ejecutaron y cuya función
+    quedó completada.
+-   Scripts PowerShell `PASO*.ps1` de aplicación única, siempre que no
+    sean herramientas reutilizables del proyecto.
+-   Extracciones de fuentes y diagnósticos `PASO*.txt` que solo
+    sirvieron para inspección y cuyo contenido relevante ya quedó
+    documentado.
+-   Archivos temporales de prueba y salidas intermedias que no sean
+    entradas de otras pruebas o procesos.
+-   Copias de trabajo duplicadas que puedan recuperarse desde Git o
+    desde un respaldo verificado.
+
+### Archivos que deben conservarse
+
+-   Código funcional de Django y React, incluidos los módulos
+    `app/r2_*.py` que participan en la integración R2.
+-   Pruebas automatizadas, incluidos `app/test_*.py` y los módulos de
+    pruebas R2.
+-   Migraciones de Django.
+-   Configuración y dependencias necesarias para ejecutar el proyecto.
+-   `README.md`, `.env.example` y este registro histórico.
+-   Configuraciones de R2, como `r2-cors.json`, hasta comprobar que su
+    contenido está aplicado, respaldado o ya no es necesario.
+-   Archivos que estén siendo utilizados por otros scripts, pruebas o
+    procesos del proyecto.
+
+### Respaldos `.bak` y carpetas `backups`
+
+No se eliminarán de forma masiva. Cada respaldo se revisará junto con el
+archivo actual y el estado de Git. Se conservará al menos una vía de
+recuperación verificable para los cambios recientes hasta confirmar que
+el código está estable y respaldado.
+
+## Procedimiento acordado
+
+1.  Obtener un inventario actualizado con rutas completas y estado de
+    Git (`git status --short --untracked-files=all`).
+2.  Clasificar los archivos como código funcional, pruebas, migraciones,
+    configuración, respaldo o auxiliar temporal.
+3.  Comprobar si cada candidato está rastreado por Git, si contiene
+    cambios únicos y si otro archivo depende de él.
+4.  Preparar una lista explícita de archivos que pueden eliminarse; no
+    utilizar patrones generales de borrado sobre todos los archivos
+    `PASO*` o `.bak`.
+5.  Eliminar únicamente los auxiliares aprobados y ya documentados.
+6.  Ejecutar las verificaciones correspondientes: pruebas Django,
+    `python manage.py check`, comprobación de migraciones y compilación
+    del frontend.
+7.  Revisar nuevamente `git status` y `git diff` para confirmar que no
+    se hayan eliminado código, pruebas, migraciones ni configuraciones
+    necesarias.
+
+## Estado de la limpieza al 15-11-2026
+
+-   La decisión de consolidar la documentación en un solo registro quedó
+    establecida.
+-   La inspección previa identificó scripts PASO, diagnósticos,
+    respaldos y archivos temporales como candidatos para revisión.
+-   No se ha realizado una eliminación general de esos archivos.
+-   El script `PASO_ELIMINAR_TEXTO_DJANGO.py` sí fue eliminado
+    expresamente después de ejecutarse.
+-   `PASO59_35_PATCH_PREVIEW_PORTADA.py` se ejecutó, detectó que la
+    vista previa ya existía y no modificó el componente. Su eliminación
+    física no quedó confirmada en la salida conservada.
+-   `PASO59_37_CORREGIR_LABEL_PORTADA.py` se ejecutó y corrigió la
+    estructura del selector. Su eliminación física tampoco quedó
+    confirmada en la salida conservada.
+-   La existencia actual de esos dos scripts y la de los demás
+    auxiliares deberá comprobarse mediante un inventario nuevo antes de
+    preparar el comando de limpieza.
+-   No se registra en esta etapa la eliminación de módulos funcionales,
+    pruebas automatizadas, migraciones, canciones de prueba, registros
+    de PostgreSQL ni objetos de Cloudflare R2.
+
+**Regla de trazabilidad:** los pasos completados se conservan en este
+registro como historial; borrar un script auxiliar no significa borrar
+su documentación ni revertir el cambio funcional que aplicó.
+
+## 15-11-2026 — Limpieza de archivos auxiliares PASO
+
+- Se realizó una simulación previa con PowerShell mediante -WhatIf.
+- Se identificaron 33 archivos auxiliares correspondientes a extracciones de código, diagnósticos y scripts de aplicación puntual.
+- Se registra su eliminación porque los avances funcionales y las verificaciones correspondientes están documentados en este registro.
+- No se eliminaron módulos fuente, migraciones, pruebas automatizadas ni configuraciones funcionales.
+
+### Archivos retirados
+
+- `PASO34_R2_CONTEXT.txt`
+- `PASO35_R2_MISSING.txt`
+- `PASO36_R2_PIPELINE.txt`
+- `PASO37_R2_COVER_CONTEXT.txt`
+- `PASO38_R2_COVER_IMPLEMENTATION_CONTEXT.txt`
+- `PASO39_R2_COVER_NEXT.txt`
+- `PASO40_R2_COVER_ROUTES_CLAIMS.txt`
+- `PASO41_R2_COVER_FLOW_SOURCE.txt`
+- `PASO42_R2_COVER_MODEL_CONFIG.txt`
+- `PASO47_R2_WORKFLOW_SOURCE.txt`
+- `PASO48_FRONTEND_SOURCE.txt`
+- `PASO49_R2_ROUTE_COVER_SOURCE.txt`
+- `PASO50_R2_COVER_FLOW_SOURCE.txt`
+- `PASO51_R2_COVER_DELIVERY_SOURCE.txt`
+- `PASO52_R2_COVER_FULL_SOURCE.txt`
+- `PASO53_R2_COVER_PIPELINE_GAPS.txt`
+- `PASO54_R2_COVER_MISSING_SOURCE.txt`
+- `PASO55_COVER_CURRENT_SOURCE.txt`
+- `PASO56_COVER_DELIVERY_AUDIT.txt`
+- `PASO57_CODIGO_PORTADAS_R2.txt`
+- `PASO58_PORTADAS_COMPLETO.txt`
+- `PASO59_1_CONTEXTO_COMPLETO_R2.txt`
+- `PASO59_2_ARCHIVOS_R2.txt`
+- `PASO59_3_BACKEND_PORTADAS.txt`
+- `PASO59_4_FRONTEND_COMPLETO.txt`
+- `PASO59_6_FUENTES_PORTADAS.txt`
+- `PASO59_7_FUENTES_COMPLEMENTARIAS.txt`
+- `PASO59_8_DEPENDENCIAS_PORTADAS.txt`
+- `PASO59_9_ULTIMAS_FUENTES_PORTADAS.txt`
+- `PASO59_DIAGNOSTICO_PORTADAS_R2.txt`
+- `PASO59_10_APLICAR_PATCH_PORTADAS.py`
+- `PASO59_35_PATCH_PREVIEW_PORTADA.py`
+- `PASO59_37_CORREGIR_LABEL_PORTADA.py`
+
+- Resultado de limpieza: eliminacion efectiva de los 33 archivos confirmada.
+- Verificacion posterior: ninguno de los archivos de esta lista permanece en la raiz del proyecto.
+- Los cambios funcionales permanecen en sus archivos fuente.
+- No se modificaron objetos de Cloudflare R2 ni registros de canciones.
+
+## 16-11-2026 — AUDITORIA DE LIMPIEZA PASO 47 Y PASO 59.10.1
+
+- PASO 47: integracion de portadas R2 en workflow, endpoint HTTP y pruebas.
+- Se incorporo preparacion y registro de portada, validacion y limpieza compensatoria ante fallos.
+- Se mantuvo compatibilidad con el campo tradicional foto.
+- PASO 59.10.1: correccion del boundary multipart en app/test_r2_cover_update.py.
+- Ambos scripts cumplieron su funcion y ya no son necesarios para ejecutar la aplicacion.
+- Se conservaron los respaldos originales generados por ambos procedimientos.
+- No se modificaron modelos, migraciones, pagos, canciones ni objetos de R2 durante esta limpieza.
+- Se mantienen pendientes de revision los respaldos historicos y r2_integracion_contexto.txt.
+
+## 16-11-2026 — ARCHIVO HISTORICO DE CONTEXTO R2
+
+- Se verifico que r2_integracion_contexto.txt no estaba rastreado por Git.
+- Se traslado el archivo a backups/historico_contexto.
+- Se verifico la integridad de la copia mediante SHA256.
+- El archivo se conserva como referencia historica, fuera de la raiz.
+- REGISTRO_CAMBIOS_BEATSCLOUD.md permanece como registro de hitos y modificaciones.
+- No se modificaron modulos funcionales, pruebas, migraciones ni objetos R2.
+
+
+## 16-11-2026 — Retiro de 12 respaldos duplicados de Git HEAD
+
+- Se verifico individualmente cada respaldo contra su archivo original rastreado en Git.
+- Los 12 respaldos coinciden byte por byte con la version HEAD.
+- Se autoriza retirar las copias fisicas redundantes.
+- Los archivos fuente y pruebas actuales permanecen intactos.
+- Las versiones anteriores siguen siendo recuperables mediante Git.
+- No se modificaron migraciones, modelos, compras, ventas ni objetos R2.
+
+### Archivos retirados
+- `app/models.py.bak_original_filename_20261112_214307`
+- `app/r2_private_delivery.py.bak_original_filename_delivery_20261112_225419`
+- `app/r2_promotion.py.paso43.bak`
+- `app/r2_registration_guard.py.bak_original_filename_20261112_221507`
+- `app/r2_registration_prepare.py.bak_original_filename_20261112_221507`
+- `app/test_r2_private_delivery.py.bak_original_filename_delivery_20261112_225419`
+- `app/test_r2_promotion.py.paso43.bak`
+- `app/test_r2_registration_guard.py.bak_original_filename_20261112_221507`
+- `app/test_r2_registration_prepare.py.bak_original_filename_20261112_221507`
+- `app/test_r2_upload_http.py.paso47.bak`
+- `app/test_webpay_regresion.py.bak_20261112_192728`
+- `app/views.py.bak_20261112_192728`
+
+
+- Resultado: eliminacion efectiva de los 12 respaldos confirmada.
+- Verificacion posterior: ninguno permanece en su ubicacion original.
+- Los 12 archivos fuente y sus versiones actuales permanecen intactos.
+
+## 16-11-2026 — Archivo historico de 23 respaldos
+
+- Se trasladaron 23 respaldos historicos de pruebas.
+- Se conservaron las rutas relativas originales.
+- Se verifico SHA-256 antes y despues del traslado.
+- Se genero manifest_sha256.csv.
+- No se modificaron archivos funcionales.
+- No se eliminaron pruebas actuales.
+- Los respaldos permanecen disponibles para recuperacion.
+
+Ubicacion: backups\historico_pruebas\20261116
+Manifiesto: backups\historico_pruebas\20261116\manifest_sha256.csv
+
+## 16-11-2026 - Eliminacion de respaldos y temporales
+
+- Se verificaron los 23 respaldos mediante SHA256.
+- Se elimino el archivo historico y su manifiesto.
+- Se eliminaron los temporales identificados.
+- Se conservaron las pruebas activas y los archivos funcionales.
+- No se modificaron modelos, migraciones ni registros comerciales.
+
+
+---
+
+# 16-11-2026 — Protección financiera, propiedad de R2 e integración de STEMS
+
+## Protección del historial financiero durante la eliminación de cuentas
+
+Se aplicó el parche `beatcloud_parche_cierre_webpay.py` para reforzar el
+proceso de eliminación de cuentas y evitar que la eliminación de un usuario
+comprometa operaciones financieras que deben permanecer como respaldo
+histórico.
+
+### Cambios incorporados
+
+- Se reforzó la conservación de registros y transacciones financieras ya
+  finalizadas.
+- Se agregaron controles para impedir que la eliminación continúe cuando
+  existan operaciones pendientes o pagos que todavía no hayan completado su
+  entrega o cierre seguro.
+- Se reforzó la validación tanto en las vistas como en la capa API para evitar
+  que se pueda omitir la protección utilizando una ruta alternativa.
+- Se añadieron pruebas específicas para la protección de los datos
+  financieros durante la eliminación de cuentas.
+
+### Archivos relacionados
+
+```text
+beatcloud_parche_cierre_webpay.py
+app/views.py
+app/api_shim.py
+app/models.py
+app/test_account_deletion_financial.py
+```
+
+El parche indicó expresamente que no modificaba la base de datos, las
+migraciones ni la integración R2.
+
+### Verificaciones realizadas
+
+```powershell
+python manage.py check
+python manage.py test app.test_account_deletion_financial app.tests.EliminarCuentaTests
+python manage.py test app
+```
+
+Resultados registrados:
+
+```text
+System check identified no issues (0 silenced).
+15 tests: OK
+355 tests: OK
+```
+
+### Observaciones de formato pendientes en esa revisión
+
+Se ejecutó `git diff --check`. La comprobación detectó tres detalles de
+formato que quedaron pendientes de corrección:
+
+- Línea en blanco adicional al final de `app/test_r2_presign.py`.
+- Línea en blanco adicional al final de `app/test_r2_track_registration.py`.
+- Espacio en blanco al final de una línea de
+  `frontend/client/src/components/TrackDetailModal.tsx`.
+
+También aparecieron advertencias de conversión de finales de línea LF/CRLF
+en varios archivos de trabajo. Estos avisos no impidieron las pruebas, pero
+la revisión de formato no quedó completamente limpia.
+
+---
+
+## Migración de propiedad de archivos privados R2
+
+Se incorporó el campo `r2_owner_user_id` al modelo `Track` para conservar la
+identidad del usuario propietario de los objetos privados almacenados en
+Cloudflare R2.
+
+La migración aplicada fue:
+
+```text
+app/migrations/0027_track_r2_owner_user_id.py
+```
+
+La migración incluye la incorporación del campo y el proceso de backfill de
+propietarios a partir de las claves R2 existentes, según la estructura de
+almacenamiento.
+
+### Aplicación y verificación
+
+Se ejecutó:
+
+```powershell
+python manage.py migrate
+python manage.py showmigrations app
+```
+
+Resultado:
+
+```text
+Applying app.0027_track_r2_owner_user_id... OK
+```
+
+Las migraciones de `app`, desde `0001_initial` hasta
+`0027_track_r2_owner_user_id`, quedaron marcadas como aplicadas `[X]`.
+
+---
+
+## Integración de archivos STEMS con almacenamiento privado R2
+
+Se completó la integración para asociar archivos STEMS a los tracks y
+almacenarlos de forma privada en Cloudflare R2.
+
+### Funcionalidad incorporada
+
+- Se agregó el campo `r2_stems_key` al modelo `Track` para asociar el archivo
+  STEMS almacenado en R2.
+- Se incorporó el flujo de subida mediante URLs prefirmadas, confirmación y
+  finalización del registro.
+- Se admiten archivos ZIP, WAV y FLAC, con un límite configurado de hasta
+  2 GB.
+- Se validan la propiedad del track, el token de subida, el tipo MIME y el
+  tamaño del archivo antes de aceptar el registro.
+- Los STEMS se entregan mediante una ruta autenticada y protegida de Django,
+  sin exponer directamente la ubicación privada del objeto R2.
+- La interfaz permite incorporar STEMS durante la subida del track y
+  consultar/descargar el archivo desde el detalle del track cuando el usuario
+  tiene autorización.
+
+### Ruta de descarga
+
+```text
+GET /api/track/<id>/stems/
+```
+
+### Archivos backend relacionados
+
+```text
+app/r2_stems.py
+app/r2_registration_guard.py
+app/r2_track_registration.py
+app/r2_upload_http.py
+app/r2_upload_workflow.py
+app/test_r2_stems.py
+app/urls.py
+app/models.py
+app/migrations/0027_track_r2_owner_user_id.py
+```
+
+### Archivos frontend relacionados
+
+```text
+frontend/client/src/api/django.service.ts
+frontend/client/src/components/TrackDetailModal.tsx
+frontend/client/src/components/UploadTrackModal.tsx
+frontend/client/src/context/AppContext.tsx
+```
+
+---
+
+## Pruebas de permisos y descarga de STEMS
+
+Se verificaron los permisos desde distintos estados de sesión y acceso:
+
+| Escenario | Respuesta | Resultado |
+|---|---:|---|
+| Propietario del track | HTTP 200 | Acceso permitido |
+| Usuario sin sesión | HTTP 401 | Acceso rechazado |
+| Usuario autenticado sin derecho de acceso | HTTP 403 | Acceso rechazado |
+| Usuario que reclamó correctamente el track gratuito | HTTP 200 | Acceso permitido |
+
+Los códigos HTTP 401 y 403 correspondieron a los controles de autorización
+esperados; no representaron una falla del almacenamiento R2.
+
+### Prueba real de subida y publicación
+
+Se ejecutaron las solicitudes de subida para audio y STEMS:
+
+```text
+POST /api/r2/presign/   -> HTTP 200
+POST /api/r2/confirm/   -> HTTP 200
+POST /api/r2/finalize/  -> HTTP 201
+```
+
+La pista quedó publicada y asociada a sus recursos privados.
+
+### Prueba de descarga de la pista ID 14
+
+Se utilizó la acción de reclamación gratuita:
+
+```text
+POST /api/track/14/claim-free/ -> HTTP 200
+```
+
+Después de la reclamación se comprobaron las descargas:
+
+```text
+GET /api/track/14/descargar/ -> HTTP 200
+GET /api/track/14/stems/     -> HTTP 200
+```
+
+El registro del servidor indicó:
+
+```text
+Descarga de audio: 2.116.844 bytes
+Descarga de STEMS:   100.365 bytes
+```
+
+Se descargó el ZIP de STEMS y se verificó que contenía los archivos:
+
+```text
+Kick.wav
+Bass.wav
+Synth.wav
+Percussion.wav
+```
+
+La prueba confirmó que el propietario puede subir y descargar los STEMS y
+que un usuario con derecho de compra o reclamación gratuita puede acceder a
+ellos. Los usuarios anónimos y las cuentas autenticadas sin autorización
+siguen bloqueados por el backend.
+
+### Comprobación de sesión y catálogo durante la prueba manual
+
+En los registros del servidor del 16-11-2026 se observaron también las
+siguientes respuestas:
+
+```text
+POST /api/track/14/claim-free/ -> HTTP 200
+GET /api/session/              -> HTTP 200
+GET /api/catalogo/?page=1      -> HTTP 200
+```
+
+Estas respuestas confirmaron que, después de la reclamación gratuita, la
+sesión y la carga de la primera página del catálogo respondieron correctamente.
+
+---
+
+## Verificación general del proyecto al cierre de las pruebas STEMS
+
+Se registraron las siguientes comprobaciones:
+
+- `python manage.py check`: sin problemas del sistema Django.
+- `python manage.py test app`: 360 pruebas ejecutadas, todas aprobadas.
+- `npm run build`: compilación del frontend React/Vite completada
+  correctamente.
+- `python manage.py migrate`: migración `0027` aplicada correctamente.
+- `python manage.py showmigrations app`: migraciones `0001` a `0027`
+  aplicadas.
+- Servidor Django iniciado con Django 6.0.6 sin errores de comprobación.
+- Endpoints de sesión, catálogo, usuarios y suscripciones respondieron
+  correctamente durante la prueba manual.
+
+**Estado al 16-11-2026:** la integración de STEMS con R2, la descarga
+protegida y la validación de permisos quedaron implementadas y probadas.
+Las tareas de limpieza de auxiliares y respaldos se documentan en las
+entradas anteriores de este registro. Durante las pruebas descritas en esta
+sección no se eliminaron cuentas, canciones de prueba ni objetos de R2.
+
+---
+
+**Fin de la actualización del 16-11-2026: protección financiera, propiedad
+de archivos R2 e integración y pruebas de STEMS.**
