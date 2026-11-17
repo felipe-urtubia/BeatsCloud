@@ -9,17 +9,25 @@ from django.http import (
     HttpResponseNotAllowed,
     StreamingHttpResponse,
 )
+from django.utils.http import content_disposition_header
 
-from app.r2_presign import ALLOWED
+from app.r2_presign import ALLOWED, validate_original_filename
 from app.r2_visibility import is_media_ready
 
 
 def _validar_clave_privada(track):
     propietario = getattr(
-        getattr(track, "usuario", None),
-        "user_id",
+        track,
+        "r2_owner_user_id",
         None,
     )
+
+    if propietario is None:
+        propietario = getattr(
+            getattr(track, "usuario", None),
+            "user_id",
+            None,
+        )
 
     clave = getattr(track, "r2_object_key", None)
 
@@ -238,10 +246,22 @@ def authorized_r2_audio_response(
 
         estado = 206
 
-    nombre = clave.rsplit("/", 1)[-1]
+    nombre_r2 = clave.rsplit("/", 1)[-1]
+    extension = "." + nombre_r2.rsplit(".", 1)[-1].lower()
+    nombre_original = getattr(track, "original_filename", "")
+
+    try:
+        nombre = validate_original_filename(
+            nombre_original,
+            expected_extension=extension,
+        )
+    except ValueError:
+        # Compatibilidad con canciones anteriores.
+        nombre = nombre_r2
 
     tipo = (
         mimetypes.guess_type(nombre)[0]
+        or mimetypes.guess_type(nombre_r2)[0]
         or "application/octet-stream"
     )
 
@@ -256,12 +276,9 @@ def authorized_r2_audio_response(
     respuesta["Cache-Control"] = "private, no-store"
     respuesta["X-Content-Type-Options"] = "nosniff"
 
-    disposicion = (
-        "attachment" if as_attachment else "inline"
-    )
-
-    respuesta["Content-Disposition"] = (
-        f'{disposicion}; filename="{nombre}"'
+    respuesta["Content-Disposition"] = content_disposition_header(
+        as_attachment,
+        nombre,
     )
 
     if contenido_rango is not None:

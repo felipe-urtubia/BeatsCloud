@@ -30,11 +30,45 @@ ALLOWED = {
         ".wav": {"audio/wav", "audio/x-wav", "audio/wave"},
         ".flac": {"audio/flac", "audio/x-flac"},
     },
+    "cover": {
+        ".jpg": {"image/jpeg"},
+        ".jpeg": {"image/jpeg"},
+        ".png": {"image/png"},
+        ".webp": {"image/webp"},
+    },
 }
-MAX_BYTES = {"track": 750 * 1024 * 1024, "stems": 2 * 1024 * 1024 * 1024}
+MAX_BYTES = {
+    "track": 750 * 1024 * 1024,
+    "stems": 2 * 1024 * 1024 * 1024,
+    "cover": 10 * 1024 * 1024,
+}
 TOKEN_SALT = "beatcloud-r2-pending-v1"
 URL_EXPIRY_SECONDS = 3600
 
+
+def validate_original_filename(filename, *, expected_extension=None):
+    """Valida el nombre original sin permitir rutas de archivos."""
+    if not isinstance(filename, str) or not filename or len(filename) > 180:
+        raise ValueError("Nombre de archivo no valido.")
+
+    if (
+        filename in (".", "..")
+        or "/" in filename
+        or chr(92) in filename
+        or chr(0) in filename
+        or any(
+            ord(character) < 32 or ord(character) == 127
+            for character in filename
+        )
+    ):
+        raise ValueError("Nombre de archivo no valido.")
+
+    extension = PurePosixPath(filename).suffix.lower()
+
+    if expected_extension is not None and extension != expected_extension:
+        raise ValueError("La extension original no coincide.")
+
+    return filename
 
 
 def _load_r2_credentials_from_dotenv():
@@ -52,6 +86,7 @@ def _load_r2_credentials_from_dotenv():
         "R2_ACCESS_KEY_ID",
         "R2_SECRET_ACCESS_KEY",
         "R2_BUCKET_NAME",
+        "R2_UPLOADS_ENABLED",
     )
 
     for name in allowed:
@@ -63,6 +98,7 @@ def _load_r2_credentials_from_dotenv():
 
 def r2_uploads_enabled():
     """Indica si se permiten nuevas subidas R2."""
+    _load_r2_credentials_from_dotenv()
     return os.environ.get("R2_UPLOADS_ENABLED", "").strip().lower() == "true"
 
 
@@ -99,10 +135,7 @@ def validate_upload(data):
     )
     if not isinstance(kind, str) or kind not in ALLOWED:
         raise ValueError("El tipo de subida no es valido.")
-    if not isinstance(filename, str) or not filename or len(filename) > 180:
-        raise ValueError("Nombre de archivo no valido.")
-    if filename in (".", "..") or "/" in filename or chr(92) in filename or chr(0) in filename:
-        raise ValueError("Nombre de archivo no valido.")
+    filename = validate_original_filename(filename)
     ext = PurePosixPath(filename).suffix.lower()
     if ext not in ALLOWED[kind] or not isinstance(mime, str) or mime not in ALLOWED[kind][ext]:
         raise ValueError("Formato o Content-Type no permitido.")
@@ -143,7 +176,14 @@ def r2_presign_upload_api(request):
         # Never include SDK exceptions or credential data in a client response.
         return JsonResponse({"detail": "No fue posible autorizar la subida."}, status=503)
     token = signing.dumps(
-        {"owner": request.user.pk, "key": key, "size": size, "kind": kind, "mime": mime},
+        {
+            "owner": request.user.pk,
+            "key": key,
+            "size": size,
+            "kind": kind,
+            "mime": mime,
+            "filename": data["filename"],
+        },
         salt=TOKEN_SALT,
     )
     response = JsonResponse({
@@ -177,18 +217,32 @@ def r2_confirm_upload_api(request):
         if not isinstance(token, str) or not token or len(token) > 4096:
             raise ValueError("Token ausente")
         payload = signing.loads(token, salt=TOKEN_SALT, max_age=URL_EXPIRY_SECONDS)
-        if not isinstance(payload, dict) or set(payload) != {"owner", "key", "size", "kind", "mime"}:
+        campos_base = {"owner", "key", "size", "kind", "mime"}
+        campos_con_nombre = campos_base | {"filename"}
+
+        # Admite tokens anteriores mientras sigan vigentes.
+        if not isinstance(payload, dict) or set(payload) not in (
+            campos_base,
+            campos_con_nombre,
+        ):
             raise ValueError("Token malformado")
         owner, key, kind, mime, size = (payload[k] for k in ("owner", "key", "kind", "mime", "size"))
         if type(owner) is not int or owner != request.user.pk:
             raise ValueError("Token no pertenece al usuario")
         if not isinstance(key, str) or not isinstance(kind, str) or kind not in ALLOWED:
             raise ValueError("Ruta incorrecta")
-        if not re.fullmatch(r"pending/[0-9]+/(track|stems)/[a-f0-9]{32}\.[a-z0-9]+", key):
+        if not re.fullmatch(r"pending/[0-9]+/(track|stems|cover)/[a-f0-9]{32}\.[a-z0-9]+", key):
             raise ValueError("Ruta incorrecta")
         if not key.startswith(f"pending/{owner}/{kind}/"):
             raise ValueError("Ruta incorrecta")
         extension = PurePosixPath(key).suffix.lower()
+
+        if "filename" in payload:
+            validate_original_filename(
+                payload["filename"],
+                expected_extension=extension,
+            )
+
         if not isinstance(mime, str) or mime not in ALLOWED[kind].get(extension, set()):
             raise ValueError("Tipo incorrecto")
         if type(size) is not int or size <= 0 or size > MAX_BYTES[kind]:

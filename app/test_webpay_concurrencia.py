@@ -65,6 +65,7 @@ class WebpayConcurrenciaTests(TransactionTestCase):
             buy_order="orden-concurrente-123",
             session_id=self.comprador.username,
             amount=1190,
+            webpay_token="token-simulado",
             cart_snapshot=[{
                 "venta_id": venta.pk,
                 "track_id": self.track.pk,
@@ -81,6 +82,7 @@ class WebpayConcurrenciaTests(TransactionTestCase):
             session_id=self.comprador.username,
             amount=1190,
             cart_snapshot=self.orden.cart_snapshot,
+            webpay_token="token-segundo",
         )
 
         def retornar_pago(orden):
@@ -99,7 +101,7 @@ class WebpayConcurrenciaTests(TransactionTestCase):
                     )
                     return Client().post(
                         self.url,
-                        {"token_ws": "token-simulado"},
+                        {"token_ws": orden.webpay_token},
                     )
 
         # Ambas ordenes fueron creadas antes del primer retorno.
@@ -140,12 +142,15 @@ class WebpayConcurrenciaTests(TransactionTestCase):
         if connections["default"].vendor != "postgresql":
             self.skipTest("Requiere PostgreSQL.")
 
+        self.orden.webpay_token = "token-primero"
+        self.orden.save(update_fields=["webpay_token"])
         segunda = WebpayTransaction.objects.create(
             user=self.comprador,
             buy_order="orden-simultanea-456",
             session_id=self.comprador.username,
             amount=1190,
             cart_snapshot=self.orden.cart_snapshot,
+            webpay_token="token-segundo",
         )
 
         barrera = Barrier(2)

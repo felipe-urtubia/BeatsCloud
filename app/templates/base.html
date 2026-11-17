@@ -59,7 +59,10 @@
             | Tu Perfil : {{ user.username | capfirst  }} | </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'logout' %}">| Cerrar sesión |</a>
+          <form method="post" action="{% url 'logout' %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="nav-link btn btn-link p-0">| Cerrar sesi&#243;n |</button>
+          </form>
         </li>
       </ul>
       {% else %}
