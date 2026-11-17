@@ -710,12 +710,8 @@ def download_api(request, track_id):
             "Debes comprar este track antes de poder descargarlo."
         )
     if getattr(track, "storage_backend", "local") == "r2":
-        from .r2_audio_bridge import serve_private_r2_audio
-        return serve_private_r2_audio(
-            request,
-            track,
-            as_attachment=True
-        )
+        from .r2_audio_bridge import presign_private_r2_audio_download
+        return presign_private_r2_audio_download(request, track)
     if not track.track:
         raise Http404("El archivo de este track no está disponible.")
     nombre = track.track.name.rsplit("/", 1)[-1]

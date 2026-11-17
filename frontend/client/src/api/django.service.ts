@@ -230,6 +230,49 @@ export const DjangoApi = {
       const detail = await response.text();
       throw new Error(detail || `No se pudo descargar la pista (${response.status}).`);
     }
+
+    const contentType = response.headers.get('content-type') ?? '';
+
+    // R2: el navegador descarga directamente desde Cloudflare con URL temporal.
+    if (contentType.includes('application/json')) {
+      const payload = await response.json() as {
+        method?: unknown;
+        url?: unknown;
+        filename?: unknown;
+        expires_in?: unknown;
+      };
+
+      if (typeof payload.url !== 'string' || typeof payload.filename !== 'string') {
+        throw new Error('El servidor devolvio un enlace de descarga invalido.');
+      }
+
+      let signedUrl: URL;
+      try {
+        signedUrl = new URL(payload.url);
+      } catch {
+        throw new Error('El servidor devolvio una URL de descarga invalida.');
+      }
+
+      if (
+        signedUrl.protocol !== 'https:' ||
+        !signedUrl.hostname.endsWith('.r2.cloudflarestorage.com') ||
+        signedUrl.username ||
+        signedUrl.password
+      ) {
+        throw new Error('El servidor devolvio un destino de descarga no permitido.');
+      }
+
+      const link = document.createElement('a');
+      link.href = signedUrl.toString();
+      link.download = payload.filename;
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
+    }
+
+    // Almacenamiento local: conserva la descarga binaria existente.
     const disposition = response.headers.get('content-disposition') ?? '';
     const encodedFilename = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i)?.[1];
     const plainFilename =

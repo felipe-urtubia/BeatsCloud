@@ -1,4 +1,5 @@
 import io
+import json
 from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
@@ -69,6 +70,13 @@ class R2AudioBridgeTests(TestCase):
             }
 
         cliente_r2.get_object.side_effect = obtener
+        cliente_r2.head_object.return_value = {
+            "ContentLength": len(audio),
+        }
+        cliente_r2.generate_presigned_url.return_value = (
+            "https://abc123.r2.cloudflarestorage.com/beatcloud-media/audio.wav"
+            "?X-Amz-Expires=300"
+        )
 
         with (
             patch(
@@ -127,20 +135,27 @@ class R2AudioBridgeTests(TestCase):
                 respuesta.status_code, 200
             )
 
-            self.assertTrue(
-                respuesta[
-                    "Content-Disposition"
-                ].startswith("attachment;")
+            payload = json.loads(respuesta.content)
+            self.assertEqual(payload["method"], "GET")
+            self.assertEqual(payload["expires_in"], 300)
+            self.assertTrue(payload["url"].startswith("https://"))
+
+            cliente_r2.head_object.assert_called_once_with(
+                Bucket="beatcloud-media",
+                Key=self.clave,
             )
 
-            self.assertEqual(
-                b"".join(
-                    respuesta.streaming_content
-                ),
-                b"audio-privado-simulado",
+            llamada = cliente_r2.generate_presigned_url.call_args
+            self.assertEqual(llamada.args[0], "get_object")
+            self.assertEqual(llamada.kwargs["ExpiresIn"], 300)
+            self.assertEqual(llamada.kwargs["HttpMethod"], "GET")
+            self.assertEqual(llamada.kwargs["Params"]["Key"], self.clave)
+            self.assertIn(
+                "attachment",
+                llamada.kwargs["Params"]["ResponseContentDisposition"],
             )
 
-            cliente_r2.get_object.assert_called_once()
+            cliente_r2.get_object.assert_not_called()
 
     def test_usuario_sin_compra_no_escucha(self):
         visitante = (
