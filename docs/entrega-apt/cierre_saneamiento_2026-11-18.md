@@ -46,7 +46,7 @@ Respaldo de `main` local previa a la última sanitización:
 - SHA-256: `eb727dca5ceebc32b95eedd924ef6f2a44fced1ba3236e86b5b2b1a89b5c20c4`
 - `git bundle verify` aprobó. Contiene defaults históricos y no debe compartirse.
 
-El archivo de código fuente anterior `beatscloud-main-source-a0ee281.tar.gz` corresponde al corte anterior; no es la versión final de entrega. Se generará una nueva copia de código final sin `.git`, `.env`, base, media ni respaldos después de cerrar documentación.
+El archivo de código fuente anterior `beatscloud-main-source-a0ee281.tar.gz` corresponde a un corte anterior y no debe usarse. La fuente oficial de entrega es un clon nuevo de `main` desde GitHub; no se comparte ningún bundle de recuperación.
 
 ## Pruebas del código candidato
 
@@ -60,13 +60,15 @@ La candidata `c91a7d0` pasó `scripts/qa/verify.sh` el 18-11-2026:
 
 No valida Firefox manual, Webpay real, R2 real, SMTP real ni despliegue. Los logs/tests Webpay y R2 usan dobles; los servicios externos no se probaron.
 
+Después de publicar, un clon limpio de GitHub en `c542abb` ejecutó otra vez `scripts/qa/verify.sh`: 372 tests Django OK (150.603 s), 26/26 frontend, `check`, migraciones, `tsc -b`, build de 1.926 módulos y catálogo HTTP 125 pistas/21 páginas; exit code 0. Para esta verificación se reutilizaron las dependencias QA instaladas y la base QA local aislada existente, con `.env.qa` copiado en privado y `MEDIA_ROOT` temporal específico del clon. No representa una instalación desde cero ni validación manual/external.
+
 ## Estado de publicación y ramas posterior a la operación
 
-- Se actualizó `main` mediante `--force-with-lease` con el SHA remoto verificado inmediatamente antes (`ec00e2e1e1ca51cddee00fa7d53ee8a47d08bdda`). La publicación inicial quedó en `ab3568d69c884da8c1c896a8750a229e6b080bc0`; este documento se añadió como commit de seguimiento normal para dejar la evidencia versionada.
+- Se actualizó `main` mediante `--force-with-lease` con el SHA remoto verificado inmediatamente antes (`ec00e2e1e1ca51cddee00fa7d53ee8a47d08bdda`). La publicación inicial quedó en `ab3568d69c884da8c1c896a8750a229e6b080bc0`; un push fast-forward posterior publicó la actualización documental y verificación de cierre.
 - PR #2 se cerró con comentario indicando equivalencias verificadas y base obsoleta. PR #1 y #3 permanecen MERGED.
 - Se eliminaron las ramas `frontend-trabajo` e `integration/react-frontend` después de verificar cambios únicos/equivalencias. GitHub API lista solo `main`; `git ls-remote --symref` confirma `HEAD` → `refs/heads/main`. No había tags.
 - La rama predeterminada sigue siendo `main`. No se cambiaron protecciones ni permisos.
-- `main` es clonable desde GitHub. La sincronización de este documento de cierre se realiza como fast-forward normal después de su commit.
+- `main` es clonable desde GitHub. Este documento quedó sincronizado mediante commit/push fast-forward, sin otra reescritura.
 
 ## Referencias internas y acción para GitHub Support
 

@@ -81,3 +81,5 @@ El 18-11-2026 se creó una copia aislada desde el bundle privado verificado y se
 | HTTP QA | Catálogo: 6 resultados por página de 125; 21 páginas | Los servicios de prueba locales respondieron correctamente; no acredita proveedores externos ni reproducción manual. |
 
 La configuración de ejecución QA se copió con permisos privados a una carpeta de trabajo temporal fuera del repositorio; se usó la DB aislada existente y su base de pruebas temporal, que Django eliminó al terminar. No se versionó `.env.qa`, medios ni DB.
+
+Como comprobación del origen compartido, se clonó GitHub `main` en una carpeta nueva con SHA `c542abb` y se ejecutó `scripts/qa/verify.sh` otra vez: 372 tests Django OK (150.603 s), 26/26 frontend, checks/migraciones, lint, build Vite y HTTP catálogo 125/21, código 0. Para este pase se reutilizaron las dependencias instaladas y PostgreSQL QA aislado; `.env.qa` se copió de forma privada y se ajustó el `MEDIA_ROOT` solo al directorio QA temporal del clon. No fue un bootstrap independiente desde un equipo vacío.
