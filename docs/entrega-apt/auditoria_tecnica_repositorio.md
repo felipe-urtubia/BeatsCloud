@@ -1,12 +1,12 @@
 # Auditoría técnica del repositorio BeatsCloud
 
-**Corte:** 18-11-2026. **Repositorio:** `felipe-urtubia/BeatsCloud`. **Rama de trabajo auditada:** `codex/integracion-demo-20261118` antes del saneamiento histórico. Esta es una auditoría de implementación y evidencia; no certifica producción ni servicios de terceros.
+**Corte:** 18-11-2026. **Repositorio:** `felipe-urtubia/BeatsCloud`. **Rama de trabajo auditada:** `main` local tras consolidar contribuciones disponibles y filtrar rutas sensibles. Esta es una auditoría de implementación y evidencia; no certifica producción ni servicios de terceros.
 
 ## Resultado ejecutivo
 
 El candidato integra `frontend-trabajo` con `origin/main` y contiene backend Django, SPA React, migraciones R2/Webpay, pruebas, documentación técnica y el comando local de catálogo demo. La base aislada y el catálogo funcionan localmente; suites automatizadas de backend/frontend, chequeo TypeScript, build y verificaciones de Django aprobaron en el corte.
 
-La integración no debe publicarse todavía. `origin/main` es público y su historial contiene versiones de `agregar.html` que son ZIP con un miembro `.env`, incluyendo variables no vacías de credenciales/configuración. Borrar el archivo del último árbol no sanea historia. La rotación/revocación externa no está confirmada. El saneamiento local está planificado; no se ha publicado historia reescrita ni eliminado ramas remotas.
+La integración local no debe publicarse todavía. `origin` es público y GitHub conserva las ramas e historia antiguas con `agregar.html`, ZIP cuyo único miembro era `.env` con campos sensibles no vacíos. `git-filter-repo` 2.47.0 retiró las rutas de todas las referencias locales; las ramas remotas aún no se modificaron. La rotación/revocación externa no está confirmada. El commit integrado tras filtrar es `31796c2`; la limpieza de referencias locales continúa.
 
 ## Arquitectura observada
 
@@ -33,7 +33,7 @@ No se validó reproducción audible en navegador, compra E2E como comprador dist
 
 ## Ramas, PR y contribuciones
 
-La auditoría inicial encontró seis ramas locales y tres remotas (`main`, `frontend-trabajo`, `integration/react-frontend`). El candidato integra `frontend-trabajo`, `origin/main` y tres commits locales previos. También conserva por merge de estrategia `ours` los cuatro commits exclusivos de `integration/reorganization-checkpoint` (`a1294b9`, `91262ba`, `c72ed1e`, `c060b67`): su layout `client/`/`server/` reemplazaría módulos y migraciones R2 actuales, por lo que se mantiene su historia sin sustituir el árbol vigente. `c060b67` conserva una verificación técnica Sprint 2 fechada 05-11-2026, distinguida de pruebas actuales. El commit de consolidación local se documentará con su hash final tras filtrar la historia.
+La auditoría inicial encontró seis ramas locales y tres remotas (`main`, `frontend-trabajo`, `integration/react-frontend`). Todas las ramas locales apuntaban a commits contenidos en el candidato consolidado. `main` local incluye `frontend-trabajo`, la antigua `origin/main` y cuatro commits de `integration/reorganization-checkpoint` (`9f4f85b`, `de4a79a`, `a907e41`, `53db43f`) como ascendencia de un merge `ours`; su árbol `client/`/`server/` reemplazaría módulos y migraciones R2 actuales, así que se conserva el árbol vigente. Los OID cambiaron al retirar las rutas sensibles; hashes anteriores solo identifican antecedentes históricos.
 
 GitHub: PR #1 (React/Django) MERGED, autor de GitHub `yaeaelo` (Ismael Araya); PR #3 (descarga R2 temporal) MERGED, autor `felipe-urtubia`; PR #2 desde `frontend-trabajo` sigue OPEN y corresponde a cambios ya integrados en el candidato. No tiene reviews ni comentarios visibles. Jira no está conectado.
 
@@ -47,13 +47,13 @@ Historial inspeccionado, sin extraer ni mostrar valores:
 
 | Referencia histórica | Ruta en el commit | Metadatos del ZIP |
 |---|---|---|
-| `adbab4f` (28-08-2026) | `agregar.zip` | Un miembro `.env.example`. |
-| `28864ca` (29-08-2026) | `agregar.html` (rename) | Un miembro `.env.example`. |
-| `497d5ac` (31-08-2026) y descendientes anteriores a `a1294b9` | `agregar.html` | Un miembro `.env`; contenía valores no vacíos en campos sensibles. |
-| `a1294b9` (06-11-2026) | `agregar.html` | Eliminado de ese árbol. |
-| `ec00e2e` (17-11-2026) | `agregar.html` | Reintroducido como ZIP con un miembro `.env`; se eliminará de todas las referencias locales mediante reescritura histórica. |
+| `adbab4f` (28-08-2026; hash previo al filtrado, commit eliminado) | `agregar.zip` | Un miembro `.env.example`. |
+| `28864ca` (29-08-2026; hash previo al filtrado, commit eliminado) | `agregar.html` (rename) | Un miembro `.env.example`. |
+| `bb7533c` (equivale a `497d5ac` previo al filtrado) y descendientes | `agregar.html` | Un miembro `.env`; contenía valores no vacíos en campos sensibles. La ruta fue retirada de los commits actuales. |
+| `9f4f85b` (equivale a `a1294b9` previo al filtrado; fecha 06-11-2026) | `agregar.html` | Eliminado de ese árbol. |
+| `ec00e2e` (17-11-2026; hash previo al filtrado, commit eliminado) | `agregar.html` | Reintroducido como ZIP con un miembro `.env`; el commit quedó eliminado de la historia local reescrita. |
 
-No se encontraron otros nombres de archivos `.env`, SQLite, claves PEM o claves SSH en los objetos rastreados; sí existen `.env.example`. Un escaneo `detect-secrets` 1.5.0 revisó 569 blobs de texto alcanzables y los miembros `.env` archivados sin emitir hallazgos heurísticos. Ese resultado no invalida el hallazgo directo de variables sensibles con valores no vacíos.
+Antes del filtrado no se encontraron otros nombres de archivos `.env`, SQLite, claves PEM o claves SSH en los objetos rastreados; sí existen `.env.example`. Un escaneo `detect-secrets` 1.5.0 revisó 569 blobs de texto alcanzables y los miembros `.env` archivados sin emitir hallazgos heurísticos. Ese resultado no invalida el hallazgo directo de variables sensibles con valores no vacíos. La inspección post-filtrado no encontró `agregar.html`/`agregar.zip` entre los objetos alcanzables locales; la verificación final se registra tras limpiar refs.
 
 Variables que requieren confirmación de rotación/revocación por los custodios: `DJANGO_SECRET_KEY`, `EMAIL_HOST_PASSWORD`, `TRANSBANK_API_KEY`, `DB_PASSWORD`, `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY`. Revisar además sesiones firmadas, actividad SMTP/Transbank, cuenta/rol DB y accesos R2. `TRANSBANK_COMMERCE_CODE`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `EMAIL_HOST_USER` y `DB_USER` son identificadores/configuración expuestos que requieren revisión, no necesariamente rotación. En las versiones examinadas `TRANSBANK_SHARED_SECRET` y `STRIPE_SECRET_KEY` estaban vacías; no se afirma exposición de esos valores. **La rotación no está confirmada.**
 

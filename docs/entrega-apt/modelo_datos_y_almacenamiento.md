@@ -1,6 +1,6 @@
 # Modelo de datos y almacenamiento
 
-**Corte técnico:** 18-11-2026. Descripción derivada del código integrado en `codex/integracion-demo-20261118`; no acredita servicios cloud externos.
+**Corte técnico:** 18-11-2026. Descripción derivada del código consolidado localmente en `main`; no acredita servicios cloud externos.
 
 ## Entidades principales
 

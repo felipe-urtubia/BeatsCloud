@@ -4,7 +4,7 @@
 
 ## Antecedente técnico disponible
 
-`VERIFICACION_SPRINT_2.md`, conservado en el historial desde el commit `c060b67` y fechado 05-11-2026, describe:
+`VERIFICACION_SPRINT_2.md`, conservado en el historial desde el commit `53db43f` y fechado 05-11-2026, describe:
 
 - DDPB-74: sesión Django con cookie y CSRF; manejo de 401/403 y limpieza de estado de sesión en SPA.
 - DDPB-81: selector API real/mock; `hybrid` como alias documentado en esa revisión.

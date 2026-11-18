@@ -4,7 +4,7 @@
 
 ## Fuente técnica separada
 
-El commit histórico `c060b67` conserva `Fase 2/Evidencias Proyecto/Evidencias de documentación/VERIFICACION_SPRINT_2.md`, fechado 05-11-2026. Describe verificaciones DDPB-74 (sesión Django/CSRF) y DDPB-81 (selector API real/mock), callbacks Webpay probados con respuestas simuladas, pruebas Django/build y varias dependencias E2E pendientes. La fuente reporta 34 pruebas Django, `tsc` y `vite build` aprobados en ese corte.
+El commit histórico `53db43f` conserva `Fase 2/Evidencias Proyecto/Evidencias de documentación/VERIFICACION_SPRINT_2.md`, fechado 05-11-2026. Describe verificaciones DDPB-74 (sesión Django/CSRF) y DDPB-81 (selector API real/mock), callbacks Webpay probados con respuestas simuladas, pruebas Django/build y varias dependencias E2E pendientes. La fuente reporta 34 pruebas Django, `tsc` y `vite build` aprobados en ese corte.
 
 Este documento técnico no registra asistentes, objetivo comprometido, feedback de Review, causas/propuestas de mejora ni acuerdos de retrospectiva. Sus resultados no se atribuyen al código actual sin conciliación: el registro consolidado de esta rama informa otros resultados posteriores (103 pruebas el 06-11 y 111 el 08-11).
 

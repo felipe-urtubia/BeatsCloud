@@ -43,7 +43,7 @@ El comando `python manage.py prepare_demo_catalog` se ejecutó dos veces contra 
 ## Defectos, correcciones y pendientes
 
 - Se añadió el comando idempotente y restringido a base local `beatscloud_demo_*` para poblar datos reproducibles; no crea tracks sin archivos reproducibles.
-- Se eliminó de la versión de trabajo `agregar.html` tras verificar solo metadatos del archivo que era un ZIP cuyo miembro era `.env`. No se extrajo ni mostró su contenido. El blob sensible permanece en historial Git remoto/local anterior; **la publicación requiere respuesta de seguridad y decisión de saneamiento histórico**.
+- Se verificó por metadatos que `agregar.html` era un ZIP con miembro `.env`; no se extrajo ni mostró su contenido. Posteriormente, `git-filter-repo` 2.47.0 retiró `agregar.html` y `agregar.zip` del grafo alcanzable local. GitHub conserva las referencias antiguas hasta una actualización coordinada. **La publicación sigue bloqueada hasta confirmar rotación/revocación de credenciales y coordinación del equipo.**
 - Pruebas pendientes: reproducción efectiva en Firefox/React, flujo de compra como usuario distinto, autorización post-compra, prueba real en ambiente de Transbank TEST, configuración y carga/descarga real R2, pruebas de rendimiento WAV/stems y validación manual de flujo completo.
 - No hay evidencia de Jira accesible en este entorno; no se asignan estados actuales de incidencias.
 

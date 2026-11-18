@@ -4,7 +4,7 @@
 **Presentación APT prevista:** 19-11-2026
 **Clasificación:** documentos de trabajo; no aprobados mientras la validación indicada siga pendiente.
 
-Este índice guía la revisión técnica del repositorio. La documentación de trabajo preexistente se conserva; los documentos técnicos de corte identifican explícitamente lo observado en `codex/integracion-demo-20261118`, sin tratar simulaciones, registros históricos o borradores como aprobaciones.
+Este índice guía la revisión técnica del repositorio. La documentación de trabajo preexistente se conserva; los documentos técnicos de corte describen el código consolidado localmente en `main`, sin tratar simulaciones, registros históricos o borradores como aprobaciones.
 
 ## Documentos de entrega
 
@@ -22,7 +22,7 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 | [Plan de pruebas](plan_pruebas.md) | **PLAN DE TRABAJO**; contiene registro separado de resultados históricos y pruebas pendientes | Casos, precondiciones, pasos, resultados esperados y evidencia requerida. Las ejecuciones automatizadas/HTTP del 18-11 se registran por separado; E2E de navegador sigue pendiente. |
 | [Plan de riesgos](plan_riesgos.md) | Evaluación inicial **ABIERTA**, responsables no asignados | Riesgos de archivo/secretos, Webpay, E2E, audio, almacenamiento, integración y fecha APT. |
 | [Retrospectivas](retrospectivas/README.md) | Actas históricas no localizadas; plantillas y límites de evidencia | Documentar Sprint 1–4 solo con participantes, fechas y hechos confirmados. |
-| [Sprint Reviews](sprint-reviews/README.md) | Actas históricas no localizadas; plantillas y registro técnico histórico separado | No confundir el commit histórico `c060b67` (verificación Sprint 2) con una Review. |
+| [Sprint Reviews](sprint-reviews/README.md) | Actas históricas no localizadas; plantillas y registro técnico histórico separado | No confundir el commit histórico `53db43f` (verificación Sprint 2) con una Review. |
 | [Evidencia E2E](evidencias/e2e/README.md) | Protocolo preparado; ejecuciones/capturas **PENDIENTES** | Matriz de login, catálogo, carrito, Webpay, retorno, rechazo y descarga. DOCX referido no localizado. |
 
 ## Convención de estados y límites de evidencia
@@ -34,7 +34,7 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 - **PENDIENTE** indica falta implementación, acceso, ejecución o evidencia.
 - Webpay está integrado; tests con dobles no equivalen a compra E2E TEST.
 - El cambio de `audioEngine.ts` del PR #2 requiere validación real en navegador.
-- `agregar.html` fue retirado del árbol de integración después de verificar sus metadatos: es un ZIP con un miembro `.env`. No se extrajo ni se imprimió su contenido. El objeto permanece en historial Git; se requiere respuesta de seguridad antes de publicar.
+- `agregar.html` fue retirado del árbol. Era un ZIP con un miembro `.env`; no se extrajo ni imprimió su contenido. El saneamiento local reescribió las referencias para retirar `agregar.html` y `agregar.zip`. Las ramas remotas aún conservan la historia anterior; no publicar hasta confirmar rotación/revocación y coordinar la reescritura remota.
 - El corte técnico 18-11-2026 registra pruebas automatizadas y HTTP locales en [validación técnica](validacion_tecnica_corte_2026-11-18.md). No acredita R2 real, pago externo ni reproducción verificada en navegador.
 
 ## Fuentes principales
@@ -44,7 +44,7 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 - [Evidencia de pruebas backend (log histórico, 14-10-2026)](../evidencias/pruebas_backend.txt)
 - [Registro de cambios del proyecto](../../REGISTRO_CAMBIOS_BEATSCLOUD.md)
 - Código: `app/models.py`, `app/api_shim.py`, `app/views.py`, `app/urls.py`, `beatcloud/settings.py`, `frontend/client/src/context/AppContext.tsx`, `frontend/client/src/api/django.service.ts`, `frontend/client/src/components/UploadTrackModal.tsx`.
-- Antecedente adicional: `VERIFICACION_SPRINT_2.md` se conserva en el historial a partir del commit `c060b67`, fechado 05-11-2026. Es verificación técnica, no Review/Retrospectiva, y no se trata como resultado oficial.
+- Antecedente adicional: `VERIFICACION_SPRINT_2.md` se conserva en el historial a partir del commit `53db43f`, fechado 05-11-2026. Es verificación técnica, no Review/Retrospectiva, y no se trata como resultado oficial.
 
 ## Forma de completar el paquete
 

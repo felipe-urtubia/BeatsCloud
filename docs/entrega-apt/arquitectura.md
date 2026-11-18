@@ -1,6 +1,6 @@
 # Arquitectura del sistema — BeatsCloud
 
-**Estado:** descripción lógica derivada del código integrado en `codex/integracion-demo-20261118`, corte 18-11-2026. No representa un despliegue productivo validado.
+**Estado:** descripción lógica derivada del código consolidado localmente en `main`, corte 18-11-2026. No representa un despliegue productivo validado.
 
 ## Vista de componentes
 
@@ -85,7 +85,7 @@ La API expone endpoints distintos para preview y audio completo. Django controla
 - No hay topología de producción, balanceador, TLS, dominio, despliegue, observabilidad o SLA validados.
 - No se describe entrega de stems ni DRM.
 - La cookie de sesión y CSRF requieren configuración correcta de origen/HTTPS en despliegue.
-- Riesgo crítico heredado: `agregar.html` se retiró del árbol de integración tras inspeccionar solo metadatos de ZIP; contiene un miembro `.env`. No se extrajo. El blob sigue en el historial y requiere respuesta de seguridad, rotación/revocación y decisión de saneamiento histórico antes de publicar.
+- Hallazgo de seguridad: `agregar.html` era un ZIP con un miembro `.env` (inspección de metadatos solamente). La ruta y `agregar.zip` fueron retiradas de todas las referencias locales por reescritura de historia. Las ramas remotas todavía requieren saneamiento coordinado, que no debe publicarse antes de confirmar la rotación/revocación de credenciales expuestas.
 
 Para entidades, migraciones, flujos de almacenamiento privado y límites de validación, véase [Modelo de datos y almacenamiento](modelo_datos_y_almacenamiento.md) y [Registro de validación del 18-11-2026](validacion_tecnica_corte_2026-11-18.md).
 

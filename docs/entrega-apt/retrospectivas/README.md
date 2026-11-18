@@ -5,7 +5,7 @@ No se encontraron actas completas de retrospectiva de Sprint 1 o Sprint 2 en est
 | Sprint | Ficha | Estado | Fuente/pendiente |
 |---|---|---|---|
 | 1 | [Retrospectiva Sprint 1](sprint-1.md) | Plantilla con referencia indirecta a una acción posterior | Registro de cambios menciona “acción 5”; recuperar acta original para conocer qué funcionó, qué mejorar y quién acordó la acción. |
-| 2 | [Retrospectiva Sprint 2](sprint-2.md) | No localizada; verificación técnica separada | `VERIFICACION_SPRINT_2.md`, commit histórico `c060b67`, no es retrospectiva. Recuperar acta y participantes. |
+| 2 | [Retrospectiva Sprint 2](sprint-2.md) | No localizada; verificación técnica separada | `VERIFICACION_SPRINT_2.md`, commit histórico `53db43f`, no es retrospectiva. Recuperar acta y participantes. |
 | 3 | [Retrospectiva Sprint 3](sprint-3.md) | En curso al corte 12-11 | Completar únicamente en la reunión de cierre real (calendario 12–15 nov.). |
 | 4 | [Retrospectiva Sprint 4](sprint-4.md) | Futura al corte 12-11 | Completar después del cierre real (calendario 16–19 nov.). |
 
