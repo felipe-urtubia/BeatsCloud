@@ -20,11 +20,11 @@ Fecha de ejecución: 18-11-2026 (America/Santiago). Código base histórico `2f1
 | `makemigrations --check --dry-run` | No changes detected | No aplica migraciones. |
 | Suite Django completa inicial | 371 tests; 369 OK, 2 fallaron por CSRF `localhost:3000` ausente de los orígenes permitidos en `.env.qa` | No se ocultó ni se deshabilitó seguridad. Se ajustó solo la configuración QA local y el generador de entorno para incluir el origen de desarrollo ya usado por pruebas. |
 | Repetición aislada de ambos tests afectados | 2 tests OK | `test_login_api_accepts_local_react_origin_with_csrf`, `test_account_activation_requires_csrf_for_react_origin`; tras añadir puerto legacy a la lista local CSRF. |
-| Suite Django completa | 371 tests, OK tras la corrección del entorno CSRF; 156.745 s | Ejecutada sobre `035298d` salvo refuerzo menor de orden de limpieza de archivos/metadata stem, cubierto luego por los cuatro tests focalizados. |
+| Suite Django completa | 371 tests, OK; 151.373 s en verificación integrada final | Ejecutada sobre `035298d`; incluye el generador ya ajustado para reset seguro y no declarar stems/MIDI inexistentes. |
 | Frontend tests | 26 tests, 26 pass, 0 fail; tres suites Node | Los tests prueban lógica aislada, no navegador. |
 | Frontend lint | Inicialmente falló por `process` sin tipos Node en `vite.config.ts`; corregido con `loadEnv`; `npm run lint` posterior pasó | `lint` equivale a `tsc -b`. Sin dependencia agregada. |
 | Frontend build | `npm run build` pasó; Vite transformó 1,926 módulos y generó `dist` | Confirma empaquetado; no interacción visual. `dist/` está ignorado. |
-| Verificación compuesta | `scripts/qa/verify.sh` primera pasada alcanzó Django y 26 frontend tests; se detuvo en lint por el defecto descrito | No se declara exitoso como un solo comando. Componentes posteriores se corrieron por separado. |
+| Verificación compuesta | `scripts/qa/verify.sh` segunda ejecución terminó con exit code 0: PostgreSQL ready, check, migraciones, 371 Django, 26 frontend, lint, build y smoke HTTP | La primera ejecución había detectado el defecto TypeScript; se corrigió antes de esta ejecución. |
 | Tests del generador tras refuerzo | 4 tests, OK en 10.152 s, incluyendo reset limitado/idempotencia/guard de DB/usuarios | Suite focalizada sobre `035298d`; adicional a la suite completa. |
 | Reseed QA definitivo | `generate_qa_catalog --count 120 --seed 20261118 --reset`; 120 tracks, 120 ready con WAV/preview, 0 marcados con stems/MIDI | Reset tocó exclusivamente filas con marcador QA y media bajo namespace QA. IDs DB cambian al regenerar. |
 | `pip check` | No broken requirements found | Dependencias instaladas; no modificación de paquetes durante la ejecución. |
