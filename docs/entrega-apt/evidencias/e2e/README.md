@@ -1,39 +1,64 @@
-# Evidencia de pruebas E2E — BeatsCloud
+# Protocolo de evidencia E2E — BeatsCloud
 
-**Estado al 12-11-2026:** no se encontró `Evidencia_Pruebas_E2E_BeatsCloud.docx` ni capturas E2E en los archivos visibles del repositorio. Este README deja el protocolo; no afirma que las pruebas se hayan ejecutado.
+**Corte:** 12-11-2026 · **Entrega prevista:** 19-11-2026
+**Estado:** guía preparada; no registra una ejecución nueva ni incorpora capturas.
 
-Antes de crear un archivo nuevo, preguntar a Vicente/equipo por la ubicación del DOCX. Si aparece, abrir y revisar su contenido, conservar copia de respaldo y añadir evidencias al documento existente. No duplicar el informe.
+## Disponibilidad del informe y evidencias
 
-## Capturas solicitadas
+No se localizó `Evidencia_Pruebas_E2E_BeatsCloud.docx` en este checkout ni en las carpetas documentales inspeccionadas; tampoco se encontraron capturas que documenten estos recorridos. Vicente informó que el documento existe. **Antes de crear un DOCX nuevo**, confirmar con él/equipo su ruta y versión y revisar su contenido. Mantener el documento original y completar esa versión si corresponde; no duplicarlo ni sobrescribirlo. Si no aparece, el equipo puede convertir esta estructura en el informe de entrega indicando claramente que es un informe nuevo.
 
-1. **Catálogo/dashboard:** sesión iniciada con usuario de prueba; ocultar correo, nombre real, cookies y datos de cuenta.
-2. **Carrito:** seleccionar una pista de prueba; mostrar título y subtotal. Capturar también IVA/total si caben. No dejar otros datos personales.
-3. **Webpay TEST:** capturar la página/ambiente de pruebas sin PAN, CVV, vencimiento, token, credenciales ni datos bancarios visibles. Si la pasarela no permite enmascarar, usar encuadre/recorte que no capture esos campos.
-4. **Pago exitoso:** retorno a BeatsCloud con resultado aprobado. Ocultar identificadores que sirvan para conciliar o datos personales; conservar el estado visible.
-5. **Compras:** sección de biblioteca con la pista comprada y datos mínimos.
-6. **Descarga:** registrar inicio/resultado de descarga y verificar localmente que el archivo esperado existe, tiene tamaño no nulo y se reproduce. Para demostrarlo puede adjuntarse captura de la descarga terminada y propiedades básicas, sin incluir el audio si tiene derechos.
+La evidencia de integración/backend ya versionada es histórica y no contiene las capturas pedidas. No se generaron imágenes ni se realizaron pruebas E2E durante esta sesión.
 
-## Procedimiento reproducible
+## Estados de evidencia
 
-1. Confirmar con responsable que frontend y Django usan `hybrid`, cuenta autorizada de prueba y credenciales oficiales de integración Webpay TEST. No leer ni copiar secretos en documentos.
-2. Anotar commit, ambiente, navegador/versión y fecha/hora. Registrar la cuenta solo como alias ficticio.
-3. Iniciar sesión, capturar catálogo, agregar la pista de prueba al carrito y capturar subtotal/IVA/total.
-4. Iniciar pago y capturar pasarela TEST con los campos sensibles ocultos. Completar únicamente con datos de prueba publicados por el proveedor, en el ambiente verificado.
-5. Capturar retorno aprobado. Confirmar en la sección de compras que el ítem aparece.
-6. Descargar el audio mediante el botón de la biblioteca; confirmar tamaño no nulo y reproducción local. Registrar el nombre usando un alias si revela datos del catálogo.
-7. Ejecutar por separado rechazo/cancelación para verificar que no se acredita compra y el carrito conserva su estado. No reutilizar una captura de aprobación como evidencia de ese caso.
-8. Revisar todas las imágenes antes de agregarlas: sin datos personales, credenciales, tarjetas, correo, cookies/DevTools, tokens, URLs con parámetros secretos ni información no autorizada.
+- **PENDIENTE:** sin evidencia auténtica de ejecución del caso en el corte.
+- **VALIDADO histórico:** existe un resultado anterior descrito por fuente/fecha; requiere decidir si repetirlo para APT.
+- **BLOQUEADO:** la ejecución se intentó y quedó detenida por dependencia registrada. No usar “bloqueado” si no hubo intento.
+- **APROBADO / FALLIDO:** solo tras ejecución observada, registro completo y revisión de evidencia.
 
-## Registro por recorrido
+## Matriz de escenarios
 
-| Caso | Estado | Fecha | Responsable | Commit/ambiente/navegador | Archivo de evidencia | Observación/defecto |
+Los resultados esperados son criterios de prueba, no resultados ejecutados. Precondiciones incluyen cuenta ficticia autorizada; no usar datos reales de clientes.
+
+| ID | Funcionalidad | Precondiciones | Procedimiento | Resultado esperado | Evidencia que se debe capturar | Estado al 12-11-2026 |
 |---|---|---|---|---|---|---|
-| Catálogo autenticado | Pendiente | — | Por asignar | — | — | — |
-| Carrito con subtotal | Pendiente | — | Por asignar | — | — | — |
-| Webpay TEST | Pendiente | — | Por asignar | — | — | — |
-| Retorno aprobado | Pendiente | — | Por asignar | — | — | — |
-| Biblioteca | Pendiente | — | Por asignar | — | — | — |
-| Descarga reproducible | Pendiente | — | Por asignar | — | — | — |
-| Rechazo/cancelación | Pendiente | — | Por asignar | — | — | — |
+| E2E-01 | Inicio de sesión y catálogo | Ambiente `hybrid`; Django disponible; cuenta ficticia activa; navegador anotado. | Abrir SPA; iniciar sesión; confirmar identidad con alias; entrar al catálogo y abrir detalle de beat. | Django establece sesión; identidad y catálogo se muestran; detalle coincide con la pista seleccionada. | Captura de dashboard/catálogo; alias; commit, fecha, ambiente y navegador; sin correo, ID personal, cookies ni DevTools. | **PENDIENTE** de evidencia del corte. Integración visual histórica descrita 06-11. |
+| E2E-02 | Selección de un beat | Sesión activa; beat de prueba visible y permitido. | Abrir detalle; verificar título/metadata; seleccionar “Agregar al carrito”. | Beat correcto se añade una sola vez y se refleja en carrito. | Captura de detalle y resultado de selección; ocultar identidad personal. | **PENDIENTE** de evidencia del corte. |
+| E2E-03 | Carrito y subtotal | E2E-02 completado; carrito de prueba con beat elegido. | Abrir carrito; comparar subtotal, IVA y total con valores devueltos por Django. | El resumen corresponde a selección y a cálculo server-side. | Captura de carrito con beat y subtotal visible; mostrar IVA/total si caben. Alias ficticio y sin otros datos privados. | **PENDIENTE** de captura actual. Contrato de totales documentado históricamente. |
+| E2E-04 | Inicio Webpay TEST | Carrito de prueba; responsable confirma URL y ambiente TEST; datos oficiales de prueba disponibles. | Pulsar pagar; observar solicitud/redirect; confirmar entorno de pruebas antes de seguir. No incluir datos de tarjeta en encuadre. | Se inicia una transacción para el monto/orden esperados y se abre la pasarela TEST. | Captura de pasarela que permita reconocer ambiente TEST sin mostrar campos ni valores privados, token o URL con parámetros. | **PENDIENTE**; inicio con doble de prueba no equivale a recorrido real. |
+| E2E-05 | Retorno de pago aprobado | E2E-04; procedimiento de aprobación en simulador TEST autorizado. | Completar aprobación con datos publicados por el proveedor dentro de TEST; regresar a BeatsCloud; consultar biblioteca/registro backend. | El backend confirma autorización; UI informa éxito; compra registrada una vez y visible al comprador. | Captura del retorno exitoso + captura de biblioteca; registro del estado backend sin PAN, token ni identificadores reutilizables. | **PENDIENTE**; no hay prueba de compra/retorno real acreditada. |
+| E2E-06 | Pago rechazado o anulado | Sesión/beat de prueba; nueva transacción separada de la aprobación. | Ejecutar rechazo y, si el simulador permite, cancelación como casos independientes; observar retorno y carrito. | No se registra compra ni se habilita descarga; estado visible corresponde al resultado y carrito se conserva según regla backend. | Captura independiente de cada retorno/estado y comprobación saneada de que no existe compra. | **PENDIENTE** E2E; existen tests de ramas con respuestas simuladas según informe histórico. |
+| E2E-07 | Descarga desde compras | Solo después de E2E-05 real; usuario comprador aún autenticado; archivo de prueba autorizado. | Entrar a sección Compras; confirmar beat; descargar; verificar que el archivo existe, tiene tamaño > 0 y se abre/reproduce. | Compra aparece y backend entrega el archivo esperado a esa cuenta; sin compra, descarga debe rechazarse. | Captura de sección Compras, descarga terminada y resultado de verificación del archivo (tamaño/lectura); no adjuntar audio con derechos no autorizados. | **PENDIENTE** de evidencia del corte. |
 
-No marcar un caso como aprobado hasta adjuntar evidencia auténtica y completar los metadatos. No publicar tarjetas, tokens ni credenciales aunque sean de prueba.
+## Secuencia para obtener y conservar evidencia
+
+1. **Responsable de integración/QA por asignar** confirma entorno, rama/commit, modo `hybrid`, base de pruebas, origen, cuenta y autorización del archivo. No compartir secretos con quien captura.
+2. Anotar fecha/hora, nombre de ambiente (sin URL con credenciales), navegador/versión, commit, responsable y alias ficticio de cuenta.
+3. Ejecutar E2E-01 a E2E-03 y comprobar con Django los importes antes de abrir Webpay.
+4. Confirmar TEST en pasarela y completar E2E-04/E2E-05. El equipo debe usar los datos de prueba oficiales vigentes; este documento no transcribe números, claves ni secretos.
+5. Ejecutar E2E-06 con otra transacción. No reutilizar captura de aprobación.
+6. Ejecutar E2E-07 solo tras aprobación verificada. Confirmar archivo descargado no vacío y reproducible. Usar una pista propia o autorizada.
+7. Antes de adjuntar, revisar imagen y metadatos: retirar nombres/correos, identificadores de cuenta, PAN/CVV/vencimiento, tokens, cookies, cabeceras, claves, parámetros sensibles de URL, datos de terceros y metadata privada del archivo.
+8. Guardar capturas bajo una carpeta de evidencia acordada y relacionar cada archivo con su ID E2E. Mantener original privado si el formato exige datos de auditoría que no deben publicarse.
+
+## Registro de resultados
+
+Completar una línea por intento. Un caso se marca APROBADO o FALLIDO únicamente con resultado observado. Si falta servicio/cuenta y se intentó, usar BLOQUEADO con la dependencia; si no se intentó, mantener PENDIENTE.
+
+| ID | Estado | Fecha/hora | Rama/commit | Ambiente/navegador | Ejecutó | Archivo(s) | Resultado/defecto Jira |
+|---|---|---|---|---|---|---|---|
+| E2E-01 | PENDIENTE | — | — | — | Por asignar | — | — |
+| E2E-02 | PENDIENTE | — | — | — | Por asignar | — | — |
+| E2E-03 | PENDIENTE | — | — | — | Por asignar | — | — |
+| E2E-04 | PENDIENTE | — | — | — | Por asignar | — | — |
+| E2E-05 | PENDIENTE | — | — | — | Por asignar | — | — |
+| E2E-06 | PENDIENTE | — | — | — | Por asignar | — | — |
+| E2E-07 | PENDIENTE | — | — | — | Por asignar | — | — |
+
+## Pendiente de validación del equipo
+
+Vicente/equipo debe proporcionar ruta y versión del DOCX. QA debe confirmar ambiente TEST, cuenta, beat/archivo de prueba, responsable y ventana de ejecución. Integración/backend debe habilitar consulta de estado de compra sin exponer datos personales. Si el documento original no aparece, el equipo debe confirmar si esta matriz será el formato final de evidencia.
+
+## Fuentes
+
+[Plan de pruebas](../../plan_pruebas.md); [integración backend](../../../INTEGRACION_BACKEND.md); [evidencia backend histórica](../../../evidencias/pruebas_backend.txt); `app/test_webpay_*.py`; `app/test_integration_real.py`; cliente `frontend/client/src/api/django.service.ts`.

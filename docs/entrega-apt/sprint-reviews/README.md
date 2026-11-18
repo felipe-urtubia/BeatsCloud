@@ -1,25 +1,22 @@
-# Sprint Reviews
+# Sprint Reviews — índice y control de evidencia
 
-No se localizaron actas de Sprint Review en el árbol actual. El registro de cambios y verificaciones técnicas aportan información de implementación, pero no prueban quién participó, qué se demostró ni qué feedback dio el cliente. No se convierten en Review histórica.
+No hay actas de Review completas en el checkout actual. El registro de cambios y la verificación técnica alojada en otra rama permiten identificar entregables/pruebas reportados, pero no prueban objetivo comprometido, participantes, demo, aceptación ni feedback. Las fichas conservan esa distinción.
 
-## Sprint 1 y Sprint 2
+| Sprint | Ficha | Estado al corte 12-11-2026 |
+|---|---|---|
+| 1 | [Sprint Review 1](sprint-1.md) | Acta no localizada; documentación de plantilla. |
+| 2 | [Sprint Review 2](sprint-2.md) | Acta no localizada; resumen técnico externo a esta rama con alcance limitado. |
+| 3 | [Sprint Review 3](sprint-3.md) | Sprint en curso según calendario; completar tras demo real del 12–15 nov. |
+| 4 | [Sprint Review 4](sprint-4.md) | Sprint futuro según calendario; completar tras demo real del 16–19 nov. |
 
-**Estado:** Reviews no localizadas. Recuperar acta, demo grabada o aceptación del Product Owner/equipo. La verificación técnica de Sprint 2 disponible en otra rama local no sustituye una Review.
+## Estructura mínima de cada Review
 
-## Sprint 3 (12–15-11-2026)
+1. Objetivo de sprint y versión del compromiso en Jira.
+2. Fecha/ambiente, participantes y persona que acepta el incremento.
+3. Trabajo comprometido frente al completado, con claves Jira.
+4. Funcionalidades demostradas y resultado observado por criterio.
+5. Funcionalidades parciales/no demostradas y motivo.
+6. Feedback literal/parafraseado con fuente (solo si quedó registrado).
+7. Decisiones y próximos pasos con responsables confirmados.
 
-**Estado al corte:** en curso. Completar tras la demostración prevista, anotando fecha, participantes, incremento mostrado, criterios Jira, resultado por criterio, feedback y decisión de aceptación.
-
-## Sprint 4 (16–19-11-2026)
-
-**Estado al corte:** futuro. Completar después de la demo final. No declarar entregables aceptados antes de observarlos.
-
-## Plantilla de registro
-
-- Sprint/objetivo y enlace Jira:
-- Fecha, participantes y entorno de demo:
-- Incremento demostrado (commit/build):
-- Historia/criterio | evidencia observada | decisión (aceptado/parcial/rechazado) | comentario:
-- Feedback y cambios al backlog:
-- Bloqueos/dependencias:
-- Quién valida y fecha:
+No convertir una lista de commits, un build o un reporte de tests en aceptación de usuario. No hay Jira conectado en esta sesión.

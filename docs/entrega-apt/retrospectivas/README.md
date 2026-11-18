@@ -1,33 +1,24 @@
-# Retrospectivas de sprint
+# Retrospectivas — índice y estado de fuentes
 
-No se encontraron actas verificables de retrospectiva en el árbol actual del repositorio. No se reconstruyen conclusiones históricas desde el código o el registro de commits.
+No se encontraron actas completas de retrospectiva de Sprint 1 o Sprint 2 en este checkout. Para Sprint 3 y 4 todavía no correspondía escribir resultados al corte 12-11-2026. Cada ficha identifica qué se sabe y mantiene separados los espacios que requieren memoria/validación de participantes.
 
-Una verificación técnica de Sprint 2 fechada 05-11-2026 existe en otra rama local, pero no es retrospectiva ni está en esta rama. Solicitar al equipo el acta original y confirmar su versión antes de incorporarla.
+| Sprint | Ficha | Estado | Fuente/pendiente |
+|---|---|---|---|
+| 1 | [Retrospectiva Sprint 1](sprint-1.md) | Plantilla con referencia indirecta a una acción posterior | Registro de cambios menciona “acción 5”; recuperar acta original para conocer qué funcionó, qué mejorar y quién acordó la acción. |
+| 2 | [Retrospectiva Sprint 2](sprint-2.md) | No localizada; verificación técnica separada | `VERIFICACION_SPRINT_2.md`, commit histórico `c060b67`, no es retrospectiva. Recuperar acta y participantes. |
+| 3 | [Retrospectiva Sprint 3](sprint-3.md) | En curso al corte 12-11 | Completar únicamente en la reunión de cierre real (calendario 12–15 nov.). |
+| 4 | [Retrospectiva Sprint 4](sprint-4.md) | Futura al corte 12-11 | Completar después del cierre real (calendario 16–19 nov.). |
 
-## Sprint 1
+## Plantilla común para la reunión
 
-**Estado:** acta no localizada. Recuperar fecha de reunión, asistentes, acuerdos, acciones, responsables y estado de seguimiento desde Jira/acta del equipo.
+- Sprint, objetivo enlazado a Jira, fecha/hora y duración:
+- Participantes y rol; ausencias:
+- Hechos observados y evidencia (tickets, métricas, demo):
+- Qué funcionó:
+- Qué no funcionó / causas observadas:
+- Qué se debe mejorar:
+- Acciones (acción, persona responsable confirmada, fecha, clave Jira):
+- Seguimiento de acciones anteriores:
+- Validación del acta (participantes, persona y fecha):
 
-## Sprint 2
-
-**Estado:** retrospectiva no localizada. La verificación técnica disponible fuera de esta rama no sustituye acuerdos de retrospectiva. Recuperar acta y confirmar cualquier acción que afecte el plan actual.
-
-## Sprint 3 (12–15-11-2026)
-
-**Estado al 12-11:** sprint en curso según calendario informado. Completar después de la reunión de cierre real: fecha, asistentes, qué funcionó/no, obstáculos observados, acciones con responsables y revisión de acciones anteriores. No completar anticipadamente.
-
-## Sprint 4 (16–19-11-2026)
-
-**Estado al 12-11:** sprint futuro según calendario informado. Completar solo al celebrar retrospectiva; separar acciones comprometidas de opiniones y registrar responsables.
-
-## Plantilla de acta
-
-- Fecha y duración:
-- Sprint y objetivo acordado (enlace Jira):
-- Participantes y ausencias:
-- Hechos observados/evidencia:
-- Funcionó bien:
-- Dificultades y causas:
-- Acciones (acción, responsable, fecha, ticket):
-- Estado de acciones previas:
-- Validación del equipo / fecha:
+No completar opiniones/acciones retrospectivas a partir de commits, estado del código o una verificación técnica. Jira no estuvo disponible en esta sesión.

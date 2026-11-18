@@ -1,18 +1,39 @@
-# Plan de riesgos — entrega APT
+# Plan de riesgos — entrega APT BeatsCloud
 
-**Corte:** 12-11-2026. Probabilidad e impacto iniciales son evaluación cualitativa para discutir, no registro aprobado por el equipo.
+**Corte:** 12-11-2026 · **Estado:** evaluación inicial de documentación, no acta aprobada por el equipo.
+Probabilidad/impacto son apreciaciones cualitativas para priorizar conversación; responsables de proyecto no confirmados.
 
-| ID | Riesgo / señal | Prob. | Impacto | Mitigación / contingencia | Responsable |
-|---|---|---|---|---|---|
-| R-01 | Falta ejecutar el pago E2E TEST y retorno Webpay antes del 19-11. | Alta | Alto | Reservar cuenta/ambiente de pruebas; ejecutar T-02–T-05; si se bloquea, mostrar el estado como pendiente y adjuntar evidencia del bloqueo. | Por asignar |
-| R-02 | No se encontró `Evidencia_Pruebas_E2E_BeatsCloud.docx` ni capturas E2E en el árbol inspeccionado. | Alta | Alto | Confirmar ubicación con Vicente/equipo; conservar original y versionar evidencia saneada. | Por asignar |
-| R-03 | Audio engine cambiado localmente aún no validado en navegador. | Media | Alto | Probar en navegador real con diferentes pistas/controles; mantener pendiente hasta resultado. | Por asignar |
-| R-04 | Sin Jira exportado no se pueden validar prioridades, alcance ni consistencia de Sprint 3/4. | Alta | Alto | Exportar tablero y conciliación del backlog/actas antes de cerrar presentación. | Por asignar |
-| R-05 | Activación depende de SMTP/cuenta; no se ha acreditado disponibilidad para demo. | Media | Alto | Preparar cuenta ficticia activada autorizada o backend de correo de desarrollo; no usar datos reales en capturas. | Por asignar |
-| R-06 | `agregar.html`, ya versionado en `main`, es un ZIP que contiene `.env`, `frontend/client/.env` y `server/db.sqlite3`. La configuración del `.env` contiene valores no vacíos para variables de Django, correo, Transbank y base de datos; sus valores no se reproducen aquí. | Confirmado | Crítico | Tratar las credenciales como expuestas: responsables autorizados deben identificar/rotar credenciales, evaluar el historial y acordar saneamiento del blob antes de distribuir una copia limpia. No extraer ni volver a publicar el contenido. El commit de este PR no modifica el archivo, pero el hallazgo sigue presente en su rama base. | Por asignar |
-| R-07 | Un fallo de conectividad o ambiente de prueba puede confundirse con éxito de modo mock. | Media | Alto | Identificar siempre `hybrid`/`mock` en registro y no aceptar mock para pago, persistencia o descarga autorizada. | Por asignar |
-| R-08 | Entrega de audio de prueba puede contener material protegido o metadata personal. | Media | Medio | Usar recurso propio/sintético con permiso; retirar metadata privada antes de distribuir. | Por asignar |
+## Escala de evaluación
 
-## Revisión
+- **Probabilidad:** Baja (poco probable con controles actuales), Media (puede ocurrir), Alta (ya existe la condición o es probable antes de la entrega).
+- **Impacto:** Bajo (menor), Medio (retrasa una parte), Alto (afecta flujo/entrega), Crítico (exposición de credenciales/datos o impide distribuir el proyecto con seguridad).
+- **Criticidad:** juicio combinado probabilidad × impacto; Crítica si impacto crítico, Alta para combinaciones que pueden impedir aceptación APT.
+- **Estado:** Abierto hasta que exista evidencia fechada de mitigación y validación. Responsable queda “Por asignar” cuando no consta una persona.
 
-En la reunión de planificación, asignar propietario y definir probabilidad/impacto usando la escala acordada por el equipo. Revisar diariamente durante Sprint 3/4 y registrar fecha, cambio, decisión y responsable. El registro actual no demuestra que esas reuniones hayan ocurrido.
+## Registro
+
+| ID | Riesgo | Probabilidad | Impacto | Criticidad | Mitigación y contingencia | Responsable | Estado al corte |
+|---|---|---|---|---|---|---|---|
+| R-01 | `agregar.html`, versionado en `main`, es un ZIP con un miembro `.env`; las versiones históricas contienen nombres de variables y valores no vacíos de configuración/credenciales. El ZIP no contiene SQLite según el listado inspeccionado. | Alta (condición confirmada) | Crítico | **CRÍTICA** | No extraer ni publicar valores. Tratar las credenciales potencialmente expuestas; custodios deben inventariar proveedores, rotar/revocar y coordinar saneamiento del historial. Mantener la publicación bloqueada hasta confirmar rotación. | Por asignar: custodio repositorio + responsables de credenciales | Abierto; variables identificadas por nombre, rotación no confirmada y el blob sigue en historial remoto. |
+| R-02 | Credenciales o datos derivados de los `.env` embebidos ya pudieron quedar en historial remoto. | Alta | Crítico | **CRÍTICA** | Confirmar exposición con responsables/proveedores; rotar secretos en el servicio emisor y revisar sesiones/actividad. Eliminar el archivo de una copia de trabajo no revoca credenciales ni sanea historia. No transcribir secretos en tickets/capturas. | Por asignar: responsables de Django, Transbank, SMTP y base | Abierto; revisión/rotación no acreditadas. |
+| R-03 | El flujo Webpay puede fallar o no poder demostrarse por falta de ambiente TEST, cuenta activa, configuración/callback o acceso a simulador. | Alta | Alto | **ALTA** | Reservar entorno y cuenta autorizada; comprobar ambiente antes de pago; probar aprobación, rechazo y cancelación; conservar estados observados. Si se bloquea, reportar bloqueo real y no sustituirlo por mock/doble. | Por asignar: integración/QA | Abierto; E2E no encontrada en evidencia disponible. |
+| R-04 | Faltan capturas/registro del recorrido E2E y no se localizó el DOCX referido por Vicente. | Alta | Alto | **ALTA** | Confirmar con Vicente/equipo el lugar y versión del DOCX; revisar su contenido antes de añadir capturas. Usar matriz de `evidencias/e2e/README.md`; recortar/redactar datos antes de commit. | Por asignar; Vicente solo es fuente del aviso, no se infiere que sea responsable | Abierto. |
+| R-05 | Carga de archivos y reproducción/audio pueden fallar con el servicio/archivo/navegador de demo, incluida la modificación `audioEngine.ts` del PR #2. | Media | Alto | **ALTA** | Ejecutar carga híbrida con fixture permitido y validar audio en navegador objetivo. Registrar codec, duración, navegador, errores y resultado. Mantener ambas capacidades como pendientes hasta evidencia. | Por asignar: frontend + QA | Abierto; audio real pendiente y carga reciente sin resultado en paquete. |
+| R-06 | El almacenamiento de `MEDIA_ROOT` es filesystem configurado; persistencia/durabilidad compartida de archivos entre reinicios o nodos no está definida. | Media | Alto | **ALTA** | Confirmar ambiente de presentación, volumen/ruta persistente, respaldo, permisos y política de archivos. Preparar datos reproducibles o exhibir limitación si almacenamiento es efímero. | Por asignar: infraestructura/backend | Abierto; no hay despliegue/almacenamiento remoto acreditado. |
+| R-07 | Frontend y API pueden desincronizar sesión/CSRF/origen/configuración; fallos de SMTP/DB también bloquean alta/compra. | Media | Alto | **ALTA** | Verificar misma origen/proxy, cookie/CSRF, migraciones, conexión DB y flujo de correo con cuenta ficticia antes de la demo. Mantener modo hybrid explícito y mensaje de error. | Por asignar: integración | Abierto; entorno APT no identificado. |
+| R-08 | Falta acceso a Jira: backlog, prioridad, estado, responsables, criterios aceptados y alcance de Sprint 3/4 no se pueden confirmar. | Alta | Alto | **ALTA** | Integrante con acceso exporta Jira DDPB y concilia `product_backlog.md`; actualiza sprint/criterios con fuente. No presentar inventario técnico como backlog oficial. | Por asignar: administrador/Product Owner Jira | Abierto. |
+| R-09 | La entrega del 19-11 puede quedar incompleta por sprints en curso/futuro al corte y ceremonias/evidencias sin actas localizadas. | Media | Alto | **ALTA** | Confirmar rúbrica/paquete, responsables y fecha de cierre; actualizar Review/retro solo tras reuniones reales; reservar tiempo para E2E y revisión de seguridad. | Por asignar: coordinación académica | Abierto. |
+| R-10 | La prueba en `mock` puede confundirse con aceptación de persistencia, checkout o descarga real. | Media | Medio | **MEDIA** | En todas las capturas/registro anotar modo; modo `mock` se identifica como **SIMULADO** y se excluye de evidencia de APIs/pagos/descargas. | Por asignar: quien demuestre | Abierto hasta la presentación. |
+| R-11 | Evidencias pueden revelar datos personales, derechos de audio, cookies, tokens o datos de pago. | Media | Alto | **ALTA** | Usar cuentas/datos sintéticos, audio autorizado, capturas recortadas y revisión por segunda persona; no publicar archivo descargado si no hay autorización. | Por asignar: QA + custodio de evidencia | Abierto. |
+
+## Seguimiento
+
+Actualizar por revisión de sprint con fecha, cambio de probabilidad/impacto, acción, responsable y evidencia. Cerrar un riesgo solo cuando la mitigación está realizada y comprobada; una intención o ticket creado no es cierre. Jira no estuvo disponible al preparar este documento.
+
+## Pendiente de validación del equipo
+
+Asignar propietarios reales; confirmar escala institucional, ambiente y almacenamiento, estado de rotación de secretos, decisión de saneamiento Git, acceso al simulador, disponibilidad de correo y plan de respuesta si Webpay/E2E sigue bloqueado. Los responsables de secretos deben actuar usando canales autorizados y no adjuntar valores a esta documentación.
+
+## Fuentes
+
+[README](../../README.md); [integración backend](../INTEGRACION_BACKEND.md); [registro de cambios](../../REGISTRO_CAMBIOS_BEATSCLOUD.md); `agregar.html` (clasificado por tipo/miembros sin extracción); `beatcloud/settings.py`; `app/models.py`; `app/views.py`; [protocolo E2E](evidencias/e2e/README.md).
