@@ -6,7 +6,7 @@
 
 El candidato integra `frontend-trabajo` con `origin/main` y contiene backend Django, SPA React, migraciones R2/Webpay, pruebas, documentación técnica y el comando local de catálogo demo. La base aislada y el catálogo funcionan localmente; suites automatizadas de backend/frontend, chequeo TypeScript, build y verificaciones de Django aprobaron en el corte.
 
-La integración local no debe publicarse todavía. `origin` es público y GitHub conserva las ramas e historia antiguas con `agregar.html`, ZIP cuyo único miembro era `.env` con campos sensibles no vacíos. `git-filter-repo` 2.47.0 retiró las rutas de todas las referencias locales; las ramas remotas aún no se modificaron. La rotación/revocación externa no está confirmada. El commit integrado tras filtrar es `31796c2`; la limpieza de referencias locales continúa.
+La integración local no debe publicarse todavía. `origin` es público y GitHub conserva las ramas e historia antiguas con `agregar.html`, ZIP cuyo único miembro era `.env` con campos sensibles no vacíos. `git-filter-repo` 2.47.0 retiró las rutas de todas las referencias locales; las ramas remotas aún no se modificaron. La rotación/revocación externa no está confirmada. El merge integrado tras filtrar es `31796c2`; el HEAD local `main` añade la actualización documental y se verifica en Git.
 
 ## Arquitectura observada
 
@@ -33,7 +33,7 @@ No se validó reproducción audible en navegador, compra E2E como comprador dist
 
 ## Ramas, PR y contribuciones
 
-La auditoría inicial encontró seis ramas locales y tres remotas (`main`, `frontend-trabajo`, `integration/react-frontend`). Todas las ramas locales apuntaban a commits contenidos en el candidato consolidado. `main` local incluye `frontend-trabajo`, la antigua `origin/main` y cuatro commits de `integration/reorganization-checkpoint` (`9f4f85b`, `de4a79a`, `a907e41`, `53db43f`) como ascendencia de un merge `ours`; su árbol `client/`/`server/` reemplazaría módulos y migraciones R2 actuales, así que se conserva el árbol vigente. Los OID cambiaron al retirar las rutas sensibles; hashes anteriores solo identifican antecedentes históricos.
+La auditoría inicial encontró seis ramas locales y tres remotas (`main`, `frontend-trabajo`, `integration/react-frontend`). Todas las puntas locales estaban contenidas en el candidato consolidado. Tras integrar y filtrar, se retiraron las cinco ramas locales redundantes y `main` es la única rama local. Incluye `frontend-trabajo`, la antigua `origin/main` y cuatro commits de `integration/reorganization-checkpoint` (`9f4f85b`, `de4a79a`, `a907e41`, `53db43f`) como ascendencia de un merge `ours`; su árbol `client/`/`server/` reemplazaría módulos y migraciones R2 actuales, así que se conserva el árbol vigente. Los OID cambiaron al retirar las rutas sensibles; hashes anteriores solo identifican antecedentes históricos. Las referencias remotas no se recrearon localmente para evitar representar el servidor antiguo como saneado.
 
 GitHub: PR #1 (React/Django) MERGED, autor de GitHub `yaeaelo` (Ismael Araya); PR #3 (descarga R2 temporal) MERGED, autor `felipe-urtubia`; PR #2 desde `frontend-trabajo` sigue OPEN y corresponde a cambios ya integrados en el candidato. No tiene reviews ni comentarios visibles. Jira no está conectado.
 
@@ -61,4 +61,4 @@ Variables que requieren confirmación de rotación/revocación por los custodios
 
 La matriz técnica y los documentos de arquitectura, datos, almacenamiento, pruebas y trazabilidad están enlazados desde [README técnico](README.md). Los documentos con corte 12-11 conservan su fecha y alcance histórico; no se actualizan retrospectivas/reviews sin actas. Las capturas y E2E de navegador siguen pendientes.
 
-El repositorio GitHub es público, el default branch es `main`, el token consultado tiene permiso WRITE y no se observó protección de rama habilitada. PR #2 sigue abierto; eliminar su head branch antes de cerrar/concluir la incidencia rompería su referencia. No se enviaron mensajes al equipo ni se ejecutaron operaciones remotas destructivas. La reescritura y publicación requieren confirmar primero la rotación de credenciales y coordinar a quienes usan las ramas antiguas.
+El repositorio GitHub es público, el default branch es `main`, el token consultado tiene permiso WRITE y no se observó protección de rama habilitada. En la consulta final, las ramas remotas eran `main`, `frontend-trabajo`, `integration/react-frontend`; PR #2 seguía OPEN sobre `frontend-trabajo`, PR #1 y #3 MERGED. No se enviaron mensajes al equipo ni se ejecutaron operaciones remotas destructivas. La sincronización/eliminación remota requiere coordinar PR #2 y a quienes usan las ramas antiguas, y confirmar primero la rotación/revocación de credenciales.

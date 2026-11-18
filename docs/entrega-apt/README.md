@@ -34,7 +34,7 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 - **PENDIENTE** indica falta implementación, acceso, ejecución o evidencia.
 - Webpay está integrado; tests con dobles no equivalen a compra E2E TEST.
 - El cambio de `audioEngine.ts` del PR #2 requiere validación real en navegador.
-- `agregar.html` fue retirado del árbol. Era un ZIP con un miembro `.env`; no se extrajo ni imprimió su contenido. El saneamiento local reescribió las referencias para retirar `agregar.html` y `agregar.zip`. Las ramas remotas aún conservan la historia anterior; no publicar hasta confirmar rotación/revocación y coordinar la reescritura remota.
+- `agregar.html` fue retirado del árbol. Era un ZIP con un miembro `.env`; no se extrajo ni imprimió su contenido. El saneamiento local reescribió la historia y las ramas locales redundantes se consolidaron en `main`. Las ramas remotas aún conservan la historia anterior; no publicar hasta confirmar rotación/revocación y coordinar la reescritura remota.
 - El corte técnico 18-11-2026 registra pruebas automatizadas y HTTP locales en [validación técnica](validacion_tecnica_corte_2026-11-18.md). No acredita R2 real, pago externo ni reproducción verificada en navegador.
 
 ## Fuentes principales
