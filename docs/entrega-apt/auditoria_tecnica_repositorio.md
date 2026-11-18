@@ -6,7 +6,7 @@
 
 El candidato integra `frontend-trabajo` con `origin/main` y contiene backend Django, SPA React, migraciones R2/Webpay, pruebas, documentación técnica y el comando local de catálogo demo. La base aislada y el catálogo funcionan localmente; suites automatizadas de backend/frontend, chequeo TypeScript, build y verificaciones de Django aprobaron en el corte.
 
-La integración local no debe publicarse todavía. `origin` es público y GitHub conserva las ramas e historia antiguas con `agregar.html`, ZIP cuyo único miembro era `.env` con campos sensibles no vacíos. `git-filter-repo` 2.47.0 retiró las rutas de todas las referencias locales; las ramas remotas aún no se modificaron. La rotación/revocación externa no está confirmada. El merge integrado tras filtrar es `31796c2`; el HEAD local `main` añade la actualización documental y se verifica en Git.
+La integración local no debe publicarse todavía. `origin` es público y GitHub conserva las ramas e historia antiguas con `agregar.html`, ZIP cuyo único miembro era `.env` con campos sensibles no vacíos. `git-filter-repo` 2.47.0 retiró esas rutas de las referencias locales; las ramas remotas aún no se modificaron. La rotación/revocación externa no está confirmada. La revisión posterior encontró además un valor no vacío de contraseña débil por defecto en el obsoleto `settings.py` raíz, alcanzable en el historial saneado; el archivo ya es un wrapper sin ese valor en el árbol actual, pero el historial necesita respuesta coordinada antes de compartirse íntegro. No se reproduce el valor. El merge integrado tras filtrar es `31796c2`; el HEAD local `main` añade la actualización documental y se verifica en Git.
 
 ## Arquitectura observada
 
@@ -27,7 +27,7 @@ Las migraciones de `app` llegan a `0027_track_r2_owner_user_id`. En PostgreSQL l
 
 ## Validación
 
-Resultados reproducibles y limitaciones detalladas: [validación técnica 18-11-2026](validacion_tecnica_corte_2026-11-18.md). Se ejecutaron Django (367 pruebas), frontend (26 tests en tres archivos/suites), lint TypeScript (`tsc -b`), build Vite, `pip check`, `manage.py check` y verificación de migraciones. En HTTP local se validaron catálogo, sesión, CSRF/login, preview, 403 anónimo de audio completo/descarga y entrega autenticada del propietario.
+Resultados reproducibles y limitaciones detalladas: [validación técnica 18-11-2026](validacion_qa_2026-11-18.md) registra la comprobación final de 372 pruebas Django sobre `1c14edd`; la validación anterior de 367 está preservada por separado en [corte técnico previo](validacion_tecnica_corte_2026-11-18.md). También se ejecutaron 26 tests frontend, lint TypeScript (`tsc -b`), build Vite, `pip check`, `manage.py check` y verificación de migraciones. En HTTP local se validaron catálogo, sesión, CSRF/login, preview, 403 anónimo de audio completo/descarga y entrega autenticada del propietario.
 
 No se validó reproducción audible en navegador, compra E2E como comprador distinto, Webpay contra Transbank, R2 contra Cloudflare ni rendimiento de WAV/stems. Un HTTP 200 de una ruta no acredita el flujo completo.
 
@@ -56,6 +56,8 @@ Historial inspeccionado, sin extraer ni mostrar valores:
 Antes del filtrado no se encontraron otros nombres de archivos `.env`, SQLite, claves PEM o claves SSH en los objetos rastreados; sí existen `.env.example`. Un escaneo `detect-secrets` 1.5.0 revisó 569 blobs de texto alcanzables y los miembros `.env` archivados sin emitir hallazgos heurísticos. Ese resultado no invalida el hallazgo directo de variables sensibles con valores no vacíos. La inspección post-filtrado no encontró `agregar.html`/`agregar.zip` entre los objetos alcanzables locales; la verificación final se registra tras limpiar refs.
 
 Variables que requieren confirmación de rotación/revocación por los custodios: `DJANGO_SECRET_KEY`, `EMAIL_HOST_PASSWORD`, `TRANSBANK_API_KEY`, `DB_PASSWORD`, `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY`. Revisar además sesiones firmadas, actividad SMTP/Transbank, cuenta/rol DB y accesos R2. `TRANSBANK_COMMERCE_CODE`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `EMAIL_HOST_USER` y `DB_USER` son identificadores/configuración expuestos que requieren revisión, no necesariamente rotación. En las versiones examinadas `TRANSBANK_SHARED_SECRET` y `STRIPE_SECRET_KEY` estaban vacías; no se afirma exposición de esos valores. **La rotación no está confirmada.**
+
+El hallazgo del valor débil por defecto en el historial es independiente del ZIP. El valor no se incluye aquí. Revisar si fue utilizado por alguna base local compartida y cambiarlo donde corresponda; la configuración actual ya requiere `DB_PASSWORD` sin valor implícito. El bundle privado de historial completo no es material de entrega. Una copia shallow de solo código puede servir para iniciar QA, pero no conserva trazabilidad histórica completa.
 
 ## Estado documental y de publicación
 

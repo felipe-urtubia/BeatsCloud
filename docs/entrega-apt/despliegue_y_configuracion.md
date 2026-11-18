@@ -21,9 +21,22 @@ Estado: **propuesta técnica, no despliegue ejecutado**. Código de referencia e
 
 ## Variables requeridas por código
 
-En el backend, `DJANGO_SECRET_KEY` debe existir; `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` definen PostgreSQL. Ajustar `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `FRONTEND_URL` a dominios finales y HTTPS. `MEDIA_ROOT` y `FFMPEG_PATH` se usan para archivos/procesamiento local. Email usa `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, `EMAIL_TIMEOUT`.
+`.env.example` es una plantilla versionada; Django no la carga automáticamente. Copiarla a `.env` local, y `beatcloud/settings.py` carga ese archivo desde la raíz. No completar credenciales reales en la plantilla. `frontend/client/.env.example` también es referencia versionada; copiar a `frontend/client/.env` para que Vite lea su configuración. `.env.qa` lo genera el script QA, es local y no se publica.
 
-R2 usa variables de cuenta, bucket, acceso y secreto (`R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, claves access/secret) y bandera `R2_UPLOADS_ENABLED`; completar solo con credenciales de Felipe y bucket privado dedicado. Webpay recibe `TRANSBANK_COMMERCE_CODE`, `TRANSBANK_API_KEY`, `TRANSBANK_SHARED_SECRET`, `TRANSBANK_INTEGRATION_TYPE=TEST|LIVE`. Stripe tiene settings/claves parciales, pero no se documenta como integración operativa. Frontend conoce `VITE_API_MODE`, `VITE_DJANGO_URL` y `VITE_API_URL`; el Vite proxy de desarrollo usa `VITE_DJANGO_PROXY_TARGET`. `VITE_*` se incorpora al bundle público: no colocar secretos.
+| Grupo | Variables | Requisito |
+|---|---|---|
+| Django | `DJANGO_SECRET_KEY` | Obligatoria; aleatoria, privada y distinta por ambiente. |
+| PostgreSQL | `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Necesarias para una DB real local/servidor; configurar acceso y DB antes de migrar. |
+| Entorno web | `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `FRONTEND_URL` | Necesarias para configuración adecuada del ambiente; en producción usar dominio HTTPS y DEBUG false. |
+| Audio local | `FFMPEG_PATH`, `MEDIA_ROOT` | FFmpeg requerido al generar preview; `MEDIA_ROOT` puede usar default local. |
+| Correo | `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, `EMAIL_TIMEOUT` | El backend console basta en local; credenciales SMTP solo si se prueba servicio real. |
+| R2 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_UPLOADS_ENABLED` | Opcionales; todas las credenciales/bucket deben existir y `R2_UPLOADS_ENABLED=true` para habilitar el flujo. |
+| Webpay | `TRANSBANK_COMMERCE_CODE`, `TRANSBANK_API_KEY`, `TRANSBANK_INTEGRATION_TYPE` | TEST y credenciales de integración para probar checkout real; LIVE no se configura en esta preparación. |
+| Frontend | `VITE_API_MODE`, `VITE_API_URL`, `VITE_DJANGO_URL`, `VITE_DJANGO_PROXY_TARGET` | Variables públicas/desarrollo. API normalmente `/api`, URL Django vacía y proxy al backend local. Nunca guardar secretos `VITE_*`. |
+
+`TRANSBANK_SHARED_SECRET` no se usa por el SDK/configuración de los flujos actuales y no está en la plantilla. `STRIPE_*` también fue retirado: Stripe no tiene integración activa en el código.
+
+R2 usa variables de cuenta, bucket, acceso y secreto (`R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, claves access/secret) y bandera `R2_UPLOADS_ENABLED`; completar solo con credenciales de Felipe y bucket privado dedicado. Webpay recibe `TRANSBANK_COMMERCE_CODE`, `TRANSBANK_API_KEY` y `TRANSBANK_INTEGRATION_TYPE=TEST|LIVE`. `TRANSBANK_SHARED_SECRET` era una variable heredada sin lectores en los flujos actuales; si su valor histórico estuvo en el archivo accidental, también debe rotarse como secreto potencialmente expuesto. Stripe no tiene flujo de pago implementado ni variables necesarias en la plantilla. Frontend conoce `VITE_API_MODE`, `VITE_DJANGO_URL` y `VITE_API_URL`; el Vite proxy de desarrollo usa `VITE_DJANGO_PROXY_TARGET`. `VITE_*` se incorpora al bundle público: no colocar secretos.
 
 `.env.example` enumera configuración local sin credenciales. Cada plataforma debe mantener secretos en su panel, nunca commitearlos. No importar el `.env` local a Render/Vercel.
 

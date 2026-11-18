@@ -1,5 +1,7 @@
 # Integracion backend - D3 autenticacion
 
+> **Referencia histórica:** los pasos de validación fechados más abajo documentan ejecuciones anteriores y no son el corte actual. Para configuración vigente de QA, resultados de 18-11-2026, límites de evidencia y operación revisa [validación QA](entrega-apt/validacion_qa_2026-11-18.md), [arquitectura](entrega-apt/arquitectura.md), [Guía de Felipe](entrega-apt/operacion/GUIA_FELIPE_GRABACION.md) y [Guía de Vicente](entrega-apt/qa/GUIA_QA_VICENTE.md). No extrapolar los conteos históricos de pruebas a `main` actual.
+
 ## Decision D3 y alcance
 
 Mecanismo aplicado: **sesiones de Django mediante cookie + proteccion CSRF**; no JWT.
