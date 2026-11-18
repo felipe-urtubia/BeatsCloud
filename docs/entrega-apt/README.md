@@ -17,6 +17,11 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 | [Arquitectura](arquitectura.md) | **DESCRIPCIÓN LÓGICA** derivada del código; topología productiva no acreditada | Componentes, datos, sesión, pagos, archivos, flujos Mermaid e integraciones. |
 | [Modelo de datos y almacenamiento](modelo_datos_y_almacenamiento.md) | Estado técnico derivado del código integrado; R2 externo no probado | Entidades, migraciones, archivos locales/R2, audio y persistencia de pagos. |
 | [Validación técnica 18-11-2026](validacion_tecnica_corte_2026-11-18.md) | Registro de comandos, resultados y límites del corte | Django, frontend, HTTP local, datos demo y pruebas pendientes. |
+| [Validación de QA 18-11-2026](validacion_qa_2026-11-18.md) | Ejecución actual de setup, suite y smoke checks | Distingue prueba automatizada, HTTP local, navegador y servicios externos. |
+| [Guía de QA para Vicente](qa/GUIA_QA_VICENTE.md) | Procedimiento reproducible del entorno local aislado | Requisitos, DB, seed, cuentas temporales, inicio, evidencias y límites. |
+| [Matriz QA funcional](qa/matriz_qa_funcional.md) | Casos derivados del código real; pendientes hasta ejecutarlos | Catálogo, auth, perfiles, upload, audio, compras, Webpay y roles. |
+| [Registro de ejecución QA](qa/REGISTRO_EJECUCION_VICENTE.md) | Plantilla vacía | Registrar resultados/evidencia y defectos sin atribuir ejecución previa. |
+| [Despliegue y configuración](despliegue_y_configuracion.md) | Propuesta futura, no desplegada | Render/Vercel, cookies/CSRF, PostgreSQL, R2, Webpay y bloqueos técnicos. |
 | [Trazabilidad técnica](trazabilidad_tecnica.md) | Metadatos Git observables; Jira no accesible | Commits, merges y límites de atribución individual. |
 | [Matriz de evidencias técnicas](matriz_evidencias_tecnicas.md) | Matriz de cumplimiento técnico del corte | Evidencias localizadas, estado y pendientes. |
 | [Plan de pruebas](plan_pruebas.md) | **PLAN DE TRABAJO**; contiene registro separado de resultados históricos y pruebas pendientes | Casos, precondiciones, pasos, resultados esperados y evidencia requerida. Las ejecuciones automatizadas/HTTP del 18-11 se registran por separado; E2E de navegador sigue pendiente. |
@@ -53,3 +58,8 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 3. Ejecutar casos del plan en ambiente identificado y adjuntar evidencias saneadas al documento E2E existente si aparece.
 4. Incorporar reviews y retrospectivas solo después de verificar actas o celebrar la reunión real.
 5. Marcar cada documento como aprobado únicamente tras registrar quién lo validó y cuándo.
+# Documentación técnica
+
+Para levantar el entorno aislado y ejecutar QA, comenzar por la [Guía de QA de Vicente](qa/GUIA_QA_VICENTE.md), la [matriz funcional](qa/matriz_qa_funcional.md) y el [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md). Los resultados locales del corte se conservan en [validación técnica del 18-11-2026](validacion_tecnica_corte_2026-11-18.md); las pruebas de navegador y servicios externos siguen separadas como pendientes.
+
+La [configuración de despliegue](despliegue_y_configuracion.md) es una propuesta técnica, no evidencia de despliegue.

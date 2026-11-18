@@ -83,6 +83,8 @@ La API expone endpoints distintos para preview y audio completo. Django controla
 ## Restricciones y cuestiones de arquitectura
 
 - No hay topología de producción, balanceador, TLS, dominio, despliegue, observabilidad o SLA validados.
+- La preparación de QA añadida al corte utiliza PostgreSQL Compose aislado, DB `beatscloud_qa_local`, `MEDIA_ROOT=media/qa`, R2 apagado y Webpay configurado como TEST sin credenciales. Es un entorno local, no topología de producción; scripts y pasos están en `scripts/qa/` y `qa/GUIA_QA_VICENTE.md`.
+- El catálogo sintético ofrece 120 pistas con WAV, preview MP3 y portada generados localmente. Los filtros por género, texto, recurso, clave, mood, BPM, stems y precio existen en la experiencia cliente; el endpoint API no ofrece todos esos filtros server-side. Duración/subgénero server-side no se deben declarar como filtros implementados.
 - No se describe entrega de stems ni DRM.
 - La cookie de sesión y CSRF requieren configuración correcta de origen/HTTPS en despliegue.
 - Hallazgo de seguridad: `agregar.html` era un ZIP con un miembro `.env` (inspección de metadatos solamente). La ruta y `agregar.zip` fueron retiradas de todas las referencias locales por reescritura de historia. Las ramas remotas todavía requieren saneamiento coordinado, que no debe publicarse antes de confirmar la rotación/revocación de credenciales expuestas.
