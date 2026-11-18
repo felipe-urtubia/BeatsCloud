@@ -10,6 +10,8 @@
 
 Otros metadatos relevantes: GitHub vincula la cuenta `yaeaelo` (Ismael Araya) con PR #1 y PR #2; Git registra commits de esas contribuciones bajo `Yaelo`. GitHub vincula la cuenta `felipe-urtubia` con PR #3, cuyo commit aparece localmente como `Elmetaleroxd`. `Elmetaleroxd` firma además otros commits de producto, Webpay, metadatos y pruebas; no se asignan todos a Felipe sin evidencia individual de PR/autor. No se infieren porcentajes ni dedicación.
 
+Los commits de cierre de esta consolidación se crearon con el alias Git `Yaelo` que estaba configurado en el checkout. Esa metadata no demuestra que Ismael haya realizado individualmente la edición documental asistida durante esta sesión, por lo que no se cuentan como evidencia individual suya. Los autores históricos originales no se modificaron.
+
 ## Commits incorporados en este corte
 
 Antes de consolidar, `origin/main` aportaba 10 commits exclusivos respecto de `frontend-trabajo`, entre ellos integración R2/Webpay (`df8a28b`, `4323df2`), descargas temporales (`41f85b8`, `1553203`) y registros técnicos (`b56c3e1`, `064101c`, `e87280a`). La rama `integration/reorganization-checkpoint` aportaba cuatro commits exclusivos (`385ea56`, `1730278`, `975205d`, `ceb3a9c`); se preservan como ascendencia de `main` mediante merge `ours`, sin aplicar su árbol antiguo. Los OID a la derecha son equivalencias tras el saneamiento actual; las referencias originales se conservan solo para rastreo.
