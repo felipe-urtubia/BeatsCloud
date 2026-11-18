@@ -1,0 +1,405 @@
+import mimetypes
+import re
+
+from botocore.exceptions import ClientError
+from django.http import (
+    Http404,
+    HttpResponse,
+    JsonResponse,
+    HttpResponseForbidden,
+    HttpResponseNotAllowed,
+    StreamingHttpResponse,
+)
+from django.utils.http import content_disposition_header
+
+from app.r2_presign import ALLOWED, validate_original_filename
+from app.r2_visibility import is_media_ready
+
+
+def _validar_clave_privada(track):
+    propietario = getattr(
+        track,
+        "r2_owner_user_id",
+        None,
+    )
+
+    if propietario is None:
+        propietario = getattr(
+            getattr(track, "usuario", None),
+            "user_id",
+            None,
+        )
+
+    clave = getattr(track, "r2_object_key", None)
+
+    if (
+        type(propietario) is not int
+        or propietario <= 0
+        or not isinstance(clave, str)
+    ):
+        raise Http404("Audio no disponible.")
+
+    patron = (
+        rf"private/{propietario}/track/"
+        r"[a-f0-9]{32}\.[a-z0-9]+"
+    )
+
+    if not re.fullmatch(patron, clave):
+        raise Http404("Audio no disponible.")
+
+    extension = "." + clave.rsplit(".", 1)[-1]
+
+    if extension not in ALLOWED["track"]:
+        raise Http404("Formato de audio no disponible.")
+
+    return clave
+
+
+def _validar_rango(request):
+    valor = request.headers.get("Range")
+
+    if valor is None:
+        return None
+
+    if len(valor) > 64:
+        return False
+
+    coincidencia = re.fullmatch(
+        r"bytes=([0-9]*)-([0-9]*)",
+        valor,
+    )
+
+    if coincidencia is None:
+        return False
+
+    inicio, final = coincidencia.groups()
+
+    if not inicio and not final:
+        return False
+
+    if (
+        len(inicio) > 18
+        or len(final) > 18
+    ):
+        return False
+
+    if inicio and final and int(final) < int(inicio):
+        return False
+
+    if not inicio and int(final) == 0:
+        return False
+
+    return valor
+
+
+def _iterar_audio(cuerpo):
+    try:
+        while True:
+            fragmento = cuerpo.read(64 * 1024)
+
+            if not fragmento:
+                break
+
+            yield fragmento
+
+    finally:
+        cuerpo.close()
+
+
+
+R2_DOWNLOAD_URL_EXPIRY_SECONDS = 300
+
+
+def _respuesta_descarga_r2_no_disponible():
+    respuesta = JsonResponse(
+        {"detail": "Almacenamiento temporalmente no disponible."},
+        status=503,
+    )
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
+
+
+def authorized_r2_audio_download_response(
+    request,
+    track,
+    *,
+    client,
+    bucket,
+):
+    # Emite una URL GET temporal tras verificar los permisos de BeatCloud.
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    if (
+        not is_media_ready(track)
+        or getattr(track, "storage_backend", None) != "r2"
+    ):
+        raise Http404("Audio no disponible.")
+
+    if not request.user.is_authenticated:
+        return HttpResponseForbidden(
+            "Debes iniciar sesion para descargar."
+        )
+
+    from app.api_shim import _puede_escuchar_completo
+
+    if not _puede_escuchar_completo(request, track):
+        return HttpResponseForbidden(
+            "No tienes permiso para descargar el audio completo."
+        )
+
+    clave = _validar_clave_privada(track)
+
+    if (
+        not isinstance(bucket, str)
+        or not bucket.strip()
+        or client is None
+        or not callable(getattr(client, "head_object", None))
+        or not callable(getattr(client, "generate_presigned_url", None))
+    ):
+        raise ValueError("Configuracion del almacenamiento invalida.")
+
+    nombre_r2 = clave.rsplit("/", 1)[-1]
+    extension = "." + nombre_r2.rsplit(".", 1)[-1].lower()
+    nombre_original = getattr(track, "original_filename", "")
+
+    try:
+        nombre = validate_original_filename(
+            nombre_original,
+            expected_extension=extension,
+        )
+    except ValueError:
+        nombre = nombre_r2
+
+    tipo = (
+        mimetypes.guess_type(nombre)[0]
+        or mimetypes.guess_type(nombre_r2)[0]
+        or "application/octet-stream"
+    )
+
+    try:
+        client.head_object(Bucket=bucket, Key=clave)
+    except ClientError as exc:
+        codigo = str(exc.response.get("Error", {}).get("Code", ""))
+        estado = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        if codigo in ("NoSuchKey", "NotFound", "404") or estado == 404:
+            raise Http404("Audio no disponible.") from exc
+        return _respuesta_descarga_r2_no_disponible()
+    except Exception:
+        return _respuesta_descarga_r2_no_disponible()
+
+    try:
+        url = client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": clave,
+                "ResponseContentDisposition": content_disposition_header(
+                    True, nombre
+                ),
+                "ResponseContentType": tipo,
+                "ResponseCacheControl": "private, no-store",
+            },
+            ExpiresIn=R2_DOWNLOAD_URL_EXPIRY_SECONDS,
+            HttpMethod="GET",
+        )
+    except Exception:
+        return _respuesta_descarga_r2_no_disponible()
+
+    if not isinstance(url, str) or not url.startswith("https://"):
+        return _respuesta_descarga_r2_no_disponible()
+
+    respuesta = JsonResponse(
+        {
+            "method": "GET",
+            "url": url,
+            "filename": nombre,
+            "expires_in": R2_DOWNLOAD_URL_EXPIRY_SECONDS,
+        }
+    )
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
+
+
+def authorized_r2_audio_response(
+    request,
+    track,
+    *,
+    client,
+    bucket,
+    as_attachment=False,
+):
+    """
+    Entrega audio privado R2 despues de verificar permisos.
+
+    Reutiliza la autorizacion existente de BeatCloud.
+    No expone enlaces firmados ni credenciales.
+    No modifica datos ni archivos locales.
+    """
+
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    if (
+        not is_media_ready(track)
+        or track.storage_backend != "r2"
+    ):
+        raise Http404("Audio no disponible.")
+
+    if (
+        as_attachment
+        and not request.user.is_authenticated
+    ):
+        return HttpResponseForbidden(
+            "Debes iniciar sesion para descargar."
+        )
+
+    from app.api_shim import _puede_escuchar_completo
+
+    if not _puede_escuchar_completo(request, track):
+        return HttpResponseForbidden(
+            "No tienes permiso para acceder al audio completo."
+        )
+
+    clave = _validar_clave_privada(track)
+
+    if (
+        not isinstance(bucket, str)
+        or not bucket.strip()
+        or client is None
+    ):
+        raise ValueError(
+            "Configuracion del almacenamiento invalida."
+        )
+
+    rango = _validar_rango(request)
+
+    if rango is False:
+        return HttpResponse(status=416)
+
+    parametros = {
+        "Bucket": bucket,
+        "Key": clave,
+    }
+
+    if rango is not None:
+        parametros["Range"] = rango
+
+    try:
+        objeto = client.get_object(**parametros)
+
+    except ClientError as exc:
+        codigo = str(
+            exc.response.get(
+                "Error", {}
+            ).get("Code", "")
+        )
+
+        if codigo in (
+            "NoSuchKey",
+            "NotFound",
+            "404",
+        ):
+            raise Http404(
+                "Audio no disponible."
+            ) from exc
+
+        if codigo in (
+            "InvalidRange",
+            "416",
+            "RequestedRangeNotSatisfiable",
+        ):
+            return HttpResponse(status=416)
+
+        raise
+
+    cuerpo = objeto["Body"]
+    tamano = objeto.get("ContentLength")
+
+    if (
+        type(tamano) is not int
+        or tamano < 0
+        or not callable(getattr(cuerpo, "read", None))
+        or not callable(getattr(cuerpo, "close", None))
+    ):
+        if callable(getattr(cuerpo, "close", None)):
+            cuerpo.close()
+
+        raise RuntimeError(
+            "Respuesta R2 incompatible."
+        )
+
+    estado = 200
+    contenido_rango = None
+
+    if rango is not None:
+        contenido_rango = objeto.get("ContentRange")
+
+        coincidencia = (
+            re.fullmatch(
+                r"bytes ([0-9]+)-([0-9]+)/([0-9]+)",
+                contenido_rango,
+            )
+            if isinstance(contenido_rango, str)
+            else None
+        )
+
+        if (
+            coincidencia is None
+            or int(coincidencia.group(2))
+            < int(coincidencia.group(1))
+            or tamano != (
+                int(coincidencia.group(2))
+                - int(coincidencia.group(1))
+                + 1
+            )
+        ):
+            cuerpo.close()
+
+            raise RuntimeError(
+                "R2 no confirmo correctamente el rango."
+            )
+
+        estado = 206
+
+    nombre_r2 = clave.rsplit("/", 1)[-1]
+    extension = "." + nombre_r2.rsplit(".", 1)[-1].lower()
+    nombre_original = getattr(track, "original_filename", "")
+
+    try:
+        nombre = validate_original_filename(
+            nombre_original,
+            expected_extension=extension,
+        )
+    except ValueError:
+        # Compatibilidad con canciones anteriores.
+        nombre = nombre_r2
+
+    tipo = (
+        mimetypes.guess_type(nombre)[0]
+        or mimetypes.guess_type(nombre_r2)[0]
+        or "application/octet-stream"
+    )
+
+    respuesta = StreamingHttpResponse(
+        _iterar_audio(cuerpo),
+        status=estado,
+        content_type=tipo,
+    )
+
+    respuesta["Content-Length"] = str(tamano)
+    respuesta["Accept-Ranges"] = "bytes"
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+
+    respuesta["Content-Disposition"] = content_disposition_header(
+        as_attachment,
+        nombre,
+    )
+
+    if contenido_rango is not None:
+        respuesta["Content-Range"] = contenido_rango
+
+    return respuesta

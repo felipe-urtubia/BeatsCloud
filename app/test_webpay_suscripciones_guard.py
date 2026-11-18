@@ -39,6 +39,7 @@ class WebpaySuscripcionesGuardTests(TestCase):
             session_id=self.comprador.username,
             amount=1190,
             suscripcion=self.plan,
+            webpay_token="token-simulado",
         )
         self.client.force_login(self.comprador)
         self.url = reverse("exito") + "?spa=1"

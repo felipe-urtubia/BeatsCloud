@@ -18,3 +18,8 @@ staticfiles/
 **/*.tsbuildinfo
 **/.DS_Store
 **/Thumbs.db
+
+# Herramientas locales y respaldos
+.wrangler/
+backups/
+*.bak_*

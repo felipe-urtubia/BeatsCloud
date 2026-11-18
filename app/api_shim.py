@@ -216,10 +216,14 @@ def ser_track(t: Track, comprador=None):
         "id_track": t.id_track,
         "nombre_track": t.nombre_track,
         "precio": t.precio,
-        "track": _media_url(t.track),          # NO usar para stream: ir a /api/track/<id>/reproducir/
+        "track": None,  # No exponer URL del original.
         "preview": _media_url(t.preview),      # idem -> /api/track/<id>/preview/
         "descripcion": t.descripcion,
-        "foto": _media_url(t.foto),
+        "foto": (
+            f"/api/track/{t.id_track}/cover/"
+            if getattr(t, "r2_cover_key", "")
+            else _media_url(t.foto)
+        ),
         "genero": ser_genero(t.genero),
         "usuario": ser_user_public(t.usuario.user),
         "likes_count": likes,
@@ -531,11 +535,14 @@ def registro_api(request):
 # Catálogo — mismo queryset/paginación/filtros que catalogo() de views.py
 # --------------------------------------------------------------------------
 def catalogo_api(request):
+    from .r2_visibility import only_ready_tracks
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     tracks = Track.objects.select_related("usuario__user", "genero").exclude(
         usuario__user__username=ANON_USER_USERNAME,
     )
+    tracks = only_ready_tracks(tracks)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -601,6 +608,8 @@ def catalogo_api(request):
 
 
 def track_detail_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     """GET detalle; PATCH/PUT delega en update (misma ruta, como REST estándar)."""
     if request.method in ("PATCH", "PUT"):
         return track_update_api(request, track_id)
@@ -609,7 +618,7 @@ def track_detail_api(request, track_id):
     t = Track.objects.select_related("usuario__user", "genero").filter(
         id_track=track_id
     ).first()
-    if t is None:
+    if t is None or not is_media_ready(t):
         return _err("Track no encontrado.", 404)
     return JsonResponse(ser_track(t, request.user))
 
@@ -634,12 +643,14 @@ def _puede_escuchar_completo(request, track):
 
 
 def preview_stream_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     from django.http import FileResponse, Http404
 
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None or not track.preview:
+    if track is None or not is_media_ready(track) or not track.preview:
         raise Http404("Este track todavía no tiene una vista previa disponible.")
     archivo = track.preview.open("rb")
     content_type, _ = mimetypes.guess_type(track.preview.name)
@@ -649,16 +660,25 @@ def preview_stream_api(request, track_id):
 
 
 def full_stream_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     from django.http import FileResponse, HttpResponseForbidden, Http404
 
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None:
+    if track is None or not is_media_ready(track):
         raise Http404()
     if not _puede_escuchar_completo(request, track):
         return HttpResponseForbidden(
             "Debes comprar este track para escuchar el audio completo."
+        )
+    if getattr(track, "storage_backend", "local") == "r2":
+        from .r2_audio_bridge import serve_private_r2_audio
+        return serve_private_r2_audio(
+            request,
+            track,
+            as_attachment=False
         )
     if not track.track:
         raise Http404("El archivo de audio no está disponible.")
@@ -674,6 +694,8 @@ def full_stream_api(request, track_id):
 
 
 def download_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     from django.http import FileResponse, HttpResponseForbidden, Http404
@@ -681,12 +703,15 @@ def download_api(request, track_id):
     if not request.user.is_authenticated:
         return HttpResponseForbidden("Inicia sesión para descargar.")
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None:
+    if track is None or not is_media_ready(track):
         raise Http404()
     if not _puede_escuchar_completo(request, track):
         return HttpResponseForbidden(
             "Debes comprar este track antes de poder descargarlo."
         )
+    if getattr(track, "storage_backend", "local") == "r2":
+        from .r2_audio_bridge import presign_private_r2_audio_download
+        return presign_private_r2_audio_download(request, track)
     if not track.track:
         raise Http404("El archivo de este track no está disponible.")
     nombre = track.track.name.rsplit("/", 1)[-1]
@@ -715,13 +740,15 @@ def cart_list_api(request):
 
 
 def cart_add_api(request, track_id):
+    from .r2_visibility import is_media_ready
+
     if request.method != "POST":
         return _method_not_allowed(["POST"])
     if not request.user.is_authenticated:
         return _err("Autenticación requerida.", 401)
 
     track = Track.objects.filter(id_track=track_id).first()
-    if track is None:
+    if track is None or not is_media_ready(track):
         return _err("Track no encontrado.", 404)
     perfil = Usuario.objects.filter(user=request.user).first()
 
@@ -874,19 +901,44 @@ def pago_init_api(request):
 
 
 def pago_cancel_api(request, transaction_id):
-    """Espejo de cancelar_pago_pendiente(): marca CANCELLED localmente."""
+    """Consulta Transbank antes de liberar una orden pendiente."""
     if request.method != "POST":
         return _method_not_allowed(["POST"])
     if not request.user.is_authenticated:
         return _err("Autenticación requerida.", 401)
+
     wt = WebpayTransaction.objects.filter(
-        id=transaction_id, user=request.user, status=WebpayTransaction.ESTADO_PENDIENTE
+        id=transaction_id,
+        user=request.user,
     ).first()
     if wt is None:
-        return _err("Transacción no encontrada o ya resuelta.", 404)
-    # No se puede confirmar una cancelacion sin consultar a Webpay.
+        return _err("Transacción no encontrada.", 404)
+
+    from .webpay_reconciliation import (
+        OUTCOME_APPROVED,
+        OUTCOME_CANCELLED,
+        reconcile_pending_order,
+    )
+
+    resultado = reconcile_pending_order(
+        wt.pk,
+        user_id=request.user.id,
+    )
+
+    if resultado.outcome == OUTCOME_CANCELLED:
+        return JsonResponse({
+            "ok": True,
+            "status": WebpayTransaction.ESTADO_CANCELADO,
+        })
+
+    if resultado.outcome == OUTCOME_APPROVED:
+        return _err(
+            "Transbank confirmó el pago. La orden requiere completar o revisar la entrega.",
+            409,
+        )
+
     return _err(
-        "El pago permanece pendiente de verificacion. "
+        "El pago sigue pendiente de verificación. "
         "No inicies otro pago hasta resolverlo.",
         409,
     )
@@ -983,6 +1035,24 @@ def upload_api(request):
     return JsonResponse(ser_track(track, request.user), status=201)
 
 
+def track_cover_api(request, track_id):
+    """Entrega una portada R2 sin exponer la clave ni la URL del bucket."""
+    if request.method != "GET":
+        return _method_not_allowed(["GET"])
+
+    track = (
+        Track.objects.select_related("usuario")
+        .filter(id_track=track_id)
+        .first()
+    )
+    if track is None or not getattr(track, "r2_cover_key", ""):
+        return _err("Portada no disponible.", 404)
+
+    from app.r2_cover_bridge import serve_private_r2_cover
+
+    return serve_private_r2_cover(request, track)
+
+
 def track_update_api(request, track_id):
     if request.method not in ("PATCH", "PUT"):
         return _err("Método no permitido.", 405)
@@ -1048,16 +1118,134 @@ def track_update_api(request, track_id):
         elif campo in {"has_wav", "has_midi", "allow_free_download", "has_watermark"}:
             valor = str(valor).lower() in {"true", "1", "on"}
         setattr(t, campo, valor)
-    if files.get("foto"):
+    cover_token = body.get("cover_upload_token")
+    old_cover_key = getattr(t, "r2_cover_key", "") or ""
+    new_cover_key = ""
+    cover_client = None
+    cover_bucket = None
+
+    if cover_token is not None and files.get("foto"):
+        return _err(
+            "No se permite combinar una portada local y una portada R2.",
+            400,
+        )
+
+    if cover_token is not None:
+        from app.r2_presign import (
+            r2_configuration,
+            r2_client,
+            r2_uploads_enabled,
+        )
+        from app.r2_registration_guard import (
+            R2RegistrationGuardError,
+            validate_r2_cover_token,
+        )
+        from app.r2_registration_prepare import (
+            R2RegistrationPrepareError,
+            prepare_r2_cover_upload,
+        )
+        from app.r2_upload_http import _bucket
+        from app.r2_cover_delivery import is_owned_r2_cover_key
+
+        if not r2_uploads_enabled():
+            return _err("Las subidas R2 estan desactivadas.", 503)
+
+        try:
+            validate_r2_cover_token(
+                upload_token=cover_token,
+                user_id=request.user.pk,
+            )
+        except R2RegistrationGuardError:
+            return _err("La autorizacion de portada no es valida o ha caducado.", 400)
+
+        try:
+            config = r2_configuration()
+            if not isinstance(config, dict):
+                return _err("Configuracion R2 no disponible.", 503)
+
+            cover_bucket = _bucket(config)
+            if not isinstance(cover_bucket, str) or not cover_bucket.strip():
+                return _err("Bucket R2 no configurado.", 503)
+
+            cover_client = r2_client(config)
+            if cover_client is None:
+                return _err("Cliente R2 no disponible.", 503)
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "No fue posible iniciar el reemplazo de portada R2."
+            )
+            return _err("No se pudo iniciar el almacenamiento R2.", 503)
+
+        try:
+            cover_draft = prepare_r2_cover_upload(
+                client=cover_client,
+                bucket=cover_bucket,
+                user_id=request.user.pk,
+                upload_token=cover_token,
+            )
+        except R2RegistrationGuardError:
+            return _err("La autorizacion de portada no es valida o ha caducado.", 400)
+        except R2RegistrationPrepareError:
+            logging.getLogger(__name__).exception(
+                "No fue posible promover la nueva portada R2."
+            )
+            return _err("No fue posible preparar la portada en R2.", 503)
+
+        new_cover_key = getattr(cover_draft, "private_key", "")
+        if not is_owned_r2_cover_key(request.user.pk, new_cover_key):
+            return _err("La ruta privada de la portada no es valida.", 503)
+
+        t.r2_cover_key = new_cover_key
+
+    elif files.get("foto"):
+        if old_cover_key:
+            return _err(
+                "Esta cancion utiliza una portada R2. Selecciona una nueva portada para subirla mediante R2.",
+                400,
+            )
+
         foto_field = TrackForm(instance=t).fields["foto"]
         try:
             t.foto = foto_field.clean(files["foto"])
         except ValidationError as exc:
             return JsonResponse(
-                {"detail": "La portada no es una imagen válida.", "errors": {"foto": exc.messages}},
+                {"detail": "La portada no es una imagen valida.", "errors": {"foto": exc.messages}},
                 status=400,
             )
-    t.save()
+
+    try:
+        t.save()
+    except Exception:
+        if new_cover_key and cover_client is not None and cover_bucket:
+            if is_owned_r2_cover_key(request.user.pk, new_cover_key):
+                try:
+                    cover_client.delete_object(
+                        Bucket=cover_bucket,
+                        Key=new_cover_key,
+                    )
+                except Exception:
+                    logging.getLogger(__name__).exception(
+                        "No fue posible limpiar la nueva portada R2 tras fallar el guardado."
+                    )
+        raise
+
+    if (
+        old_cover_key
+        and old_cover_key != new_cover_key
+        and cover_client is not None
+        and cover_bucket
+    ):
+        if is_owned_r2_cover_key(request.user.pk, old_cover_key):
+            try:
+                cover_client.delete_object(
+                    Bucket=cover_bucket,
+                    Key=old_cover_key,
+                )
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "No fue posible limpiar la portada R2 anterior."
+                )
+
     return JsonResponse(ser_track(t, request.user))
 
 
@@ -1082,7 +1270,7 @@ def claim_free_track_api(request, track_id):
         return _method_not_allowed(["POST"])
     if not request.user.is_authenticated:
         return _err("Autenticación requerida.", 401)
-    track = Track.objects.filter(id_track=track_id).first()
+    track = Track.objects.filter(id_track=track_id, media_status="ready").first()
     if track is None:
         return _err("Track no encontrado.", 404)
     if track.precio != 0:
@@ -1355,6 +1543,10 @@ def confirmar_eliminacion_cuenta_api(request):
     profile = Usuario.objects.filter(user=request.user).first()
     if profile is None:
         return _err("No se encontró el perfil de esta cuenta.", 404)
+    from .views import _hay_webpay_sin_resolver, EliminacionCuentaBloqueada
+    if _hay_webpay_sin_resolver(request.user):
+        return _err('Hay pagos pendientes de conciliación o entrega.', 409)
+
     for key in (
         "eliminar_cuenta_codigo_hash",
         "eliminar_cuenta_usuario_id",
@@ -1364,11 +1556,16 @@ def confirmar_eliminacion_cuenta_api(request):
         session.pop(key, None)
     from .views import _ejecutar_eliminacion_cuenta
 
-    _ejecutar_eliminacion_cuenta(request, profile)
+    try:
+        _ejecutar_eliminacion_cuenta(request, profile)
+    except EliminacionCuentaBloqueada:
+        return _err('Hay pagos pendientes de conciliación o entrega.', 409)
     return JsonResponse({"ok": True})
 
 
 def perfil_publico_api(request, username):
+    from .r2_visibility import only_ready_tracks
+
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     u = User.objects.filter(username=username).first()
@@ -1380,7 +1577,9 @@ def perfil_publico_api(request, username):
     except (Usuario.DoesNotExist, AttributeError):
         perfil = None
     if perfil is not None:
-        tracks = Track.objects.filter(usuario=perfil).order_by("-id_track")
+        tracks = only_ready_tracks(
+            Track.objects.filter(usuario=perfil)
+        ).order_by("-id_track")
         data["tracks"] = [ser_track(t, request.user) for t in tracks]
     else:
         data["tracks"] = []
@@ -1437,6 +1636,8 @@ def suscripciones_api(request):
 # --------------------------------------------------------------------------
 from django.urls import path  # noqa: E402
 
+from app.r2_presign import r2_presign_upload_api, r2_confirm_upload_api
+
 urlpatterns = [
     path("api/csrf/", csrf_token, name="api_csrf"),
     path("api/session/", session_view, name="api_session"),
@@ -1452,6 +1653,7 @@ urlpatterns = [
     path("api/catalogo/", catalogo_api, name="api_catalogo"),
     path("api/perfil/", perfil_propio_api, name="api_profile_update"),
     path("api/track/<int:track_id>/", track_detail_api, name="api_track"),
+    path("api/track/<int:track_id>/cover/", track_cover_api, name="api_track_cover"),
     path("api/track/<int:track_id>/preview/", preview_stream_api, name="api_preview"),
     path("api/track/<int:track_id>/reproducir/", full_stream_api, name="api_full"),
     path("api/track/<int:track_id>/descargar/", download_api, name="api_download"),
@@ -1464,6 +1666,8 @@ urlpatterns = [
     path("api/carrito/<int:venta_id>/", cart_remove_api, name="api_cart_remove"),
     path("api/pago/", pago_init_api, name="api_pago"),
     path("api/pago/cancelar/<int:transaction_id>/", pago_cancel_api, name="api_pago_cancel"),
+    path("api/r2/presign/", r2_presign_upload_api, name="r2_presign_upload"),
+    path("api/r2/confirm/", r2_confirm_upload_api, name="r2_confirm_upload"),
     path("api/upload/", upload_api, name="api_upload"),
     path("api/mis-ventas/", mis_ventas_api, name="api_sales"),
     path("api/mis-compras/", mis_compras_api, name="api_purchases"),

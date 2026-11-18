@@ -41,6 +41,52 @@ import type {
 
 const BASE = ((import.meta.env.VITE_DJANGO_URL as string | undefined) ?? '').replace(/\/$/, '');
 
+type R2PresignRequest = {
+  kind: 'track' | 'stems' | 'cover';
+  filename: string;
+  content_type: string;
+  size: number;
+};
+
+type R2PresignResponse = {
+  method: 'PUT';
+  url: string;
+  headers: Record<string, string>;
+  upload_token: string;
+  expires_in: number;
+};
+
+type R2ConfirmResponse = {
+  verified: boolean;
+  kind: 'track' | 'stems' | 'cover';
+  size: number;
+  content_type: string;
+  detail: string;
+};
+
+type R2FinalizeRequest = {
+  upload_token: string;
+  nombre_track: string;
+  precio: number;
+  genero_id: number;
+  descripcion: string;
+  subgenre: string;
+  resource_type: string;
+  bpm: number;
+  scale_key: string;
+  mood: string;
+  has_stems: boolean;
+  has_wav: boolean;
+  has_midi: boolean;
+  allow_free_download: boolean;
+  has_watermark: boolean;
+  duration: number;
+  cover_upload_token?: string;
+  stems_upload_token?: string;
+};
+
+type R2FinalizeResponse = DTrack;
+
 let csrfToken: string | null = null;
 const sessionInvalidationListeners = new Set<() => void>();
 export function subscribeToSessionInvalidation(listener: () => void): () => void {
@@ -184,8 +230,64 @@ export const DjangoApi = {
       const detail = await response.text();
       throw new Error(detail || `No se pudo descargar la pista (${response.status}).`);
     }
+
+    const contentType = response.headers.get('content-type') ?? '';
+
+    // R2: el navegador descarga directamente desde Cloudflare con URL temporal.
+    if (contentType.includes('application/json')) {
+      const payload = await response.json() as {
+        method?: unknown;
+        url?: unknown;
+        filename?: unknown;
+        expires_in?: unknown;
+      };
+
+      if (typeof payload.url !== 'string' || typeof payload.filename !== 'string') {
+        throw new Error('El servidor devolvio un enlace de descarga invalido.');
+      }
+
+      let signedUrl: URL;
+      try {
+        signedUrl = new URL(payload.url);
+      } catch {
+        throw new Error('El servidor devolvio una URL de descarga invalida.');
+      }
+
+      if (
+        signedUrl.protocol !== 'https:' ||
+        !signedUrl.hostname.endsWith('.r2.cloudflarestorage.com') ||
+        signedUrl.username ||
+        signedUrl.password
+      ) {
+        throw new Error('El servidor devolvio un destino de descarga no permitido.');
+      }
+
+      const link = document.createElement('a');
+      link.href = signedUrl.toString();
+      link.download = payload.filename;
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
+    }
+
+    // Almacenamiento local: conserva la descarga binaria existente.
     const disposition = response.headers.get('content-disposition') ?? '';
-    const filename = disposition.match(/filename="([^"]+)"/i)?.[1] ?? `${fallbackName}.wav`;
+    const encodedFilename = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i)?.[1];
+    const plainFilename =
+      disposition.match(/filename\s*=\s*"([^"]+)"/i)?.[1] ??
+      disposition.match(/filename\s*=\s*([^;]+)/i)?.[1]?.trim();
+
+    let filename = plainFilename ?? `${fallbackName}.wav`;
+
+    if (encodedFilename) {
+      try {
+        filename = decodeURIComponent(encodedFilename);
+      } catch {
+        // Conserva el nombre alternativo si la codificacion es invalida.
+      }
+    }
     const url = URL.createObjectURL(await response.blob());
     const link = document.createElement('a');
     link.href = url;
@@ -207,6 +309,57 @@ export const DjangoApi = {
     URL.revokeObjectURL(url);
   },
   upload: (form: FormData) => ensureCsrf().then(() => request<DTrack>('/api/upload/', { method: 'POST', body: form })),
+  downloadStems: async (id: number, fallbackName: string) => {
+    const response = await fetch(`${BASE}/api/track/${id}/stems/`, {
+      credentials: 'same-origin',
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail || `No se pudieron descargar los STEMS (${response.status}).`);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = match?.[1] || `${fallbackName}_STEMS.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  r2Presign: (data: R2PresignRequest) =>
+    ensureCsrf().then(() =>
+      request<R2PresignResponse>('/api/r2/presign/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    ),
+
+  r2Confirm: (uploadToken: string) =>
+    ensureCsrf().then(() =>
+      request<R2ConfirmResponse>('/api/r2/confirm/', {
+        method: 'POST',
+        body: JSON.stringify({
+          upload_token: uploadToken,
+        }),
+      })
+    ),
+
+  r2Finalize: (data: R2FinalizeRequest, coverFile?: File) =>
+    ensureCsrf().then(() => {
+      const form = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        form.set(key, String(value));
+      });
+      if (coverFile) form.set('foto', coverFile, coverFile.name);
+      return request<R2FinalizeResponse>('/api/r2/finalize/', {
+        method: 'POST',
+        body: form,
+      });
+    }),
   updateProfile: (form: FormData) =>
     ensureCsrf().then(() => request<DUser>('/api/perfil/', { method: 'PATCH', body: form })),
   iniciarEliminacionCuenta: (password: string) =>
