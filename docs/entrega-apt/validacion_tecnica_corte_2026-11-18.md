@@ -1,6 +1,6 @@
 # Registro de validación técnica — 18-11-2026
 
-Registro reproducible del entorno local de demostración. Los resultados corresponden a esta fecha y a la rama `codex/integracion-demo-20261118`; no son una certificación de despliegue productivo.
+Registro reproducible del entorno local de demostración. Los resultados corresponden al 18-11-2026 y al código candidato integrado antes de la reescritura de historia; no son una certificación de despliegue productivo.
 
 ## Entorno
 
@@ -16,10 +16,12 @@ Registro reproducible del entorno local de demostración. Los resultados corresp
 | V-01 | `.venv/bin/python -m pip check` | Sin requisitos rotos. | Salida: `No broken requirements found.` |
 | V-02 | `.venv/bin/python manage.py check` | Sin problemas del system check. | Comando local; depende del entorno Django configurado. |
 | V-03 | `.venv/bin/python manage.py makemigrations --check --dry-run` | Sin cambios de modelo pendientes. | Salida: `No changes detected`. No modifica el esquema. |
-| V-04 | `.venv/bin/python manage.py test` | 367 pruebas, `OK`, 139.688 s. | Suite Django completa en base temporal del runner; proveedor Transbank y cliente R2 se sustituyen por mocks en sus suites. No equivale a E2E cloud/pago. |
-| V-05 | `cd frontend/client && npm test` | 3 suites aprobadas. | Tests Node del frontend; no ejercitan navegador real. |
+| V-04 | `.venv/bin/python manage.py test` con `DB_NAME=beatscloud_demo_20261118`, usuario `postgres`, host socket local y puerto `55432` | 367 pruebas, `OK`, 141.969 s; system check limpio. | Suite Django completa en base temporal `test_*` del runner dentro del cluster aislado; no modificó la base demo persistente. Transbank/R2 usan mocks en sus suites. |
+| V-05 | `cd frontend/client && npm test` | 26 tests aprobados en 3 archivos de prueba. | Tests Node del frontend; no ejercitan navegador real. |
 | V-06 | `cd frontend/client && npm run lint` | Aprobado. | Script definido como `tsc -b`; cubre chequeo TypeScript, no reglas ESLint. |
 | V-07 | `cd frontend/client && npm run build` | Aprobado; TypeScript y Vite generaron build de producción. | No prueba interacción real ni servicios externos. |
+
+La comprobación del 18-11 se repitió después de endurecer `beatcloud/settings.py`: `DJANGO_SECRET_KEY` es obligatoria, `DEBUG` queda desactivado por defecto y `DB_PASSWORD` ya no tiene una contraseña por defecto. `manage.py check`, la verificación de migraciones y las 367 pruebas aprobaron con esa configuración.
 
 ## Comprobación HTTP local
 

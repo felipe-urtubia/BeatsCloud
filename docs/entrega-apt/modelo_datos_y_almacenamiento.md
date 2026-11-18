@@ -38,7 +38,7 @@ Los tracks R2 solo son visibles cuando `media_status=ready`. La entrega privada 
 
 ## Pagos y persistencia
 
-PostgreSQL se selecciona con `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` y `DB_PORT`. `WebpayTransaction` guarda importe y snapshot del carrito; `app/webpay_reconciliation.py` concilia respuesta con orden, sesión e importe, utiliza bloqueo transaccional e idempotencia de fulfillment. El entorno configurado en este corte declara `TRANSBANK_INTEGRATION_TYPE=TEST`; las pruebas automatizadas sustituyen el proveedor por dobles. No hubo transacción contra Transbank.
+PostgreSQL se selecciona con `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` y `DB_PORT`; el código actual usa opciones específicas de PostgreSQL. `DJANGO_SECRET_KEY` debe configurarse y `DB_PASSWORD` no incorpora contraseña por defecto; [`.env.example`](../../.env.example) enumera variables con secreto vacío. `WebpayTransaction` guarda importe y snapshot del carrito; `app/webpay_reconciliation.py` concilia respuesta con orden, sesión e importe, utiliza bloqueo transaccional e idempotencia de fulfillment. El entorno configurado en este corte declara `TRANSBANK_INTEGRATION_TYPE=TEST`; las pruebas automatizadas sustituyen el proveedor por dobles. No hubo transacción contra Transbank.
 
 ## Referencias de implementación
 

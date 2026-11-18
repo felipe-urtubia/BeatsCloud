@@ -34,7 +34,7 @@ El proyecto Django está en `beatcloud/`, con reglas/vistas HTML en `app/views.p
 
 ### Datos y archivos
 
-`beatcloud/settings.py` toma `DB_ENGINE`, `DB_NAME`, etc. de variables de entorno; el motor configurado por defecto y el ejemplo versionado son PostgreSQL. El corte validado usó una base PostgreSQL local aislada. Los archivos pueden residir en almacenamiento local (`MEDIA_ROOT`) o R2 cuando se configura y habilita; la integración R2 existe en código, pero no se validó contra Cloudflare en este corte. En desarrollo, Django/Vite sirven rutas de medios según configuración.
+`beatcloud/settings.py` toma configuración de variables de entorno; PostgreSQL es el backend soportado/configurado en el código actual. El corte validado usó una base PostgreSQL local aislada. `DJANGO_SECRET_KEY` es obligatoria, `DEBUG` queda desactivado por defecto y la contraseña DB no tiene un valor predeterminado. El ejemplo mantiene la clave vacía para exigir una clave local propia. Los archivos pueden residir en almacenamiento local (`MEDIA_ROOT`) o R2 cuando se configura y habilita; la integración R2 existe en código, pero no se validó contra Cloudflare en este corte. En desarrollo, Django/Vite sirven rutas de medios según configuración.
 
 ### Sesión y seguridad de solicitudes
 

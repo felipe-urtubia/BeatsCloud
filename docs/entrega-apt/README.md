@@ -19,13 +19,13 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 | [Validación técnica 18-11-2026](validacion_tecnica_corte_2026-11-18.md) | Registro de comandos, resultados y límites del corte | Django, frontend, HTTP local, datos demo y pruebas pendientes. |
 | [Trazabilidad técnica](trazabilidad_tecnica.md) | Metadatos Git observables; Jira no accesible | Commits, merges y límites de atribución individual. |
 | [Matriz de evidencias técnicas](matriz_evidencias_tecnicas.md) | Matriz de cumplimiento técnico del corte | Evidencias localizadas, estado y pendientes. |
-| [Plan de pruebas](plan_pruebas.md) | **PLAN DE TRABAJO**; contiene registro separado de resultados históricos documentados y pruebas pendientes | Casos, precondiciones, pasos, resultados esperados y evidencia requerida. No se ejecutaron pruebas en esta sesión. |
+| [Plan de pruebas](plan_pruebas.md) | **PLAN DE TRABAJO**; contiene registro separado de resultados históricos y pruebas pendientes | Casos, precondiciones, pasos, resultados esperados y evidencia requerida. Las ejecuciones automatizadas/HTTP del 18-11 se registran por separado; E2E de navegador sigue pendiente. |
 | [Plan de riesgos](plan_riesgos.md) | Evaluación inicial **ABIERTA**, responsables no asignados | Riesgos de archivo/secretos, Webpay, E2E, audio, almacenamiento, integración y fecha APT. |
 | [Retrospectivas](retrospectivas/README.md) | Actas históricas no localizadas; plantillas y límites de evidencia | Documentar Sprint 1–4 solo con participantes, fechas y hechos confirmados. |
-| [Sprint Reviews](sprint-reviews/README.md) | Actas históricas no localizadas; plantillas y registro técnico histórico separado | No confundir la verificación técnica Sprint 2 de otra rama con Review. |
+| [Sprint Reviews](sprint-reviews/README.md) | Actas históricas no localizadas; plantillas y registro técnico histórico separado | No confundir el commit histórico `c060b67` (verificación Sprint 2) con una Review. |
 | [Evidencia E2E](evidencias/e2e/README.md) | Protocolo preparado; ejecuciones/capturas **PENDIENTES** | Matriz de login, catálogo, carrito, Webpay, retorno, rechazo y descarga. DOCX referido no localizado. |
 
-## Estado del producto que debe conservarse en la presentación
+## Convención de estados y límites de evidencia
 
 - **IMPLEMENTADO** indica código presente, no una prueba aprobada.
 - **VALIDADO** se acompaña siempre de fecha/fuente y alcance exactos.
@@ -44,7 +44,7 @@ Este índice guía la revisión técnica del repositorio. La documentación de t
 - [Evidencia de pruebas backend (log histórico, 14-10-2026)](../evidencias/pruebas_backend.txt)
 - [Registro de cambios del proyecto](../../REGISTRO_CAMBIOS_BEATSCLOUD.md)
 - Código: `app/models.py`, `app/api_shim.py`, `app/views.py`, `app/urls.py`, `beatcloud/settings.py`, `frontend/client/src/context/AppContext.tsx`, `frontend/client/src/api/django.service.ts`, `frontend/client/src/components/UploadTrackModal.tsx`.
-- Antecedente adicional: `VERIFICACION_SPRINT_2.md` está en la rama local `integration/reorganization-checkpoint`, fechado 05-11-2026. Es verificación técnica, no Review/Retrospectiva, y no se ha trasladado como resultado oficial.
+- Antecedente adicional: `VERIFICACION_SPRINT_2.md` se conserva en el historial a partir del commit `c060b67`, fechado 05-11-2026. Es verificación técnica, no Review/Retrospectiva, y no se trata como resultado oficial.
 
 ## Forma de completar el paquete
 

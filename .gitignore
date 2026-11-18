@@ -23,3 +23,7 @@ staticfiles/
 .wrangler/
 backups/
 *.bak_*
+
+# Archivos ZIP accidentales que alojaron configuración privada
+/agregar.html
+/agregar.zip
