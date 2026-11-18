@@ -47,7 +47,7 @@ La combinación de perfiles de artista/productor, metadatos de producción y aut
 | Carrito y totales server-side | **IMPLEMENTADO / VALIDADO históricamente** | Contrato API documentado; verificar en el entorno APT actual. |
 | Webpay Plus y estados de retorno | **IMPLEMENTADO; retorno SIMULADO en algunas pruebas** | Vistas, SDK, estados y tests con respuestas sustitutas. Cobro/retorno completo E2E TEST queda **PENDIENTE**. |
 | Biblioteca/descarga | **IMPLEMENTADO; VALIDACIÓN E2E del corte PENDIENTE** | Endpoint protegido y cliente SPA presentes; la evidencia solicitada no está adjunta. |
-| Carga híbrida de audio | **IMPLEMENTADO en rama `frontend-trabajo`; VALIDACIÓN reciente PENDIENTE** | API/cliente conectados; cambios de carga del PR #2 sin ejecución de navegador acreditada en este corte. |
+| Carga híbrida de audio | **IMPLEMENTADO en `main` local; VALIDACIÓN reciente PENDIENTE** | API/cliente conectados; cambios de carga del PR #2 sin ejecución de navegador acreditada en este corte. |
 | Modo `mock` | **SIMULADO** | Datos locales de demostración, no valida persistencia, autorización, pago ni descarga real. |
 | Audio engine modificado en PR #2 | **PENDIENTE de validación real en navegador** | El código fue actualizado; todavía no se ha comprobado play/pausa, cambio de fuente, volumen ni visualizador en navegador. |
 | Operación productiva | **PENDIENTE / no acreditada** | No hay evidencia de despliegue, SLA, monitorización o almacenamiento de producción. |
