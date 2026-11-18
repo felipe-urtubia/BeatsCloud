@@ -87,7 +87,7 @@ La API expone endpoints distintos para preview y audio completo. Django controla
 - El catálogo sintético ofrece 120 pistas con WAV, preview MP3 y portada generados localmente. Los filtros por género, texto, recurso, clave, mood, BPM, stems y precio existen en la experiencia cliente; el endpoint API no ofrece todos esos filtros server-side. Duración/subgénero server-side no se deben declarar como filtros implementados.
 - No se describe entrega de stems ni DRM.
 - La cookie de sesión y CSRF requieren configuración correcta de origen/HTTPS en despliegue.
-- Hallazgo de seguridad: `agregar.html` era un ZIP con un miembro `.env` (inspección de metadatos solamente). La ruta y `agregar.zip` fueron retiradas de todas las referencias locales por reescritura de historia. Las ramas remotas todavía requieren saneamiento coordinado, que no debe publicarse antes de confirmar la rotación/revocación de credenciales expuestas.
+- Hallazgo de seguridad: `agregar.html` era un ZIP con un miembro `.env` (inspección de metadatos solamente). También se detectaron defaults sensibles no vacíos en configuraciones históricas. La historia de ramas destinada a `main` se saneó; las credenciales externas requieren rotación/revocación por sus custodios y GitHub Support debe revisar refs internas/cachés de PR.
 
 Para entidades, migraciones, flujos de almacenamiento privado y límites de validación, véase [Modelo de datos y almacenamiento](modelo_datos_y_almacenamiento.md) y [Registro de validación del 18-11-2026](validacion_tecnica_corte_2026-11-18.md).
 

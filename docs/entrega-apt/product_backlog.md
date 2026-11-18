@@ -30,7 +30,7 @@ Los códigos `TEC-*` son referencias editoriales locales de este documento, no c
 
 ## Antecedentes identificados (no equivalen a consulta de Jira)
 
-El archivo `VERIFICACION_SPRINT_2.md`, conservado en el historial desde el commit `53db43f`, cita los identificadores **DDPB-74** (autenticación D3) y **DDPB-81** (selector API real/mock) y reporta 34 tests backend, build TS/Vite y pruebas pendientes de Webpay manual, fechados 05-11-2026. Esto es una fuente histórica, no una consulta del estado actual de Jira ni evidencia automática de que su código sea idéntico al incremento actual. `docs/INTEGRACION_BACKEND.md` alude además a DDPB-66 para la decisión de sesiones/CSRF y pide validar su ratificación formal.
+El archivo `VERIFICACION_SPRINT_2.md`, conservado en el historial desde el commit `ceb3a9c`, cita los identificadores **DDPB-74** (autenticación D3) y **DDPB-81** (selector API real/mock) y reporta 34 tests backend, build TS/Vite y pruebas pendientes de Webpay manual, fechados 05-11-2026. Esto es una fuente histórica, no una consulta del estado actual de Jira ni evidencia automática de que su código sea idéntico al incremento actual. `docs/INTEGRACION_BACKEND.md` alude además a DDPB-66 para la decisión de sesiones/CSRF y pide validar su ratificación formal.
 
 ## Pendiente de validación del equipo
 
@@ -40,6 +40,6 @@ Un integrante con acceso al proyecto DDPB debe exportar el backlog vigente y con
 
 - [Registro de cambios](../../REGISTRO_CAMBIOS_BEATSCLOUD.md)
 - [Integración backend](../INTEGRACION_BACKEND.md)
-- Verificación técnica Sprint 2 (`VERIFICACION_SPRINT_2.md`, commit histórico `53db43f`) — referencia histórica; no es acta de ceremonia.
+- Verificación técnica Sprint 2 (`VERIFICACION_SPRINT_2.md`, commit histórico `ceb3a9c`) — referencia histórica; no es acta de ceremonia.
 - `app/models.py`, `app/api_shim.py`, `app/views.py`, `app/test_webpay_*.py`, `app/test_auth_d3.py`
 - `frontend/client/src/` y `frontend/client/package.json`

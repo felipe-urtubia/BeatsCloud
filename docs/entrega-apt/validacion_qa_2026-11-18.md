@@ -1,6 +1,6 @@
 # Registro de validación técnica y QA — corte 18-11-2026
 
-Fecha de ejecución: 18-11-2026 (America/Santiago). Código base histórico `2f1c6f3`; preparación QA `035298d`; alineación de configuración/guardas de demo `1c14edd`. Los resultados integrados finales de esta tabla se ejecutaron sobre `1c14edd`; este commit documental registra esos resultados.
+Fecha de ejecución: 18-11-2026 (America/Santiago). Código base histórico `8e46bd1`; preparación QA `1ce8d5a`; alineación de configuración/guardas de demo `24cae10`. Los resultados integrados finales de esta tabla se ejecutaron sobre `24cae10`; este commit documental registra esos resultados.
 
 ## Entorno
 
@@ -21,11 +21,11 @@ Fecha de ejecución: 18-11-2026 (America/Santiago). Código base histórico `2f1
 | `makemigrations --check --dry-run` | No changes detected | No aplica migraciones. |
 | Suite Django completa inicial | 371 tests; 369 OK, 2 fallaron por CSRF `localhost:3000` ausente de los orígenes permitidos en `.env.qa` | No se ocultó ni se deshabilitó seguridad. Se ajustó solo la configuración QA local y el generador de entorno para incluir el origen de desarrollo ya usado por pruebas. |
 | Repetición aislada de ambos tests afectados | 2 tests OK | `test_login_api_accepts_local_react_origin_with_csrf`, `test_account_activation_requires_csrf_for_react_origin`; tras añadir puerto legacy a la lista local CSRF. |
-| Suite Django completa final | 372 tests, OK; 148.862 s | `scripts/qa/verify.sh` sobre `1c14edd`; incluye guardas de DB demo/QA y generador sin declarar stems/MIDI inexistentes. |
+| Suite Django completa final | 372 tests, OK; 148.862 s | `scripts/qa/verify.sh` sobre `24cae10`; incluye guardas de DB demo/QA y generador sin declarar stems/MIDI inexistentes. |
 | Frontend tests | 26 tests, 26 pass, 0 fail; tres suites Node | Los tests prueban lógica aislada, no navegador. |
 | Frontend lint | Inicialmente falló por `process` sin tipos Node en `vite.config.ts`; corregido con `loadEnv`; `npm run lint` posterior pasó | `lint` equivale a `tsc -b`. Sin dependencia agregada. |
 | Frontend build | `npm run build` pasó; Vite transformó 1,926 módulos y generó `dist` | Confirma empaquetado; no interacción visual. `dist/` está ignorado. |
-| Verificación compuesta final | `scripts/qa/verify.sh` terminó con exit code 0 sobre `1c14edd`: PostgreSQL ready, check, migraciones, 372 Django, 26 frontend, lint, build y smoke HTTP | Una ejecución anterior detectó el defecto TypeScript; se corrigió antes de la validación final. |
+| Verificación compuesta final | `scripts/qa/verify.sh` terminó con exit code 0 sobre `24cae10`: PostgreSQL ready, check, migraciones, 372 Django, 26 frontend, lint, build y smoke HTTP | Una ejecución anterior detectó el defecto TypeScript; se corrigió antes de la validación final. |
 | Tests del generador tras refuerzo | 5 tests dentro de la suite completa final, OK; el test de guard también valida prefijo demo explícito | Incluye reset limitado/idempotencia/guard de DB/cuentas. |
 | Reseed QA definitivo | `generate_qa_catalog --count 120 --seed 20261118 --reset`; 120 tracks, 120 ready con WAV/preview, 0 marcados con stems/MIDI | Reset tocó exclusivamente filas con marcador QA y media bajo namespace QA. IDs DB cambian al regenerar. |
 | `pip check` | No broken requirements found | Dependencias instaladas; no modificación de paquetes durante la ejecución. |
@@ -65,3 +65,19 @@ La compilación TypeScript detectó referencias directas a `process` sin tipos N
 - Configuración privada `.env.qa`, base de datos y media no se versionan ni adjuntan.
 
 Este registro separa pruebas automatizadas, HTTP de integración local, navegador pendiente y servicios externos pendientes. No representa “QA aprobado” hasta que Vicente complete la matriz y el registro de ejecución.
+
+## Reejecución para publicación saneada
+
+El 18-11-2026 se creó una copia aislada desde el bundle privado verificado y se saneó de forma contextual el historial de defaults sensibles en módulos históricos de configuración. La suite compuesta `scripts/qa/verify.sh` se ejecutó de nuevo sobre el candidato `c91a7d0` (SHA previo a los commits documentales de publicación) y terminó con código 0:
+
+| Control en la reejecución | Resultado | Alcance |
+|---|---|---|
+| `manage.py check` | Sin issues | Configuración QA local. |
+| `makemigrations --check --dry-run` | No changes detected | No aplicó migraciones. |
+| Django | 372 tests, OK, 151.437 s | La primera ejecución sobre una candidata intermedia falló por una sustitución demasiado amplia que alteró fixtures; esa candidata fue descartada. La candidata aislada final usó sustitución contextual limitada a defaults de configuración y pasó la suite completa. |
+| Frontend | 26/26 tests OK | Suites Node existentes. |
+| TypeScript/lint | `npm run lint` (`tsc -b`) aprobado | Sin cambios de dependencias. |
+| Build | 1,926 módulos transformados, Vite build OK | No es prueba de interacción visual. |
+| HTTP QA | Catálogo: 6 resultados por página de 125; 21 páginas | Los servicios de prueba locales respondieron correctamente; no acredita proveedores externos ni reproducción manual. |
+
+La configuración de ejecución QA se copió con permisos privados a una carpeta de trabajo temporal fuera del repositorio; se usó la DB aislada existente y su base de pruebas temporal, que Django eliminó al terminar. No se versionó `.env.qa`, medios ni DB.

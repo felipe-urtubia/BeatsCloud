@@ -41,9 +41,11 @@
 
 1. Jira no está disponible entre las integraciones/herramientas de esta sesión. No se consultaron issues DDPB ni se completó una exportación. Un registro en rama local cita DDPB-66/74/81; no confirma el estado vigente de Jira.
 2. El árbol actual contiene `README.md`, `docs/INTEGRACION_BACKEND.md`, `docs/evidencias/pruebas_backend.txt` y `REGISTRO_CAMBIOS_BEATSCLOUD.md`. El log UTF-16 registra 22 tests el 14-10-2026. Integración backend registra resultados al 06-11; el registro de cambios informa 103 pruebas Django el 06-11 y 111 el 08-11. Son resultados históricos según sus documentos, no pruebas repetidas hoy.
-3. El commit histórico `53db43f` conserva `VERIFICACION_SPRINT_2.md` (05-11-2026), que registra DDPB-74/81, 34 pruebas Django y build frontend; la prueba manual Webpay real consta pendiente. Esta verificación no es acta de Review/retrospectiva y sus resultados corresponden a otro corte de código.
+3. El commit histórico `ceb3a9c` conserva `VERIFICACION_SPRINT_2.md` (05-11-2026), que registra DDPB-74/81, 34 pruebas Django y build frontend; la prueba manual Webpay real consta pendiente. Esta verificación no es acta de Review/retrospectiva y sus resultados corresponden a otro corte de código.
 4. El registro de cambios menciona una acción de retrospectiva de Sprint 1, pero no describe la reunión, sus hallazgos ni la acción con suficiente detalle para reconstruir un acta.
 5. Riesgo crítico: `agregar.html` era un ZIP con un miembro `.env`; no se extrajo. `git-filter-repo` retiró esas rutas de las referencias locales. Las ramas remotas conservan el historial anterior y la rotación/revocación aún no está confirmada. Ver [plan de riesgos](plan_riesgos.md) y la validación del 18-11 enlazada en el encabezado.
+
+**Actualización 18-11-2026:** la historia de trabajo destinada a `main` se saneó y se publicó después de la fecha de este estado documental. La rotación de credenciales no está confirmada; refs internas de PR/cachés requieren respuesta de GitHub Support. Véase el [cierre de saneamiento](cierre_saneamiento_2026-11-18.md).
 
 ## Pendiente de validación del equipo
 

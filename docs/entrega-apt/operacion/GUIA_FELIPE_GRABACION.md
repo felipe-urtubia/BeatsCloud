@@ -4,17 +4,15 @@
 
 ## 0. Obtener el código seguro
 
-El `origin/main` de GitHub todavía contiene historial anterior con archivos de configuración privada. No hagas `git clone`, `fetch` ni push hacia ese remoto hasta que el equipo coordine el saneamiento. Git no permite un bundle shallow autónomo que omita objetos padre: para iniciar este entorno, usa el archivo fuente `beatscloud-main-source.tar.gz` que Ismael entregue por canal privado:
+Clona la única rama oficial `main` desde GitHub:
 
 ```bash
-mkdir BeatsCloud
-tar -xzf /ruta/privada/beatscloud-main-source.tar.gz -C BeatsCloud
+git clone --branch main https://github.com/felipe-urtubia/BeatsCloud.git BeatsCloud
 cd BeatsCloud
-git switch main
 git status --short --branch
 ```
 
-El archivo contiene solo el árbol de código de `main`, no historial Git, `.env`, DB ni media. Se entrega solo para iniciar trabajo operativo; no sirve como archivo de trazabilidad histórica. Después de que la publicación segura se complete, se podrá sustituir esta descarga por un clon de GitHub.
+El historial de ramas publicadas se saneó antes de esta publicación. GitHub puede conservar referencias internas de PR/caché que requieren purga por soporte; un clon nuevo de `main` obtiene la rama verificada. No reutilices respaldos privados como fuente de trabajo.
 
 ## A. Preparación inicial
 

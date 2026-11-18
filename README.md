@@ -1,6 +1,6 @@
 # BeatsCloud
 
-Marketplace académico de instrumentales para artistas y productores. La aplicación combina una SPA React/TypeScript con API y backend Django. El código de referencia local es la rama saneada `main`; el remoto de GitHub aún requiere saneamiento coordinado antes de publicar o clonar desde allí.
+Marketplace académico de instrumentales para artistas y productores. La aplicación combina una SPA React/TypeScript con API y backend Django. La única rama compartida de trabajo es `main`.
 
 ## Stack
 
@@ -12,15 +12,12 @@ Marketplace académico de instrumentales para artistas y productores. La aplicac
 
 ## Obtener la versión correcta
 
-Mientras GitHub conserve referencias con historial sensible, no clonar ni hacer fetch de esas ramas. Solicitar una copia de código fuente saneada por un canal privado. El bundle histórico completo no debe distribuirse hasta cerrar la revisión de credenciales antiguas. Git no permite usar un bundle shallow sin los objetos padre que faltan; la entrega de QA se realizará como archivo fuente sin historial:
+Clona la rama oficial:
 
 ```bash
-mkdir BeatsCloud && tar -xzf /ruta/segura/beatscloud-main-source.tar.gz -C BeatsCloud
+git clone --branch main https://github.com/felipe-urtubia/BeatsCloud.git BeatsCloud
 cd BeatsCloud
-git switch main
 ```
-
-Después de la publicación coordinada del historial seguro, el equipo podrá clonar `main` desde GitHub.
 
 ## Configuración local de desarrollo
 

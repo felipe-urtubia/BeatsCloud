@@ -6,17 +6,15 @@ Esta guía prepara un ambiente aislado para pruebas funcionales. Está escrita y
 
 ## 1. Obtener la versión saneada
 
-Solicitar al equipo el archivo fuente `beatscloud-main-source.tar.gz` y confirmar con Felipe/Ismael que corresponde al corte acordado. Es solo el árbol de código, sin historial Git; no reemplaza la trazabilidad. Se usa mientras el remoto conserve historial sensible.
+Clonar la rama oficial `main` desde GitHub:
 
 ```bash
-mkdir BeatsCloud-QA
-tar -xzf /ruta/recibida/beatscloud-main-source.tar.gz -C BeatsCloud-QA
+git clone --branch main https://github.com/felipe-urtubia/BeatsCloud.git BeatsCloud-QA
 cd BeatsCloud-QA
-git switch main
 git status --short --branch
 ```
 
-El archivo no tiene metadatos Git; usar el SHA de corte que se comunique junto con la entrega. No hacer fetch del remoto antiguo.
+Comprobar que la rama sea `main` y registrar el SHA de `git rev-parse HEAD` en cada ejecución de QA. No reutilizar respaldos privados.
 
 ## 2. Requisitos
 
