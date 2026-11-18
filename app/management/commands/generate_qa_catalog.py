@@ -143,7 +143,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        validate_local_database(settings.DATABASES["default"])
+        validate_local_database(
+            settings.DATABASES["default"],
+            prefixes=("beatscloud_qa_", "beatscloud_demo_"),
+        )
         count = options["count"]
         seed = options["seed"]
         if not 1 <= count <= 300:

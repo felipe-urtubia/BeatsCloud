@@ -194,9 +194,6 @@ MEDIA_ROOT = os.path.abspath(
 
 FFMPEG_PATH = os.getenv('FFMPEG_PATH', 'ffmpeg')
 
-STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
-STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
-
 # Backend de autenticación
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
@@ -214,7 +211,6 @@ CSRF_COOKIE_SECURE = not DEBUG  # HTTPS en producción; HTTP local durante el de
 
 TRANSBANK_COMMERCE_CODE = os.getenv('TRANSBANK_COMMERCE_CODE', '')
 TRANSBANK_API_KEY = os.getenv('TRANSBANK_API_KEY', '')
-TRANSBANK_SHARED_SECRET = os.getenv('TRANSBANK_SHARED_SECRET', '')
 TRANSBANK_INTEGRATION_TYPE = os.getenv('TRANSBANK_INTEGRATION_TYPE', 'TEST')
 
 # -----------------------------------------------------------------------------

@@ -31,8 +31,7 @@ qa_load_env() {
   local external_var
   for external_var in \
     R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET_NAME \
-    TRANSBANK_COMMERCE_CODE TRANSBANK_API_KEY TRANSBANK_SHARED_SECRET \
-    STRIPE_SECRET_KEY EMAIL_HOST_USER EMAIL_HOST_PASSWORD; do
+    TRANSBANK_COMMERCE_CODE TRANSBANK_API_KEY EMAIL_HOST_USER EMAIL_HOST_PASSWORD; do
     [[ -z "${!external_var:-}" ]] || qa_error "$external_var debe estar vacío en .env.qa."
   done
 

@@ -167,6 +167,22 @@ class QADatabaseSafetyTests(TestCase):
             "beatscloud_qa_local",
         )
 
+    def test_demo_database_requires_explicit_demo_prefix(self):
+        config = {
+            "NAME": "beatscloud_demo_local",
+            "HOST": "127.0.0.1",
+            "ENGINE": "django.db.backends.postgresql",
+        }
+        self.assertEqual(
+            validate_local_database(
+                config,
+                prefixes=("beatscloud_qa_", "beatscloud_demo_"),
+            ),
+            "beatscloud_demo_local",
+        )
+        with self.assertRaises(CommandError):
+            validate_local_database(config)
+
 
 class QAUserCommandTests(TestCase):
     def test_accounts_are_active_role_scoped_and_passwords_rotate_only_on_request(self):

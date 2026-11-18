@@ -22,7 +22,7 @@ QA_USERS = (
 
 
 class Command(BaseCommand):
-    help = "Create local QA accounts; passwords are shown only when created or rotated."
+    help = "Create local demo/QA accounts; passwords are shown only when created or rotated."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -32,7 +32,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        validate_local_database(settings.DATABASES["default"])
+        validate_local_database(
+            settings.DATABASES["default"],
+            prefixes=("beatscloud_qa_", "beatscloud_demo_"),
+        )
         passwords = {}
         with transaction.atomic():
             for username, display_name, role, is_admin in QA_USERS:
