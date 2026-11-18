@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.files import File
 
 
-def generar_preview_audio(track):
+def generar_preview_audio(track, namespace=""):
     """
     Genera una vista previa MP3 con los primeros 30 segundos del audio
     original y la guarda en track.preview.
@@ -67,7 +67,11 @@ def generar_preview_audio(track):
                 f"No fue posible generar el preview del audio: {detalle}"
             )
 
-        nombre_preview = f"track_{track.pk}_preview.mp3"
+        namespace = str(namespace or "").strip("/")
+        if namespace and any(part in {".", ".."} for part in namespace.split("/")):
+            raise ValueError("El namespace de preview no es válido.")
+        nombre_archivo = f"track_{track.pk}_preview.mp3"
+        nombre_preview = f"{namespace}/{nombre_archivo}" if namespace else nombre_archivo
 
         with salida.open("rb") as archivo_preview:
             track.preview.save(

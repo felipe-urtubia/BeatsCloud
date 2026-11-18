@@ -18,6 +18,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.audio_utils import generar_preview_audio
 from app.models import Genero_Musical, Track, Usuario
+from ._qa_safety import validate_local_database
 
 
 DEMO_USERNAME = "demo-productor"
@@ -75,14 +76,21 @@ TRACKS = (
 )
 
 
-def _make_demo_wav(*, bpm: int, root_hz: float, seed: int) -> bytes:
+def _make_demo_wav(
+    *, bpm: int, root_hz: float, seed: int, duration: int = 12, style: int = 0
+) -> bytes:
     """Synthesize a short original drum-and-bass loop using Python stdlib."""
     sample_rate = 22050
-    duration = 12
     frame_count = sample_rate * duration
     beat_seconds = 60 / bpm
     rng = random.Random(seed)
     samples = array("h")
+    kick_patterns = ((0, 2), (0, 3), (0,), (0, 2, 3))
+    snare_patterns = ((1, 3), (1,), (2,), (1, 3))
+    chord_shapes = ((1.0, 1.25, 1.5), (1.0, 1.2, 1.5), (1.0, 4 / 3, 1.5), (1.0, 1.5, 2.0))
+    kick_pattern = kick_patterns[style % len(kick_patterns)]
+    snare_pattern = snare_patterns[style % len(snare_patterns)]
+    chord = chord_shapes[style % len(chord_shapes)]
 
     for frame in range(frame_count):
         t = frame / sample_rate
@@ -94,20 +102,20 @@ def _make_demo_wav(*, bpm: int, root_hz: float, seed: int) -> bytes:
         eighth_phase = (eighth_position - eighth_index) * beat_seconds / 2
 
         kick = 0.0
-        if beat_index % 4 in (0, 2):
+        if beat_index % 4 in kick_pattern:
             kick = math.sin(2 * math.pi * (48 + 95 * math.exp(-beat_phase * 24)) * beat_phase)
             kick *= 0.66 * math.exp(-beat_phase * 15)
 
         snare = 0.0
-        if beat_index % 4 in (1, 3):
+        if beat_index % 4 in snare_pattern:
             snare = rng.uniform(-1, 1) * 0.19 * math.exp(-beat_phase * 21)
 
         hat = rng.uniform(-1, 1) * 0.045 * math.exp(-eighth_phase * 95)
         bar_phase = (t % (beat_seconds * 4)) / (beat_seconds * 4)
         pad = (
             math.sin(2 * math.pi * root_hz * t)
-            + 0.55 * math.sin(2 * math.pi * root_hz * 1.25 * t)
-            + 0.35 * math.sin(2 * math.pi * root_hz * 1.5 * t)
+            + 0.55 * math.sin(2 * math.pi * root_hz * chord[1] * t)
+            + 0.35 * math.sin(2 * math.pi * root_hz * chord[2] * t)
         ) * (0.075 + 0.025 * math.sin(math.pi * bar_phase))
         bass = math.sin(2 * math.pi * root_hz * 0.5 * t) * 0.16
 
@@ -144,12 +152,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         database = settings.DATABASES["default"]
-        name = str(database.get("NAME", ""))
-        host = str(database.get("HOST", "") or "").lower()
-        if not name.startswith("beatscloud_demo_") or host not in {"", "localhost", "127.0.0.1", "::1"}:
-            raise CommandError(
-                "Safety stop: use a local database whose name starts with beatscloud_demo_."
-            )
+        validate_local_database(
+            database, prefixes=("beatscloud_demo_", "beatscloud_qa_")
+        )
 
         genres = {label for _, label in Genero_Musical.GENERO_CHOICES}
         tracks_by_genre = {item["genre"] for item in TRACKS}

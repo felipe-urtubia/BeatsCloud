@@ -130,7 +130,7 @@ WSGI_APPLICATION = 'beatcloud.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
-        'NAME': os.getenv('DB_NAME', 'beatsbd'),
+        'NAME': os.getenv('DB_NAME', 'beatscloud_demo_local'),
         'USER': os.getenv('DB_USER', 'postgres'),
         'PASSWORD': os.getenv('DB_PASSWORD', 'REDACTED_HISTORICAL_DEFAULT'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
@@ -188,7 +188,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 import os 
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_ROOT = os.path.abspath(
+    os.getenv('MEDIA_ROOT', os.path.join(BASE_DIR, "media"))
+)
 
 FFMPEG_PATH = os.getenv('FFMPEG_PATH', 'ffmpeg')
 
