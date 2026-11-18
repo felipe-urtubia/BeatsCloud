@@ -4,17 +4,17 @@
 
 ## 0. Obtener el código seguro
 
-El `origin/main` de GitHub todavía contiene historial anterior con archivos de configuración privada. No hagas `git clone`, `fetch` ni push hacia ese remoto hasta que el equipo coordine el saneamiento. Usa la copia de código fuente shallow `beatscloud-main-source-shallow.bundle` que Ismael entregue por canal privado y comprueba:
+El `origin/main` de GitHub todavía contiene historial anterior con archivos de configuración privada. No hagas `git clone`, `fetch` ni push hacia ese remoto hasta que el equipo coordine el saneamiento. Git no permite un bundle shallow autónomo que omita objetos padre: para iniciar este entorno, usa el archivo fuente `beatscloud-main-source.tar.gz` que Ismael entregue por canal privado:
 
 ```bash
-git bundle verify /ruta/privada/beatscloud-main-source-shallow.bundle
-git clone /ruta/privada/beatscloud-main-source-shallow.bundle BeatsCloud
+mkdir BeatsCloud
+tar -xzf /ruta/privada/beatscloud-main-source.tar.gz -C BeatsCloud
 cd BeatsCloud
 git switch main
 git status --short --branch
 ```
 
-El bundle contiene solo el código de `main`, no `.env`, DB ni media, y omite el historial padre completo. Se entrega solo para iniciar QA; no sirve como archivo de trazabilidad histórica. Después de que la publicación segura se complete, se podrá sustituir esta descarga por un clon de GitHub.
+El archivo contiene solo el árbol de código de `main`, no historial Git, `.env`, DB ni media. Se entrega solo para iniciar trabajo operativo; no sirve como archivo de trazabilidad histórica. Después de que la publicación segura se complete, se podrá sustituir esta descarga por un clon de GitHub.
 
 ## A. Preparación inicial
 

@@ -6,17 +6,17 @@ Esta guía prepara un ambiente aislado para pruebas funcionales. Está escrita y
 
 ## 1. Obtener la versión saneada
 
-Solicitar al equipo la copia shallow de código `beatscloud-main-source-shallow.bundle` y verificar con Felipe/Ismael que corresponde al corte acordado. No contiene historial completo y no reemplaza la trazabilidad Git. El bundle no se publica por GitHub mientras el remoto conserve historial sensible.
+Solicitar al equipo el archivo fuente `beatscloud-main-source.tar.gz` y confirmar con Felipe/Ismael que corresponde al corte acordado. Es solo el árbol de código, sin historial Git; no reemplaza la trazabilidad. Se usa mientras el remoto conserve historial sensible.
 
 ```bash
-git bundle verify /ruta/recibida/beatscloud-main-source-shallow.bundle
-git clone /ruta/recibida/beatscloud-main-source-shallow.bundle BeatsCloud-QA
+mkdir BeatsCloud-QA
+tar -xzf /ruta/recibida/beatscloud-main-source.tar.gz -C BeatsCloud-QA
 cd BeatsCloud-QA
 git switch main
 git status --short --branch
 ```
 
-La versión debe indicar únicamente `main`. Si la verificación del bundle falla o no incluye `refs/heads/main`, detenerse y pedir una nueva copia. No hacer fetch del remoto antiguo.
+El archivo no tiene metadatos Git; usar el SHA de corte que se comunique junto con la entrega. No hacer fetch del remoto antiguo.
 
 ## 2. Requisitos
 

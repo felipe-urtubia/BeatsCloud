@@ -12,11 +12,10 @@ Marketplace académico de instrumentales para artistas y productores. La aplicac
 
 ## Obtener la versión correcta
 
-Mientras GitHub conserve referencias con el historial accidental de configuración privada, no clonar ni hacer fetch de esas ramas. Solicitar una copia de código fuente saneada y verificarla por un canal privado. El bundle histórico existente no debe distribuirse hasta cerrar la revisión de credenciales antiguas:
+Mientras GitHub conserve referencias con historial sensible, no clonar ni hacer fetch de esas ramas. Solicitar una copia de código fuente saneada por un canal privado. El bundle histórico completo no debe distribuirse hasta cerrar la revisión de credenciales antiguas. Git no permite usar un bundle shallow sin los objetos padre que faltan; la entrega de QA se realizará como archivo fuente sin historial:
 
 ```bash
-git bundle verify /ruta/segura/beatscloud-main-source-shallow.bundle
-git clone /ruta/segura/beatscloud-main-source-shallow.bundle BeatsCloud
+mkdir BeatsCloud && tar -xzf /ruta/segura/beatscloud-main-source.tar.gz -C BeatsCloud
 cd BeatsCloud
 git switch main
 ```
