@@ -45,7 +45,7 @@
 4. El registro de cambios menciona una acción de retrospectiva de Sprint 1, pero no describe la reunión, sus hallazgos ni la acción con suficiente detalle para reconstruir un acta.
 5. Riesgo crítico: `agregar.html` era un ZIP con un miembro `.env`; no se extrajo. `git-filter-repo` retiró esas rutas de las referencias locales. Las ramas remotas conservan el historial anterior y la rotación/revocación aún no está confirmada. Ver [plan de riesgos](plan_riesgos.md) y la validación del 18-11 enlazada en el encabezado.
 
-**Actualización 18-11-2026:** la historia de trabajo destinada a `main` se saneó y se publicó después de la fecha de este estado documental. La rotación de credenciales no está confirmada; refs internas de PR/cachés requieren respuesta de GitHub Support. Véase el [cierre de saneamiento](cierre_saneamiento_2026-11-18.md).
+**Actualización 18-11-2026:** la historia saneada se publicó en `main`; las otras ramas remotas se eliminaron y PR #2 se cerró después de verificar sus commits equivalentes. GitHub aún anuncia refs internas de PR; la rotación de credenciales no está confirmada y la purga requiere respuesta de GitHub Support. Véase el [cierre de saneamiento](cierre_saneamiento_2026-11-18.md).
 
 ## Pendiente de validación del equipo
 

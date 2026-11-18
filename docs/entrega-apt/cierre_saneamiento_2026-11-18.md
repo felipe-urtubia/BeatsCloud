@@ -60,6 +60,26 @@ La candidata `c91a7d0` pasó `scripts/qa/verify.sh` el 18-11-2026:
 
 No valida Firefox manual, Webpay real, R2 real, SMTP real ni despliegue. Los logs/tests Webpay y R2 usan dobles; los servicios externos no se probaron.
 
-## Estado de publicación
+## Estado de publicación y ramas posterior a la operación
 
-Al crear este registro, la publicación aún estaba pendiente de actualizar `main` con lease, cerrar PR #2 y retirar ramas obsoletas. El resultado y los SHA finales se completarán en una actualización posterior de este documento una vez verificadas esas operaciones.
+- Se actualizó `main` mediante `--force-with-lease` con el SHA remoto verificado inmediatamente antes (`ec00e2e1e1ca51cddee00fa7d53ee8a47d08bdda`). La publicación inicial quedó en `ab3568d69c884da8c1c896a8750a229e6b080bc0`; este documento se añadió como commit de seguimiento normal para dejar la evidencia versionada.
+- PR #2 se cerró con comentario indicando equivalencias verificadas y base obsoleta. PR #1 y #3 permanecen MERGED.
+- Se eliminaron las ramas `frontend-trabajo` e `integration/react-frontend` después de verificar cambios únicos/equivalencias. GitHub API lista solo `main`; `git ls-remote --symref` confirma `HEAD` → `refs/heads/main`. No había tags.
+- La rama predeterminada sigue siendo `main`. No se cambiaron protecciones ni permisos.
+- `main` es clonable desde GitHub. La sincronización de este documento de cierre se realiza como fast-forward normal después de su commit.
+
+## Referencias internas y acción para GitHub Support
+
+Tras el cierre/eliminación de ramas, `git ls-remote` aún anuncia:
+
+| Ref interna | SHA visible |
+|---|---|
+| `refs/pull/1/head` | `7b0424ab35f90c3874ada6cc26eeb9460b3fb5f2` |
+| `refs/pull/2/head` | `7ad680a7e022ab004386b183d5a8b043760b2a63` |
+| `refs/pull/3/head` | `6087f21ed8e12f721cfb12533e5b1ae851a5fe01` |
+
+Estas refs conservan commits anteriores a la reescritura y pueden hacer accesible contenido histórico sensible pese a que las ramas de trabajo ya se limpiaron. Solicitar a GitHub Support (Sensitive Data Removal) la purga de las refs de PR/cachés afectadas y sus objetos no alcanzables. Texto sugerido, sin valores secretos:
+
+> The public repository `felipe-urtubia/BeatsCloud` had sensitive configuration committed in an accidental archive named `agregar.html`/`agregar.zip` (a ZIP containing `.env`) and in historical Django settings defaults. We rewrote and force-updated the default `main` using a verified lease, removed obsolete branches, and closed PR #2. `git ls-remote` still advertises `refs/pull/1/head` (`7b0424ab35f90c3874ada6cc26eeb9460b3fb5f2`), `refs/pull/2/head` (`7ad680a7e022ab004386b183d5a8b043760b2a63`), and `refs/pull/3/head` (`6087f21ed8e12f721cfb12533e5b1ae851a5fe01`). Please purge the affected pull-request refs, cached views, and unreachable objects for the sensitive paths/history. No secret values are included in this request.
+
+El saneamiento de Git no rota credenciales. Los custodios deben confirmar revocación/rotación de las credenciales externas encontradas; no existe evidencia de que se haya completado.
