@@ -6,7 +6,7 @@
 
 El candidato integra `frontend-trabajo` con `origin/main` y contiene backend Django, SPA React, migraciones R2/Webpay, pruebas, documentación técnica y el comando local de catálogo demo. La base aislada y el catálogo funcionan localmente; suites automatizadas de backend/frontend, chequeo TypeScript, build y verificaciones de Django aprobaron en el corte.
 
-La integración no debe publicarse todavía. `origin/main` es público y su historial contiene versiones de `agregar.html` que son ZIP con un miembro `.env`, incluyendo variables no vacías de credenciales/configuración. Borrar el archivo del último árbol no sanea historia. La rotación/revocación externa no está confirmada. Esta auditoría prepara saneamiento local; no realiza publicación ni elimina ramas remotas.
+La integración no debe publicarse todavía. `origin/main` es público y su historial contiene versiones de `agregar.html` que son ZIP con un miembro `.env`, incluyendo variables no vacías de credenciales/configuración. Borrar el archivo del último árbol no sanea historia. La rotación/revocación externa no está confirmada. El saneamiento local está planificado; no se ha publicado historia reescrita ni eliminado ramas remotas.
 
 ## Arquitectura observada
 
@@ -33,7 +33,7 @@ No se validó reproducción audible en navegador, compra E2E como comprador dist
 
 ## Ramas, PR y contribuciones
 
-La auditoría inicial encontró seis ramas locales y tres remotas (`main`, `frontend-trabajo`, `integration/react-frontend`). El candidato actual ya integra el HEAD de `frontend-trabajo` y `origin/main`, más tres commits locales previos. `integration/reorganization-checkpoint` tiene cuatro commits exclusivos: `a1294b9`, `91262ba`, `c72ed1e` y `c060b67`. Ese checkpoint reorganiza el árbol a `client/`/`server/` y antecede al backend R2 integrado; su árbol reemplazaría módulos/migraciones actuales, por lo que se conserva su historial, no se aplica su layout antiguo. El commit `c060b67` conserva una verificación técnica Sprint 2 fechada 05-11-2026, distinguida de pruebas actuales.
+La auditoría inicial encontró seis ramas locales y tres remotas (`main`, `frontend-trabajo`, `integration/react-frontend`). El candidato integra `frontend-trabajo`, `origin/main` y tres commits locales previos. También conserva por merge de estrategia `ours` los cuatro commits exclusivos de `integration/reorganization-checkpoint` (`a1294b9`, `91262ba`, `c72ed1e`, `c060b67`): su layout `client/`/`server/` reemplazaría módulos y migraciones R2 actuales, por lo que se mantiene su historia sin sustituir el árbol vigente. `c060b67` conserva una verificación técnica Sprint 2 fechada 05-11-2026, distinguida de pruebas actuales. El commit de consolidación local se documentará con su hash final tras filtrar la historia.
 
 GitHub: PR #1 (React/Django) MERGED, autor de GitHub `yaeaelo` (Ismael Araya); PR #3 (descarga R2 temporal) MERGED, autor `felipe-urtubia`; PR #2 desde `frontend-trabajo` sigue OPEN y corresponde a cambios ya integrados en el candidato. No tiene reviews ni comentarios visibles. Jira no está conectado.
 
@@ -51,7 +51,7 @@ Historial inspeccionado, sin extraer ni mostrar valores:
 | `28864ca` (29-08-2026) | `agregar.html` (rename) | Un miembro `.env.example`. |
 | `497d5ac` (31-08-2026) y descendientes anteriores a `a1294b9` | `agregar.html` | Un miembro `.env`; contenía valores no vacíos en campos sensibles. |
 | `a1294b9` (06-11-2026) | `agregar.html` | Eliminado de ese árbol. |
-| `ec00e2e` (17-11-2026) | `agregar.html` | Reintroducido como ZIP con un miembro `.env`; eliminado del árbol integrado y pendiente de eliminar de toda la historia. |
+| `ec00e2e` (17-11-2026) | `agregar.html` | Reintroducido como ZIP con un miembro `.env`; se eliminará de todas las referencias locales mediante reescritura histórica. |
 
 No se encontraron otros nombres de archivos `.env`, SQLite, claves PEM o claves SSH en los objetos rastreados; sí existen `.env.example`. Un escaneo `detect-secrets` 1.5.0 revisó 569 blobs de texto alcanzables y los miembros `.env` archivados sin emitir hallazgos heurísticos. Ese resultado no invalida el hallazgo directo de variables sensibles con valores no vacíos.
 
