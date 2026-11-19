@@ -43,6 +43,8 @@ EMAIL_HOST_PASSWORD=
 EOF
   chmod 600 .env.qa
 else
+  [[ ! -L .env.qa ]] || { echo "Refusing to use .env.qa when it is a symbolic link." >&2; exit 1; }
+  chmod 600 .env.qa
   echo ".env.qa exists; preserving it and validating its QA-only settings."
 fi
 

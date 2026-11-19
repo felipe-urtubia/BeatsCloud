@@ -11,6 +11,10 @@ qa_error() {
 
 qa_load_env() {
   [[ -f "$QA_ENV_FILE" ]] || qa_error "No existe .env.qa. Ejecuta scripts/qa/setup.sh."
+  [[ ! -L "$QA_ENV_FILE" ]] || qa_error ".env.qa no puede ser un enlace simbólico."
+  local env_mode
+  env_mode="$(stat -c '%a' "$QA_ENV_FILE")"
+  [[ "$env_mode" == "600" ]] || qa_error ".env.qa debe tener permisos 0600 (actual: $env_mode)."
   set -a
   # shellcheck disable=SC1090
   source "$QA_ENV_FILE"
