@@ -4,6 +4,8 @@ set -euo pipefail
 QA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$QA_ROOT"
 
+[[ ! -L .env.qa ]] || { echo "Refusing to use .env.qa when it is a symbolic link." >&2; exit 1; }
+
 if [[ ! -f .env.qa ]]; then
   command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; }
   umask 077
