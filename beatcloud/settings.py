@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'anymail',
     'app'
 ]
 
@@ -220,10 +221,16 @@ TRANSBANK_INTEGRATION_TYPE = os.getenv('TRANSBANK_INTEGRATION_TYPE', 'TEST')
 # -----------------------------------------------------------------------------
 # Correo SMTP - confirmación de cuenta y recuperación de contraseña
 # -----------------------------------------------------------------------------
+# Seleccionar el servicio de correo según el entorno
 EMAIL_BACKEND = os.getenv(
     'EMAIL_BACKEND',
-    'django.core.mail.backends.smtp.EmailBackend',
+    (
+        'anymail.backends.resend.EmailBackend'
+        if os.getenv('RESEND_API_KEY')
+        else 'django.core.mail.backends.smtp.EmailBackend'
+    )
 )
+
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
@@ -234,6 +241,10 @@ DEFAULT_FROM_EMAIL = os.getenv(
     EMAIL_HOST_USER or 'BeatCloud <no-reply@beatcloud.local>'
 )
 EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))
+# Configuración de Resend mediante Anymail
+ANYMAIL = {
+    'RESEND_API_KEY': os.getenv('RESEND_API_KEY', ''),
+}
 
 # URL pública de React que recibe los enlaces de activación enviados por la API.
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000').rstrip('/')
