@@ -1,6 +1,6 @@
 # Configuración y preparación de despliegue
 
-Estado: **propuesta técnica, no despliegue ejecutado**. Código de referencia en `main` local. Render/Vercel, DNS, proveedores, dominios, credenciales, backups y salud operativa no están configurados/verificados.
+Estado: **preparación de código presente; despliegue no ejecutado ni verificado**. Referencia: `felipe-urtubia/BeatsCloud`, `main`, commit `5021ee84ada9fbd8121362c676572b3a3e68d6d4`. Render/Vercel, DNS, proveedores, dominios, credenciales, backups y salud operativa no están configurados/verificados.
 
 ## Topología propuesta
 
@@ -12,11 +12,11 @@ Estado: **propuesta técnica, no despliegue ejecutado**. Código de referencia e
 
 ## Bloqueos técnicos antes del despliegue
 
-1. El repositorio no configura `STATIC_ROOT`, WhiteNoise ni un comando de build/deploy Django con Gunicorn; `gunicorn` no está confirmado en `requirements.txt`. `runserver` es solo desarrollo. Definir servidor WSGI/ASGI, static files y health check antes de crear servicio.
-2. `settings.py` consume variables separadas `DB_*`, no `DATABASE_URL`; definir mapeo compatible o configurar `DB_*` con el panel. No asumir que la receta de plataforma funciona sin adaptación.
-3. No existe endpoint health-check dedicado verificado; `/api/session/` es una ruta funcional, no chequeo de salud completa. Añadir/seleccionar health check solo tras decisión técnica y prueba.
-4. Configurar `ALLOWED_HOSTS`, `DJANGO_DEBUG=False`, clave Django aleatoria, HTTPS, cookies, CSRF y proxy. Validar headers forward-proto y dominios efectivos.
-5. Confirmar migraciones revisadas, backup/restore PostgreSQL, retención, límites de upload y R2, monitoreo/logs.
+1. El commit `5021ee8` agrega `STATIC_ROOT`, `WhiteNoiseMiddleware`, `gunicorn` y `build.sh`; esto es preparación, no prueba de build ni de servicio. `build.sh` está versionado sin permiso ejecutable, por lo que en Render se debe usar `bash build.sh` o cambiar/verificar el modo antes de configurarlo como `./build.sh`.
+2. `settings.py` consume variables separadas `DB_*`, no `DATABASE_URL`; hay que configurar las variables correspondientes desde el panel o implementar y probar un mapeo. No asumir que Render las adapta automáticamente.
+3. No existe endpoint health-check dedicado verificado; `/api/session/` es una ruta funcional, no chequeo de salud completa. Render necesita una ruta que responda satisfactoriamente si se configura un health check; no se ha definido una específica.
+4. Configurar `ALLOWED_HOSTS`, `DJANGO_DEBUG=False`, `DJANGO_SECRET_KEY` aleatoria, HTTPS, cookies, CSRF y proxy. Validar headers forward-proto y dominios efectivos en un servicio real.
+5. Revisar migraciones, backup/restore PostgreSQL, retención, límites de upload y R2, monitoreo/logs. El script actual ejecuta `migrate` durante el build; confirmar acceso a base de datos en esa fase o mover migraciones a un comando pre-deploy controlado antes de producción.
 6. No correr `createsuperuser`, seeders demo ni comandos destructivos contra servicio productivo desde build/deploy.
 
 ## Variables requeridas por código
@@ -42,15 +42,16 @@ R2 usa variables de cuenta, bucket, acceso y secreto (`R2_ACCOUNT_ID`, `R2_BUCKE
 
 ## Render + Vercel: procedimiento a validar
 
-1. Crear PostgreSQL y Web Service Django en Render; configurar variables del servicio, región, acceso interno de DB y servicio de correo/R2/Webpay TEST. Render recomienda build command y servidor Django productivo; la documentación oficial de Render incluye PostgreSQL, static files y configuración de entorno ([guía Django](https://render.com/docs/deploy-django), [variables y secretos](https://render.com/docs/configure-environment-variables)).
-2. Antes del primer deploy, agregar en el repositorio configuración de static collection/servidor productivo y confirmar dependencias. No usar `manage.py runserver` como comando productivo.
-3. Definir un pre-deploy de migraciones con respaldo y revisión; no ejecutar migraciones destructivas de forma implícita.
+1. Crear PostgreSQL y Web Service Django en Render; configurar variables del servicio, región, acceso interno de DB y servicio de correo/R2/Webpay TEST. La configuración del producto incluye `build.sh`, `STATIC_ROOT`, WhiteNoise y Gunicorn, siguiendo el patrón de la [guía Django de Render](https://render.com/docs/deploy-django); aún no se ejecutó en Render.
+2. Como `build.sh` no tiene modo ejecutable, usar `bash build.sh` como build command o validar primero el modo ejecutable. El script instala `requirements.txt`, corre `collectstatic` y migra. No usar `manage.py runserver` como comando productivo.
+3. Definir el start command Django y validar el puerto entregado por Render. Candidato a probar: `gunicorn beatcloud.wsgi:application --bind 0.0.0.0:$PORT`. El nombre WSGI y el binding deben probarse en el servicio antes de declarar despliegue correcto; Render separa build, pre-deploy y start commands ([pipeline de despliegue](https://render.com/docs/deploys)).
+4. Preferir un pre-deploy controlado para las migraciones si el plan lo permite; Render indica que el pre-deploy se ejecuta en una instancia separada y está disponible según el tipo/plan de servicio. No dar por hecho que el build tiene acceso a la DB ni ejecutar migraciones destructivas de forma implícita.
 4. Desplegar frontend Vite desde `frontend/client` con build `npm ci && npm run build`, output `dist`. Confirmar `base`/rutas y rewrite. Vercel soporta rewrites a orígenes externos para actuar como proxy ([documentación rewrites](https://vercel.com/docs/routing/rewrites)); esta arquitectura no está probada para las cookies/CSRF actuales.
 5. Configurar dominios, rewrite o cliente cross-origin, cookies y CSRF. Ejecutar en navegador: login persistente, logout, CSRF, sesión, upload, media, callback y descarga; registrar Network redacted.
 6. Habilitar R2/Webpay TEST/SMTP por etapas, realizar prueba acotada y revisar logs. No habilitar LIVE sin aprobación del propietario.
 7. Activar backups PostgreSQL y probar recuperación en una base separada. R2 necesita política/versionado/retención definida.
 
-Render documenta que el filesystem de servicio es efímero salvo disco persistente; R2 o disco persistente configurado son necesarios para archivos. Revisar [discos persistentes](https://render.com/docs/disks) y política de despliegue/migraciones. La propuesta no implica que haya servicios creados.
+Render documenta que el filesystem de servicio es efímero salvo disco persistente; R2 o disco persistente configurado son necesarios para archivos. Revisar [discos persistentes](https://render.com/docs/disks) y política de despliegue/migraciones. Esta sincronización no crea servicios ni acredita un deploy, collectstatic, conexión DB o health check exitosos.
 
 ## CORS, cookies y CSRF
 

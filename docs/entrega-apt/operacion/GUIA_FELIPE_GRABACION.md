@@ -106,7 +106,7 @@ La respuesta de sesión anónima `null` con HTTP 200 es normal. Catálogo debe i
 
 ### Media y estáticos
 
-Django crea subdirectorios de medios al guardar audios/previews/portadas. FFmpeg se utiliza al procesar/generar previews. El repo no configura `STATIC_ROOT`, WhiteNoise ni `collectstatic` productivo; `runserver`/Vite sirven el desarrollo. No ejecutar `collectstatic` como prueba de despliegue sin completar esa configuración.
+Django crea subdirectorios de medios al guardar audios/previews/portadas. FFmpeg se utiliza al procesar/generar previews. Desde `5021ee8`, el repo define `STATIC_ROOT`, `WhiteNoiseMiddleware` y `build.sh` con `collectstatic`; el servicio Render, Gunicorn y los estáticos productivos no se han ejecutado/verificado. `runserver`/Vite siguen siendo el flujo de desarrollo. No interpretar la configuración añadida como prueba de despliegue.
 
 ## B. Webpay Plus / Transbank
 
