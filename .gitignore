@@ -26,5 +26,5 @@ backups/
 *.bak_*
 
 # Archivos ZIP accidentales que alojaron configuración privada
-/agregar.html
-/agregar.zip
+**/agregar.html
+**/agregar.zip
