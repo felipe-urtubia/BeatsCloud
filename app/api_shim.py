@@ -505,15 +505,15 @@ def registro_api(request):
             )
             text_content = (
                 f"Hola {user.first_name or user.username},\n\n"
-                "¡Bienvenido a BeatCloud!\n\n"
+                "¡Bienvenido a BeatsCloud!\n\n"
                 "Gracias por crear tu cuenta. Para confirmar tu correo y activar "
                 "tu cuenta, abre el siguiente enlace:\n\n"
                 f"{activation_url}\n\n"
                 "Si tú no creaste esta cuenta, puedes ignorar este mensaje.\n\n"
-                "Equipo BeatCloud"
+                "Equipo BeatsCloud"
             )
             email = EmailMultiAlternatives(
-                subject="Confirma tu cuenta | BeatCloud",
+                subject="Confirma tu cuenta | BeatsCloud",
                 body=text_content,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[user.email],
@@ -523,7 +523,7 @@ def registro_api(request):
     except Exception:
         return _err(
             "No pudimos enviar el correo de confirmación. "
-            "Revisa la configuración SMTP e inténtalo nuevamente.", 500,
+            "Inténtalo nuevamente más tarde.", 500,
         )
     return JsonResponse(
         {"detail": "Registro exitoso. Revisa tu correo para activar la cuenta."},
