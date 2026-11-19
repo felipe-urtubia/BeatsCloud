@@ -1,12 +1,12 @@
 # Trazabilidad técnica de contribuciones
 
-**Corte documental:** 19-11-2026 · **Código fuente:** `5021ee84ada9fbd8121362c676572b3a3e68d6d4`. Los SHA son del historial publicado saneado. No se reescribieron autores ni committers durante esta preparación. La evidencia académica complementaria está en el [repositorio de entrega](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4) y se relaciona en la [matriz interrepositorios](contribuciones_interrepositorios.md).
+**Corte documental:** 19-11-2026. El SHA exacto del snapshot de código está en el `SOURCE_COMMIT.txt` del repositorio académico. Esta matriz mantiene los SHAs del historial publicado auditado; no se reescribieron autores ni committers. La evidencia académica está en el [repositorio de entrega](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4) y se relaciona en la [matriz interrepositorios](contribuciones_interrepositorios.md).
 
 | Integrante | Responsabilidad principal | Evidencia en BeatsCloud | Evidencia académica | Alcance de atribución |
 |---|---|---|---|---|
 | Ismael Araya | Scrum Master; UI/UX, frontend e integración | PR #1 React/Django: commits actuales `6ff738c`, `4c64877`, `041f6f3` y merge `3bf2090`. PR #2: `f0c54f9`, `6883459`, `750e49e`, cotejados por `patch-id`. | `c2f2881` (catálogo React/API) y `17b5672` (sincronización de evidencias). | La cuenta autora de los PR vincula el trabajo a Ismael; no implica autoría exclusiva de cada archivo compartido. |
 | Felipe Urtubia | Product Owner; backend, pagos y almacenamiento | PR #3: `41f85b8` (descargas R2 expirables) y merge `1553203`; trabajo de R2/Webpay/metadatos en `8be7000`, `4323df2`, `df8a28b`, `b56c3e1`, `064101c`, `e87280a`; commit `5021ee8` añade configuración Render. Esta preparación no prueba un despliegue y conserva autoría de Felipe. | `8c7def7` (API/serializers/PostgreSQL) y `d45d0f6` (reporte de pruebas backend). | PR y contenido de código sustentan integración/backend; el reporte académico de tests no prueba su repetición en el corte actual. |
-| Vicente Monroy | QA / Development Team; pruebas, evidencias y apoyo | El registro QA manual actual sigue vacío. Las pruebas automatizadas del corte constan en `validacion_qa_2026-11-18.md`; no se atribuyen a Vicente. | `4a48d6e` (registro de defectos), `4281f79` (métricas/respuesta API), `6f1bf7b` (Review/Retrospective Sprint 1). Autor registrado: Vicente; committer registrado: `yaeaelo`. | Acredita autoría de documentos y seguimiento. La planilla asigna las correcciones de código a Felipe/Ismael. Las métricas requieren sus capturas/logs originales para validación independiente. |
+| Vicente Monroy | QA / Development Team; pruebas, evidencias y apoyo | El registro de ejecución manual actual sigue sin resultados. Las pruebas automatizadas del cierre constan en `validacion_qa_cierre_2026-11-19.md`; se atribuyen al runner y no a Vicente ni a ejecución manual de Ismael. | `4a48d6e` (registro de defectos), `4281f79` (métricas/respuesta API), `6f1bf7b` (Review/Retrospective Sprint 1). Autor registrado: Vicente; committer registrado: `yaeaelo`. | Acredita autoría de documentos y seguimiento. La planilla asigna las correcciones de código a Felipe/Ismael. Las métricas requieren sus capturas/logs originales para validación independiente. |
 
 ## Correspondencias de PR
 
@@ -20,7 +20,7 @@ Los nombres `Yaelo` y `Elmetaleroxd` aparecen en commits históricos y no se nor
 
 ## Evidencia de QA del corte previo
 
-La [validación automatizada](validacion_qa_2026-11-18.md) registra resultados de `f017627`: 372 tests Django, 26 frontend, TypeScript/lint, build y smoke HTTP. No se repitieron sobre `5021ee8`, que agrega configuración Render; no es QA manual ni E2E real. El QA funcional que Vicente está ejecutando permanece separado y se incorpora al [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md) únicamente cuando entregue resultados reproducibles.
+La [validación automatizada de cierre](validacion_qa_cierre_2026-11-19.md) registra 372 pruebas Django, 26 frontend, TypeScript/lint, build, smoke HTTP y build local contra DB QA aislada. No es QA manual ni E2E real. El trabajo de diseño de casos de Vicente permanece atribuido a él; los resultados manuales solo se incorporan al [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md) cuando exista ejecución reproducible.
 
 
 ## Evidencia de trabajo externo del semestre

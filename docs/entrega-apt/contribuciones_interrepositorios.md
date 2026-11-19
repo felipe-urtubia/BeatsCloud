@@ -1,12 +1,12 @@
 # Matriz interrepositorios de contribuciones
 
-**Corte documental:** 19-11-2026. La fuente de verdad del código es `felipe-urtubia/BeatsCloud` (`main`, `5021ee84ada9fbd8121362c676572b3a3e68d6d4`). Las suites citadas corresponden al corte anterior `f017627`; no se repitieron después de la preparación Render. La entrega académica aporta documentos y evidencia individual complementaria; no se infiere autoría por carpetas ni por cantidad de commits.
+**Corte documental:** 19-11-2026. La fuente de verdad del código es `felipe-urtubia/BeatsCloud` (`main`); el SHA exacto del snapshot académico aparece en `SOURCE_COMMIT.txt`. El cierre local reejecutó las suites y verificó `build.sh` contra una base QA aislada. No se infiere autoría por carpeta ni por cantidad de commits. La entrega académica aporta documentos y evidencia individual complementaria; no se infiere autoría por carpetas ni por cantidad de commits.
 
 | Integrante | Rol | Contribuciones verificables | Evidencia y commits asociados | Estado / límite |
 |---|---|---|---|---|
 | Ismael Araya | Scrum Master; UI/UX, frontend e integración | SPA React/TypeScript, catálogo y reproductor, integración con API Django, carga/audio y organización técnica. | BeatsCloud PR #1 (`6ff738c`, `4c64877`, `041f6f3`, merge `3bf2090`) y PR #2 (`f0c54f9`, `6883459`, `750e49e`, equivalencias por `patch-id`). Académico: `c2f2881`, `17b5672`. | Trabajo integrado y documentado. Los alias Git de commits de saneamiento no se atribuyen automáticamente a Ismael. |
 | Felipe Urtubia | Product Owner; backend, pagos y almacenamiento | Django/API, modelos y PostgreSQL, autenticación, Webpay/Transbank, R2 y descargas protegidas. | BeatsCloud PR #3 (`41f85b8`, merge `1553203`) y commits técnicos de R2/Webpay/metadatos descritos en [trazabilidad](trazabilidad_tecnica.md). Académico: `8c7def7`, `d45d0f6`. | Implementación verificable; las pruebas externas reales no están acreditadas por el corte automatizado. |
-| Vicente Monroy | QA / Development Team; pruebas, evidencias y apoyo al desarrollo | Registro de defectos, métricas, respuesta API y acta de Sprint Review/Retrospective. | Académico: `4a48d6e`, `4281f79`, `6f1bf7b`; autor Vicente, committer `yaeaelo`. | Contribución documental/QA histórica verificable. La validez externa de métricas requiere evidencia primaria. QA funcional del corte actual: en ejecución según el equipo, sin resultados incorporados todavía. |
+| Vicente Monroy | QA / Development Team; pruebas, evidencias y apoyo al desarrollo | Registro de defectos, métricas, respuesta API y acta de Sprint Review/Retrospective. | Académico: `4a48d6e`, `4281f79`, `6f1bf7b`; autor Vicente, committer `yaeaelo`. | Contribución documental/QA histórica verificable. La validez externa de métricas requiere evidencia primaria. El runner ejecutó las suites locales de cierre; no hay resultados manuales incorporados por Vicente. Su registro de ejecución se mantiene abierto. |
 
 ## Evidencia histórica de Vicente
 
@@ -14,7 +14,19 @@ Los tres commits del repositorio académico se conservan con Vicente como autor.
 
 ## Validación actual y límites
 
-El registro del corte previo `f017627` contiene 372 pruebas Django, 26 frontend, TypeScript/lint, build y HTTP local; no verifica la configuración añadida en `5021ee8`. Son resultados automatizados/de integración local, no ejecución manual de Vicente. Su registro permanece vacío hasta que cada caso se ejecute. No se afirma Firefox manual, E2E de compra/descarga, Webpay real, R2 real, SMTP real ni despliegue externo.
+La evidencia del 19-11-2026 está en `validacion_qa_cierre_2026-11-19.md`: 372 pruebas Django, 26 frontend, TypeScript/lint, build, smoke HTTP y `build.sh` local con base QA aislada. Es ejecución automatizada por runner, no prueba manual de Vicente. La autoría de casos de Vicente se conserva separada del ejecutor. Firefox manual, compra/descarga E2E, Webpay real, R2 real, SMTP real y despliegue externo siguen sin evidencia aprobada.
+
+## Commits de cierre documentados aparte de la matriz histórica
+
+La matriz CSV académica conserva el universo histórico de los cortes base (112 commits) y no se reescribe para incluir trabajo posterior. En la rama local `closure/2026-11-19` se agregaron estos commits bajo la identidad verificada de Ismael para consolidar tooling y documentación; la ejecución automatizada se atribuye al runner, no a una prueba manual del autor:
+
+| SHA | Autor / committer registrado | Contenido |
+|---|---|---|
+| `6c19529` | Ismael Araya | Selección aislada de puerto PostgreSQL QA y actualización de guía; no cambia funcionalidades del producto. |
+| `b4dc23b` | Ismael Araya | Registro de resultados de cierre QA local; incluye límites explícitos. |
+| `cb4f16c` | Ismael Araya | README e índice técnico alineados con los resultados de cierre. |
+
+El snapshot académico identifica el árbol completo y sus hashes. Los commits de integración documental no se usan para alterar la autoría histórica de Felipe o Vicente.
 
 ## Coherencia documental
 

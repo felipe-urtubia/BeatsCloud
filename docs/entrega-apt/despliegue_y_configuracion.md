@@ -1,6 +1,6 @@
 # Configuración y preparación de despliegue
 
-Estado: **preparación de código presente; despliegue no ejecutado ni verificado**. Referencia: `felipe-urtubia/BeatsCloud`, `main`, commit `5021ee84ada9fbd8121362c676572b3a3e68d6d4`. Render/Vercel, DNS, proveedores, dominios, credenciales, backups y salud operativa no están configurados/verificados.
+Estado: **preparación de código presente; build probado localmente; despliegue externo no ejecutado**. El SHA exacto del snapshot de entrega está en `SOURCE_COMMIT.txt` del repositorio académico. Render/Vercel, DNS, proveedores, dominios, backups y salud operativa no están configurados/verificados.
 
 ## Topología propuesta
 
@@ -12,7 +12,7 @@ Estado: **preparación de código presente; despliegue no ejecutado ni verificad
 
 ## Bloqueos técnicos antes del despliegue
 
-1. El commit `5021ee8` agrega `STATIC_ROOT`, `WhiteNoiseMiddleware`, `gunicorn` y `build.sh`; esto es preparación, no prueba de build ni de servicio. `build.sh` está versionado sin permiso ejecutable, por lo que en Render se debe usar `bash build.sh` o cambiar/verificar el modo antes de configurarlo como `./build.sh`.
+1. El commit `5021ee8` agregó `STATIC_ROOT`, `WhiteNoiseMiddleware`, `gunicorn` y `build.sh`. El 19-11-2026 se ejecutó `bash build.sh` localmente con `.env.qa`: instaló/declaró dependencias, collectstatic completó y no hubo migraciones pendientes en la base QA aislada. Esto no demuestra un build de Render ni operación del servicio. `build.sh` no tiene modo ejecutable; el comando local probado es `bash build.sh`. El script aplica migraciones en la fase build: para un servicio externo definir deliberadamente la estrategia de migración/pre-deploy y no apuntarlo a datos reales sin autorización.
 2. `settings.py` consume variables separadas `DB_*`, no `DATABASE_URL`; hay que configurar las variables correspondientes desde el panel o implementar y probar un mapeo. No asumir que Render las adapta automáticamente.
 3. No existe endpoint health-check dedicado verificado; `/api/session/` es una ruta funcional, no chequeo de salud completa. Render necesita una ruta que responda satisfactoriamente si se configura un health check; no se ha definido una específica.
 4. Configurar `ALLOWED_HOSTS`, `DJANGO_DEBUG=False`, `DJANGO_SECRET_KEY` aleatoria, HTTPS, cookies, CSRF y proxy. Validar headers forward-proto y dominios efectivos en un servicio real.
