@@ -1,3 +1,4 @@
+
 {
   "rewrites": [
     {
@@ -9,7 +10,15 @@
       "destination": "https://beatscloud.onrender.com/media/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/csrf/",
+      "destination": "https://beatscloud.onrender.com/csrf/"
+    },
+    {
+      "source": "/session/",
+      "destination": "https://beatscloud.onrender.com/session/"
+    },
+    {
+      "source": "/:path((?!api/|media/|csrf/|session/).*)",
       "destination": "/index.html"
     }
   ]
