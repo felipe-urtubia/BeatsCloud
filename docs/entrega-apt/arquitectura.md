@@ -16,7 +16,7 @@ flowchart LR
   MODELS --> DB[(Base de datos relacional<br/>configurable por DB_ENGINE<br/>ejemplo/default: PostgreSQL)]
   VIEWS --> FS[(MEDIA_ROOT<br/>filesystem configurado)]
   VIEWS -->|create / commit / status| WEBPAY[Webpay Plus / Transbank]
-  VIEWS --> MAIL[Consola QA / SMTP / Resend / Gmail API<br/>activación y recuperación]
+  VIEWS --> MAIL[Consola QA / proveedor configurado<br/>activación, recuperación y eliminación]
   SPA -->|desarrollo local /media| API
 ```
 
@@ -42,7 +42,9 @@ El login de la SPA usa la sesión de Django en cookie (backend de sesión en bas
 
 ### Pago y servicios externos
 
-El backend integra `transbank-sdk` y mantiene `WebpayTransaction` con orden, monto, snapshot y estados `PENDING`, `AUTHORIZED`, `CANCELLED`. La aplicación debe crear, devolver al callback, confirmar con proveedor y solo entonces materializar la compra. Hay pruebas automatizadas para guards/ramas con respuestas de prueba, pero no acreditan interacción real E2E en Webpay TEST. El código admite SMTP, Anymail/Resend y Gmail API (`beatcloud.gmail_backend.EmailBackend`) para activación y recuperación; QA mantiene `console`. No se probó envío real ni tokens OAuth/cuenta Gmail/Resend/SMTP. Variables Stripe aparecen en configuración, pero no hay base suficiente para describir Stripe como flujo de pago operativo.
+El backend integra `transbank-sdk` y mantiene `WebpayTransaction` con orden, monto, snapshot y estados `PENDING`, `AUTHORIZED`, `CANCELLED`. La aplicación debe crear, devolver al callback, confirmar con proveedor y solo entonces materializar la compra. Hay pruebas automatizadas para guards/ramas con respuestas de prueba, pero no acreditan interacción real E2E en Webpay TEST.
+
+El código admite SMTP, Anymail/Resend y Gmail API (`beatcloud.gmail_backend.EmailBackend`) y contiene correo para activación, recuperación de contraseña y eliminación de cuenta. Felipe confirmó pruebas funcionales de registro/correo, recuperación/cambio de contraseña y eliminación con el proveedor configurado por el equipo. Esta es una confirmación del equipo; la ejecución automatizada local usa backend en memoria/consola y no reproduce por sí misma el envío externo. Variables Stripe aparecen en configuración, pero no hay base suficiente para describir Stripe como flujo de pago operativo.
 
 ## Flujos principales
 
@@ -73,11 +75,11 @@ La API expone endpoints distintos para preview y audio completo. Django controla
 
 | Integración | Estado | Alcance comprobable / pendiente |
 |---|---|---|
-| React SPA ↔ API Django | **IMPLEMENTADO; VALIDADO parcialmente (histórico)** | Smoke/recorridos se describen en `docs/INTEGRACION_BACKEND.md`; repetir con build actual para evidencia de corte. |
+| React SPA ↔ API Django | **IMPLEMENTADO; pruebas automatizadas y catálogo/carrito en navegador Selenium** | Suites frontend/backend y ejecución de navegador descritas en QA de cierre; no equivalen a compra E2E. |
 | Django ↔ PostgreSQL | **IMPLEMENTADO/configurable** | Conexión real del ambiente APT no confirmada en este paquete. |
 | Django ↔ almacenamiento local MEDIA_ROOT | **IMPLEMENTADO** | Persistencia compartida/durable o remota **PENDIENTE** de definición/despliegue. |
 | Django ↔ Webpay Plus | **IMPLEMENTADO; algunas respuestas SIMULADAS** | Pago, retorno y descarga E2E en TEST **PENDIENTES**. |
-| Django ↔ correo | **Código configurable**: consola, SMTP, Resend/Anymail o Gmail API | Envío y activación real en cuenta/ambiente de entrega **PENDIENTES**. |
+| Django ↔ correo | **Implementado; prueba funcional confirmada por el equipo** para activación, recuperación y eliminación | La suite local usa backend de memoria/consola; la confirmación del proveedor corresponde al equipo. |
 | SPA `mock` | **SIMULADO** | Solo demostración visual; no es integración. |
 
 ## Restricciones y cuestiones de arquitectura
@@ -87,14 +89,14 @@ La API expone endpoints distintos para preview y audio completo. Django controla
 - El catálogo sintético ofrece 120 pistas con WAV, preview MP3 y portada generados localmente. Los filtros por género, texto, recurso, clave, mood, BPM, stems y precio existen en la experiencia cliente; el endpoint API no ofrece todos esos filtros server-side. Duración/subgénero server-side no se deben declarar como filtros implementados.
 - No se describe entrega de stems ni DRM.
 - La cookie de sesión y CSRF requieren configuración correcta de origen/HTTPS en despliegue.
-- Hallazgo de seguridad: `agregar.html` era un ZIP con un miembro `.env` (inspección de metadatos solamente). También se detectaron defaults sensibles no vacíos en configuraciones históricas. La historia de ramas destinada a `main` se saneó; las credenciales externas requieren rotación/revocación por sus custodios y GitHub Support debe revisar refs internas/cachés de PR.
+- No se incluyen credenciales en archivos de configuración de ejemplo. Los valores `.env` locales se excluyen de Git. Las integraciones externas deben configurarse en un almacén local/host seguro; nunca incluir claves en el bundle `VITE_*`.
 
 Para entidades, migraciones, flujos de almacenamiento privado y límites de validación, véase [Modelo de datos y almacenamiento](modelo_datos_y_almacenamiento.md) y [Registro de validación del 18-11-2026](validacion_tecnica_corte_2026-11-18.md).
 
-## Pendiente de validación del equipo
+## Límite de la descripción
 
-Confirmar el motor y almacenamiento del ambiente de presentación, URL/origen y proxy usados, HTTPS/CSRF, configuración de Webpay TEST, backend de correo seleccionado, servicio de medios y entorno de despliegue. Registrar el diagrama físico solo cuando exista evidencia del despliegue.
+La arquitectura física del ambiente de presentación no está acreditada: no se dispone de evidencia verificable del motor y almacenamiento configurados, origen y proxy, HTTPS/CSRF, parámetros de Webpay TEST, proveedor de correo, servicio de medios ni despliegue. Por ello, este documento describe componentes y flujos observables en el código, sin atribuir una topología externa.
 
 ## Fuentes
 
-`beatcloud/settings.py`; `beatcloud/urls.py`; `app/models.py`; `app/views.py`; `app/api_shim.py`; `app/urls.py`; `frontend/client/vite.config.ts`; `frontend/client/src/context/AppContext.tsx`; `frontend/client/src/api/django.service.ts`; [Integración backend](../INTEGRACION_BACKEND.md); [Inicio del proyecto](inicio_proyecto.md).
+`beatcloud/settings.py`; `beatcloud/urls.py`; `app/models.py`; `app/views.py`; `app/api_shim.py`; `app/urls.py`; `frontend/client/vite.config.ts`; `frontend/client/src/context/AppContext.tsx`; `frontend/client/src/api/django.service.ts`; [README de instalación](../../README.md); [registro QA actual](validacion_qa_cierre_2026-11-19.md).

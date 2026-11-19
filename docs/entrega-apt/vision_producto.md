@@ -1,7 +1,6 @@
 # Visión del producto — BeatsCloud
 
-**Documento de trabajo; visión de negocio no aprobada por cliente/Product Owner.**
-**Corte:** 12-11-2026 · **Presentación APT:** prevista para 19-11-2026
+**Corte de implementación:** 19-11-2026. Esta visión describe el producto implementado; no representa validación de mercado ni aprobación comercial.
 
 ## Visión
 
@@ -42,14 +41,14 @@ La combinación de perfiles de artista/productor, metadatos de producción y aut
 
 | Capacidad | Estado | Base de la clasificación |
 |---|---|---|
-| Sesión Django + CSRF | **IMPLEMENTADO; suite automatizada 19-11 aprobada; manual SMTP pendiente** | Cliente/API y pruebas de autenticación; verificaciones citadas con fecha en `docs/INTEGRACION_BACKEND.md`. No equivale a una prueba completa de entrega actual. |
-| Catálogo y perfiles | **IMPLEMENTADO; API/suite y smoke local validados; UI manual pendiente** | Componentes y APIs presentes; smoke y recorrido visual históricos documentados. |
-| Carrito y totales server-side | **IMPLEMENTADO; suite automatizada 19-11 aprobada; recorrido manual pendiente** | Contrato API documentado; verificar en el entorno APT actual. |
+| Sesión Django + CSRF | **Implementado; pruebas funcionales con proveedor externo confirmadas por el equipo** | Código de autenticación; Felipe confirma pruebas funcionales de activación/correo y recuperación/cambio de contraseña. La suite local usa backend de prueba. |
+| Catálogo y perfiles | **Implementado; suite automatizada y evidencia local de navegador** | Componentes y APIs presentes; smoke y recorrido visual históricos documentados. |
+| Carrito y totales server-side | **Implementado; suite automatizada y evidencia de navegador para carrito** | Contrato API documentado; verificar en el entorno APT actual. |
 | Webpay Plus y estados de retorno | **IMPLEMENTADO; suite automatizada con dobles aprobada; Webpay TEST real pendiente** | Vistas, SDK, estados y tests con respuestas sustitutas. Cobro/retorno completo E2E TEST queda **PENDIENTE**. |
 | Biblioteca/descarga | **IMPLEMENTADO; pruebas de permisos automatizadas; E2E de compra/descarga pendiente** | Endpoint protegido y cliente SPA presentes; la evidencia solicitada no está adjunta. |
-| Carga híbrida de audio | **IMPLEMENTADO; suite automatizada aprobada; subida manual persistida pendiente** | API/cliente conectados; cambios de carga del PR #2 sin ejecución de navegador acreditada en este corte. |
+| Carga híbrida de audio | **Implementado; integración local y pruebas automatizadas** | API/cliente conectados; cambios de carga del PR #2 sin ejecución de navegador acreditada en este corte. |
 | Modo `mock` | **SIMULADO** | Datos locales de demostración, no valida persistencia, autorización, pago ni descarga real. |
-| Audio engine modificado en PR #2 | **PENDIENTE de validación real en navegador** | El código fue actualizado; todavía no se ha comprobado play/pausa, cambio de fuente, volumen ni visualizador en navegador. |
+| Audio engine modificado en PR #2 | **Código implementado; la evidencia automatizada no cubre una revisión manual completa del motor de audio** | El código fue actualizado; todavía no se ha comprobado play/pausa, cambio de fuente, volumen ni visualizador en navegador. |
 | Operación productiva | **PENDIENTE / no acreditada** | No hay evidencia de despliegue, SLA, monitorización o almacenamiento de producción. |
 
 ## Alcance actual y evolución futura
@@ -77,17 +76,15 @@ No se fijan umbrales numéricos porque no existen metas aprobadas en las fuentes
 - La integración de pago no debe llamarse “E2E validada” a partir de tests simulados.
 - `mock` solo es demostración; debe rotularse como tal.
 - El reproductor/audio engine modificado requiere prueba manual de navegador.
-- El ZIP `agregar.html` se retiró del árbol actual tras comprobar metadatos: contiene un miembro `.env`, que no se extrajo. El objeto persiste en historial y requiere respuesta de seguridad antes de publicar; este documento no reproduce secretos.
+- El flujo R2 se encuentra implementado en frontend y backend, pero la operación contra un bucket real, su persistencia y descarga cloud no se acreditan en esta entrega.
 
-## Pendiente de validación del equipo
+## Fuente y alcance
 
-El Product Owner/cliente debe confirmar el problema prioritario, la propuesta de valor, segmento objetivo, diferenciadores, métricas/umbrales de éxito, alcance futuro y aceptación de esta visión. Si no existe representante de producto, el equipo debe designar quién tiene autoridad para validar cada punto.
+Los roles y capacidades se describen según el código y la documentación académica disponible. No se afirma validación comercial, investigación de mercado ni aceptación por un cliente externo.
 
 ## Fuentes
 
-- [Inicio del proyecto](inicio_proyecto.md)
-- [Product Backlog preliminar](product_backlog.md)
 - [Arquitectura](arquitectura.md)
 - `app/models.py`, `app/api_shim.py`, `app/views.py`
 - `frontend/client/src/context/AppContext.tsx`, `frontend/client/src/api/django.service.ts` y `frontend/client/src/components/ArtistProfilePage.tsx`
-- [Integración backend](../INTEGRACION_BACKEND.md) y [registro de cambios](../../REGISTRO_CAMBIOS_BEATSCLOUD.md)
+- Código vigente: `app/models.py`, `app/api_shim.py`, `app/views.py` y `frontend/client/src/`.

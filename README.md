@@ -13,6 +13,7 @@ BeatsCloud es un marketplace académico de instrumentales para productores y art
 - Audio: previews de 30 segundos con FFmpeg y rutas protegidas para audio completo/descargas.
 - Pagos: integración Webpay Plus/Transbank. La suite usa dobles; no acredita cobros reales.
 - Archivos: almacenamiento local y flujo privado Cloudflare R2 opcional. R2 está desactivado en la configuración de ejemplo.
+- Cuentas: registro y activación, recuperación de contraseña y eliminación de cuenta. El equipo confirmó pruebas funcionales de estos flujos con el proveedor de correo configurado en su entorno; esta confirmación de equipo se distingue de la ejecución automatizada local, que usa backend de correo en memoria/consola.
 
 ## Requisitos
 
@@ -72,23 +73,19 @@ npm run lint
 npm run build
 ```
 
-El cierre QA registra **372 pruebas Django repetidas en `4569613b29e7023161149ca5e7d5fddabf6437db`**, `manage.py check`, migraciones, `build.sh` y smoke HTTP en el QA aislado. **26 pruebas frontend, TypeScript/lint y build Vite** corresponden al corte histórico `7ad7305fecdbdeff8b4f9d8c301b1f6f1c3e7dbe`; el código fuente de la SPA no cambió después. Detalle: [validación QA de cierre](docs/entrega-apt/validacion_qa_cierre_2026-11-19.md). No equivalen a E2E manual o despliegue externo.
+En una ejecución local aislada sobre `ee981a750904b4263b20be2f91e3568c0e1699ea` se aprobaron **372 pruebas Django y 26 pruebas frontend**, `manage.py check`, revisión de migraciones, TypeScript/lint y build Vite. El registro conserva por separado las verificaciones `build.sh` y smoke HTTP de `4569613b29e7023161149ca5e7d5fddabf6437db`. Estas comprobaciones automatizadas no equivalen a una transacción Webpay, validación de bucket R2, recorrido manual E2E ni despliegue externo. Detalle: [validación QA de cierre](docs/entrega-apt/validacion_qa_cierre_2026-11-19.md).
 
-El entorno funcional aislado y su verificación reproducible están en `scripts/qa/` y `compose.qa.yml`. Sigue [la guía QA](docs/entrega-apt/qa/GUIA_QA_VICENTE.md) y usa sus guardas de base y medios.
+El entorno funcional aislado y sus guardas reproducibles están en `scripts/qa/` y `compose.qa.yml`. La ejecución y sus límites constan en el [registro QA de cierre](docs/entrega-apt/validacion_qa_cierre_2026-11-19.md).
 
 ## Validaciones pendientes
 
-No hay evidencia de ejecución manual en Firefox de los cuatro casos; sus procedimientos están en [guía manual](docs/entrega-apt/qa/GUIA_EJECUCION_MANUAL_ISMAEL.md). No se acreditan compra/descarga E2E, Webpay sandbox, Gmail API, Resend, R2, SMTP ni despliegue externo. El repositorio incluye `build.sh`, configuración de estáticos para Render y `frontend/client/vercel.json` con rewrites API/media/CSRF/sesión hacia `beatscloud.onrender.com` y fallback SPA. La carpeta del frontend debe configurarse como Root Directory de Vercel para aplicar ese archivo; el panel de despliegue no se verificó. `build.sh`, `collectstatic` y migraciones se verificaron localmente en DB QA; no hay evidencia de despliegue Render/Vercel ni de sesión/CSRF a través del rewrite. La matriz y el registro QA indican el alcance pendiente; no se deben inferir resultados de tests con dobles.
+No se completó compra/descarga E2E con Webpay: no hay evidencia de inicio de transacción, aprobación/rechazo real, retorno SPA ni descarga posterior. El flujo de subida directa R2 está implementado en frontend y backend (firma de subida 3.600 s; enlace de descarga 300 s), pero el bucket real, la persistencia externa y descarga cloud no se validaron; el modo QA mantiene R2 desactivado. El equipo confirmó pruebas funcionales de registro/correo, recuperación de contraseña y eliminación de cuentas; el registro automatizado local usa correo en memoria/consola y no reproduce esa prueba del proveedor. Tampoco hay evidencia de despliegue externo, usabilidad con usuarios externos ni carga cloud. El repositorio incluye `build.sh`, configuración de estáticos para Render y `frontend/client/vercel.json` con rewrites API/media/CSRF/sesión hacia `beatscloud.onrender.com` y fallback SPA. El panel de despliegue y el comportamiento de sesión/CSRF tras el rewrite no se verificaron.
 
 ## Documentación
 
-- [Índice técnico del corte](docs/entrega-apt/README.md)
+- [Índice técnico](docs/entrega-apt/README.md)
 - [Arquitectura y endpoints](docs/entrega-apt/arquitectura.md)
 - [Modelo de datos y almacenamiento](docs/entrega-apt/modelo_datos_y_almacenamiento.md)
-- [Validación automatizada y manual](docs/entrega-apt/validacion_qa_2026-11-18.md)
-- [Guía operativa de integraciones](docs/entrega-apt/operacion/GUIA_FELIPE_GRABACION.md)
-- [Guía, matriz y registro QA](docs/entrega-apt/qa/GUIA_QA_VICENTE.md)
-- [Procedimientos manuales de los cuatro casos](docs/entrega-apt/qa/GUIA_EJECUCION_MANUAL_ISMAEL.md)
-- [Registro de ejecución manual](docs/entrega-apt/qa/REGISTRO_EJECUCION_VICENTE.md)
-- [Trazabilidad técnica de contribuciones](docs/entrega-apt/trazabilidad_tecnica.md)
-- [Entrega académica y evidencias](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4)
+- [Configuración e integraciones](docs/entrega-apt/despliegue_y_configuracion.md)
+- [Plan de pruebas y QA de cierre](docs/entrega-apt/plan_pruebas.md) · [resultados](docs/entrega-apt/validacion_qa_cierre_2026-11-19.md)
+- [Riesgos técnicos](docs/entrega-apt/plan_riesgos.md) · [visión y alcance](docs/entrega-apt/vision_producto.md)

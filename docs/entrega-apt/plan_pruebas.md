@@ -1,7 +1,6 @@
 # Plan de pruebas — entrega APT BeatsCloud
 
-**Versión de trabajo:** 12-11-2026 · **Presentación prevista:** 19-11-2026
-**Aprobación:** pendiente del equipo. El presente plan separa ejecuciones históricas documentadas de pruebas aún no realizadas para el corte APT.
+**Corte:** 19-11-2026. Este documento define escenarios y criterios; los resultados observados se registran por separado en [QA de cierre](validacion_qa_cierre_2026-11-19.md).
 
 ## 1. Objetivos
 
@@ -25,7 +24,7 @@
 4. **Audio manual:** validar play/pausa, fuente, seek, volumen, duración y visualizador en navegador objetivo.
 5. **Modo mock:** smoke visual separado e identificado explícitamente como `SIMULADO`; nunca sustituye puntos 2–4.
 
-No se añaden o ejecutan pruebas como parte de esta documentación. Los comandos siguientes son instrucciones para el equipo.
+Los escenarios de esta matriz no equivalen por sí solos a pruebas ejecutadas; consultar el registro QA para resultados y alcance comprobado.
 
 ## 4. Ambiente y precondiciones
 
@@ -36,7 +35,7 @@ No se añaden o ejecutan pruebas como parte de esta documentación. Los comandos
 - Productor y pista de prueba autorizados, archivo de audio no sensible y de uso permitido.
 - Para Webpay, responsable confirma ambiente TEST antes del inicio. Usar exclusivamente datos publicados por el proveedor; no guardar PAN, CVV, vencimiento, clave, token ni credenciales en evidencia.
 - Navegador y versión anotados; herramientas de captura recortan datos personales y URLs sensibles.
-- No abrir/extractar `agregar.html`; no usar el archivo ni su miembro `.env` como fixture.
+- Usar archivos de prueba sintéticos y no incorporar archivos de configuración local al repositorio.
 
 ## 5. Casos de prueba de entrega
 
@@ -61,8 +60,8 @@ Estas entradas son citas de informes versionados; no son ejecuciones de esta ses
 
 | Fecha informada | Fuente | Resultado descrito por la fuente | Alcance/precaución |
 |---|---|---|---|
-| 14-10-2026 | `docs/evidencias/pruebas_backend.txt` | Log UTF-16 registra 22 tests Django y salida de sistema sin incidencias. | Informe histórico; no representa revisión actual ni E2E Webpay. |
-| 06-11-2026 | `docs/INTEGRACION_BACKEND.md` | Reporta 23 pruebas frontend, 5 pruebas D3 y 7 pruebas Django integradas, además de smoke/validaciones visuales por pasos 196–200. | Registro descriptivo; distingue que el inicio Webpay tuvo doble y que el pago/retorno real siguió pendiente. No adjunta capturas E2E solicitadas. |
+| 19-11-2026 | `validacion_qa_cierre_2026-11-19.md` | 372 pruebas Django y 26 frontend, con checks, migraciones, TypeScript/lint y build Vite en un mismo SHA. | Ejecución automatizada local; no prueba proveedores externos ni compra E2E. |
+| 18-11-2026 | `validacion_tecnica_corte_2026-11-18.md` | Registra HTTP local para catálogo, preview y permisos de audio. | Prueba de integración local, no compra postpago E2E. |
 | 06-11-2026 | `REGISTRO_CAMBIOS_BEATSCLOUD.md` | Registra 103/103 pruebas Django, 23/23 frontend, `tsc -b && vite build` y `manage.py check` aprobados. | Resultado histórico documentado; la fuente detalla que fueron necesarias variables CSRF de orígenes locales. No reejecutado aquí. |
 | 08-11-2026 | `REGISTRO_CAMBIOS_BEATSCLOUD.md` (D9) | Registra `manage.py check`, `makemigrations --check --dry-run` sin cambios y 111 pruebas Django aprobadas en DB temporal. | Último resultado de regresión fechado que se encontró en esta rama; no reejecutado para el corte ni equivalente a E2E. |
 | 05-11-2026 | `VERIFICACION_SPRINT_2.md`, conservado en el historial desde `ceb3a9c` | Reporta 34 tests Django, `tsc` y `vite build` aprobados. | Fuente de otro corte; no acta de Review/retro ni resultado del código actual. No se suma ni se extrapola. |
@@ -84,10 +83,10 @@ Este plan conserva el estado histórico documentado al 12-11-2026. El corte post
 |---|---|---|---|---|---|---|---|---|
 | APT-__ | Pendiente | — | — | — | — | Por asignar | — | — |
 
-## Pendiente de validación del equipo
+## Alcance de ejecución
 
-El equipo debe definir URL y DB de integración, cuenta activada, pista/archivo de prueba autorizado, responsable de validar Webpay TEST y navegador objetivo. El administrador del proyecto debe facilitar criterios Jira; el evaluador/profesor debe confirmar rúbrica si aplica. Cada persona que ejecute completa su fila y adjunta evidencia al [protocolo E2E](evidencias/e2e/README.md).
+Las validaciones externas requieren un entorno autorizado y cuentas de prueba. Cada ejecución debe registrar fecha, SHA, ambiente, caso, resultado y evidencia saneada. Este plan define los criterios; no atribuye resultados a casos que no cuenten con un registro verificable.
 
 ## Fuentes
 
-[Protocolo E2E](evidencias/e2e/README.md); [integración backend](../INTEGRACION_BACKEND.md); [evidencia de pruebas backend](../evidencias/pruebas_backend.txt); `app/test_webpay_*.py`; `app/test_auth_d3.py`; `app/test_api_shim.py`; `app/test_integration_real.py`; `frontend/client/src/utils/uploadStatus.test.mjs` (incluido en PR #2, no ejecutado aquí).
+[QA de cierre](validacion_qa_cierre_2026-11-19.md); [validación HTTP local](validacion_tecnica_corte_2026-11-18.md); `app/test_webpay_*.py`; `app/test_auth_d3.py`; `app/test_api_shim.py`; `app/test_integration_real.py`; `frontend/client/src/utils/uploadStatus.test.mjs` (incluido en PR #2, no ejecutado aquí).
