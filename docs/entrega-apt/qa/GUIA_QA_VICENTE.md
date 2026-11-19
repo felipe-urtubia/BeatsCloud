@@ -28,6 +28,8 @@ Comprobar que la rama sea `main` y registrar el SHA de `git rev-parse HEAD` en c
 
 ## 3. Preparar entorno, DB y datos
 
+El guard local rechaza valores para `RESEND_API_KEY` y `GMAIL_OAUTH_TOKEN_JSON`, además de impedir SMTP/credenciales de proveedores. Esto mantiene las pruebas QA sin envíos externos. La integración Gmail/Resend añadida al producto no está probada con cuentas reales.
+
 Desde la raíz del repositorio:
 
 ```bash
