@@ -1,6 +1,6 @@
 # Matriz de QA funcional
 
-Versión de referencia para preparación: `main` (corte local de 18-11-2026). Casos derivados de `frontend/client/src`, `app/api_shim.py`, `app/urls.py`, modelos y pruebas Django. Todos comienzan **Pendiente** para ejecución de Vicente; pruebas automatizadas existentes no equivalen a aprobación manual.
+Versión de referencia: producto en `main`, snapshot exacto identificado en el repositorio académico. Casos derivados del código y las pruebas Django. Todos comienzan **Pendiente** para ejecución manual; Ismael es el ejecutor manual de los casos que efectivamente realice. La autoría del diseño de cada caso solo se atribuye con evidencia específica. Los mensajes del equipo reportan que Vicente preparó un documento E2E el 11-11, pero el archivo original no se recuperó; por tanto no se le atribuye automáticamente el diseño de cada fila de esta matriz.
 
 Estados: **Aprobado**, **Fallido**, **Pendiente**, **Bloqueado**, **No aplicable**. Prioridades: P0 bloquea seguridad o demo, P1 flujo principal, P2 cobertura adicional.
 
@@ -37,7 +37,7 @@ Estados: **Aprobado**, **Fallido**, **Pendiente**, **Bloqueado**, **No aplicable
 | SOCIAL-01 P2 | Comentarios y likes | Usuarios autenticados/anónimo | Crear, listar y borrar comentario propio; alternar like | Persistencia, permisos y conteo/estado coherentes | Manual + tests endpoint | Pendiente |
 | SUB-01 P2 | Suscripciones | Usuario; Webpay TEST configurado | Revisar opciones e iniciar/cancelar flujo existente | Estado asociado a respuesta conciliada, sin acceso indebido | Automatizada existente si cubre; manual externa | Bloqueado por credenciales |
 | EXT-01 P1 | R2, SMTP, Webpay | Credenciales no incluidas | Ejecutar únicamente con autorización y cuentas TEST/desarrollo | Resultado observable en proveedor de pruebas | Externa | Pendiente; no afirmado como validado |
-| BUILD-01 P1 | Inicio reproducible | Fedora/Linux, Docker/Podman compose, Python/Node | Seguir `GUIA_QA_VICENTE.md` desde clone saneado | Setup, migraciones, seed, backend y frontend completan | Automatizada de verificación + HTTP smoke | Pendiente de ejecución independiente de Vicente |
+| BUILD-01 P1 | Inicio reproducible | Fedora/Linux, Docker/Podman compose, Python/Node | Seguir `GUIA_QA_VICENTE.md` desde clone saneado | Setup, migraciones, seed, backend y frontend completan | Automatizada de verificación + HTTP smoke | Setup, suites y smoke local ejecutados por runner el 19-11-2026; ejecución manual independiente pendiente |
 
 ## Referencias automatizadas
 

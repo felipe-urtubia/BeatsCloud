@@ -1,6 +1,6 @@
 # Registro de ejecución QA
 
-Plantilla vacía. Duplicar una fila por caso ejecutado; no completar antes de ejecutar. Adjuntar evidencia sin cookies, tokens, datos personales ni credenciales.
+Plantilla sin resultados manuales. Duplicar una fila después de cada ejecución real. Registrar por separado autor del diseño, ejecutor y herramienta: los casos que Vicente diseñó se atribuyen a él solo cuando exista evidencia; una prueba manual la firma quien la ejecutó (Ismael cuando corresponda); automatización identifica runner/herramienta, sin atribución manual. No completar resultados antes de ejecutar. Adjuntar evidencia sin cookies, tokens, datos personales ni credenciales.
 
 | Fecha/hora | Versión/commit | Entorno/navegador | ID de caso | Resultado | Evidencia/ubicación | Observaciones | Defecto asociado | Responsable | Estado de resolución |
 |---|---|---|---|---|---|---|---|---|---|
