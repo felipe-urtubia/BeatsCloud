@@ -21,3 +21,8 @@ Los nombres `Yaelo` y `Elmetaleroxd` aparecen en commits históricos y no se nor
 ## Evidencia de QA del corte
 
 La [validación automatizada](validacion_qa_2026-11-18.md) registra 372 tests Django, 26 frontend, TypeScript/lint, build y smoke HTTP. No es QA manual ni E2E real. El QA funcional que Vicente está ejecutando permanece separado y se incorpora al [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md) únicamente cuando entregue resultados reproducibles.
+
+
+## Evidencia de trabajo externo del semestre
+
+La exportación de WhatsApp del equipo respalda de forma complementaria la coordinación Scrum de Ismael, la integración React/Django reportada el 15-10 (ese día aún sin pruebas), el trabajo de producto/backend reportado por Felipe y la preparación de casos/capturas E2E de Vicente el 11-11. El archivo original E2E no se localizó y no se declaran resultados. La [matriz externa de contribuciones](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4/blob/main/Fase%202/Evidencias%20Proyecto/Evidencias%20de%20documentaci%C3%B3n/matriz_contribuciones_externas.md) registra fechas, mensajes y límites probatorios. Esta evidencia no convierte un reporte conversacional en autoría de un commit salvo los vínculos específicos indicados por SHA en la matriz de autores.

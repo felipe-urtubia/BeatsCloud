@@ -19,3 +19,6 @@ El corte de BeatsCloud registra 372 pruebas Django, 26 pruebas frontend, TypeScr
 ## Coherencia documental
 
 El repositorio de producto conserva código, pruebas y documentación técnica de operación. El repositorio académico mantiene los informes de asignatura, artefactos grupales/individuales y el snapshot de sistema vinculado a un SHA concreto del producto. Para evitar versiones contradictorias, la copia académica identifica su commit de origen y no se usa como fuente alternativa de código.
+
+
+La comunicación del equipo desde agosto a noviembre complementa los registros: Ismael creó/organizó el repositorio académico, planificó y coordinó la integración y preparación de entrega; Felipe informó avances de backend/pagos/almacenamiento y preparación de demo; Vicente produjo documentación de defectos, indicadores y ceremonias y reportó casos E2E en preparación, sin resultados/capturas disponibles. Para fechas y límites ver la matriz externa del repositorio académico. La asignación inicial de roles del 03-09 fue tentativa y multidisciplinaria; las responsabilidades técnicas evolucionaron durante los sprints.
