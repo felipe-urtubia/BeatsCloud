@@ -611,16 +611,16 @@ def registro(request):
 
                     text_content = (
                         f'Hola {user.first_name or user.username},\n\n'
-                        '¡Bienvenido a BeatCloud!\n\n'
+                        '¡Bienvenido a BeatsCloud!\n\n'
                         'Gracias por crear tu cuenta. Para confirmar tu correo y activar '
                         'tu cuenta, abre el siguiente enlace:\n\n'
                         f'{activation_url}\n\n'
                         'Si tú no creaste esta cuenta, puedes ignorar este mensaje.\n\n'
-                        'Equipo BeatCloud'
+                        'Equipo BeatsCloud'
                     )
 
                     email = EmailMultiAlternatives(
-                        subject='Confirma tu cuenta | BeatCloud',
+                        subject='Confirma tu cuenta | BeatsCloud',
                         body=text_content,
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         to=[user.email],
@@ -632,7 +632,7 @@ def registro(request):
             except Exception:
                 form.add_error(
                     'email',
-                    'No pudimos enviar el correo de confirmación. Revisa la configuración SMTP e inténtalo nuevamente.'
+                    'No pudimos enviar el correo de confirmación. Inténtalo nuevamente más tarde.'
                 )
     else:
         form = RegistroUsuarioForm()
