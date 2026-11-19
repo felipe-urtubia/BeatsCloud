@@ -42,12 +42,12 @@ La combinación de perfiles de artista/productor, metadatos de producción y aut
 
 | Capacidad | Estado | Base de la clasificación |
 |---|---|---|
-| Sesión Django + CSRF | **IMPLEMENTADO / VALIDADO históricamente** | Cliente/API y pruebas de autenticación; verificaciones citadas con fecha en `docs/INTEGRACION_BACKEND.md`. No equivale a una prueba completa de entrega actual. |
-| Catálogo y perfiles | **IMPLEMENTADO / VALIDADO parcialmente** | Componentes y APIs presentes; smoke y recorrido visual históricos documentados. |
-| Carrito y totales server-side | **IMPLEMENTADO / VALIDADO históricamente** | Contrato API documentado; verificar en el entorno APT actual. |
-| Webpay Plus y estados de retorno | **IMPLEMENTADO; retorno SIMULADO en algunas pruebas** | Vistas, SDK, estados y tests con respuestas sustitutas. Cobro/retorno completo E2E TEST queda **PENDIENTE**. |
-| Biblioteca/descarga | **IMPLEMENTADO; VALIDACIÓN E2E del corte PENDIENTE** | Endpoint protegido y cliente SPA presentes; la evidencia solicitada no está adjunta. |
-| Carga híbrida de audio | **IMPLEMENTADO en `main` local; VALIDACIÓN reciente PENDIENTE** | API/cliente conectados; cambios de carga del PR #2 sin ejecución de navegador acreditada en este corte. |
+| Sesión Django + CSRF | **IMPLEMENTADO; suite automatizada 19-11 aprobada; manual SMTP pendiente** | Cliente/API y pruebas de autenticación; verificaciones citadas con fecha en `docs/INTEGRACION_BACKEND.md`. No equivale a una prueba completa de entrega actual. |
+| Catálogo y perfiles | **IMPLEMENTADO; API/suite y smoke local validados; UI manual pendiente** | Componentes y APIs presentes; smoke y recorrido visual históricos documentados. |
+| Carrito y totales server-side | **IMPLEMENTADO; suite automatizada 19-11 aprobada; recorrido manual pendiente** | Contrato API documentado; verificar en el entorno APT actual. |
+| Webpay Plus y estados de retorno | **IMPLEMENTADO; suite automatizada con dobles aprobada; Webpay TEST real pendiente** | Vistas, SDK, estados y tests con respuestas sustitutas. Cobro/retorno completo E2E TEST queda **PENDIENTE**. |
+| Biblioteca/descarga | **IMPLEMENTADO; pruebas de permisos automatizadas; E2E de compra/descarga pendiente** | Endpoint protegido y cliente SPA presentes; la evidencia solicitada no está adjunta. |
+| Carga híbrida de audio | **IMPLEMENTADO; suite automatizada aprobada; subida manual persistida pendiente** | API/cliente conectados; cambios de carga del PR #2 sin ejecución de navegador acreditada en este corte. |
 | Modo `mock` | **SIMULADO** | Datos locales de demostración, no valida persistencia, autorización, pago ni descarga real. |
 | Audio engine modificado en PR #2 | **PENDIENTE de validación real en navegador** | El código fue actualizado; todavía no se ha comprobado play/pausa, cambio de fuente, volumen ni visualizador en navegador. |
 | Operación productiva | **PENDIENTE / no acreditada** | No hay evidencia de despliegue, SLA, monitorización o almacenamiento de producción. |
