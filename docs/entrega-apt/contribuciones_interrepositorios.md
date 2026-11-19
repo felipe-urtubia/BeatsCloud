@@ -1,6 +1,6 @@
 # Matriz interrepositorios de contribuciones
 
-**Corte:** 18-11-2026. La fuente de verdad del código es `felipe-urtubia/BeatsCloud` (`main`, `f017627`). La entrega académica aporta documentos y evidencia individual complementaria; no se infiere autoría por carpetas ni por cantidad de commits.
+**Corte documental:** 19-11-2026. La fuente de verdad del código es `felipe-urtubia/BeatsCloud` (`main`, `5021ee84ada9fbd8121362c676572b3a3e68d6d4`). Las suites citadas corresponden al corte anterior `f017627`; no se repitieron después de la preparación Render. La entrega académica aporta documentos y evidencia individual complementaria; no se infiere autoría por carpetas ni por cantidad de commits.
 
 | Integrante | Rol | Contribuciones verificables | Evidencia y commits asociados | Estado / límite |
 |---|---|---|---|---|
@@ -14,7 +14,7 @@ Los tres commits del repositorio académico se conservan con Vicente como autor.
 
 ## Validación actual y límites
 
-El corte de BeatsCloud registra 372 pruebas Django, 26 pruebas frontend, TypeScript/lint, build y HTTP local. Son resultados automatizados/de integración local, no ejecución manual de Vicente. Su registro permanece vacío hasta que cada caso se ejecute. No se afirma Firefox manual, E2E de compra/descarga, Webpay real, R2 real, SMTP real ni despliegue externo.
+El registro del corte previo `f017627` contiene 372 pruebas Django, 26 frontend, TypeScript/lint, build y HTTP local; no verifica la configuración añadida en `5021ee8`. Son resultados automatizados/de integración local, no ejecución manual de Vicente. Su registro permanece vacío hasta que cada caso se ejecute. No se afirma Firefox manual, E2E de compra/descarga, Webpay real, R2 real, SMTP real ni despliegue externo.
 
 ## Coherencia documental
 

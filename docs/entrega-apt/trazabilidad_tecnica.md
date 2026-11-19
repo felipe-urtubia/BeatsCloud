@@ -1,6 +1,6 @@
 # Trazabilidad técnica de contribuciones
 
-**Corte:** 18-11-2026. Los SHA son del historial publicado saneado. No se reescribieron autores ni committers durante esta preparación. La evidencia académica complementaria está en el [repositorio de entrega](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4) y se relaciona en la [matriz interrepositorios](contribuciones_interrepositorios.md).
+**Corte documental:** 19-11-2026 · **Código fuente:** `5021ee84ada9fbd8121362c676572b3a3e68d6d4`. Los SHA son del historial publicado saneado. No se reescribieron autores ni committers durante esta preparación. La evidencia académica complementaria está en el [repositorio de entrega](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4) y se relaciona en la [matriz interrepositorios](contribuciones_interrepositorios.md).
 
 | Integrante | Responsabilidad principal | Evidencia en BeatsCloud | Evidencia académica | Alcance de atribución |
 |---|---|---|---|---|
@@ -18,9 +18,9 @@
 
 Los nombres `Yaelo` y `Elmetaleroxd` aparecen en commits históricos y no se normalizan automáticamente. Algunos commits documentales del saneamiento tienen atribución individual ambigua. Se conserva el historial y se evita usar conteos de commits como medida de esfuerzo.
 
-## Evidencia de QA del corte
+## Evidencia de QA del corte previo
 
-La [validación automatizada](validacion_qa_2026-11-18.md) registra 372 tests Django, 26 frontend, TypeScript/lint, build y smoke HTTP. No es QA manual ni E2E real. El QA funcional que Vicente está ejecutando permanece separado y se incorpora al [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md) únicamente cuando entregue resultados reproducibles.
+La [validación automatizada](validacion_qa_2026-11-18.md) registra resultados de `f017627`: 372 tests Django, 26 frontend, TypeScript/lint, build y smoke HTTP. No se repitieron sobre `5021ee8`, que agrega configuración Render; no es QA manual ni E2E real. El QA funcional que Vicente está ejecutando permanece separado y se incorpora al [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md) únicamente cuando entregue resultados reproducibles.
 
 
 ## Evidencia de trabajo externo del semestre
