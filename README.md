@@ -78,7 +78,7 @@ El entorno funcional aislado y su verificación reproducible están en `scripts/
 
 ## Validaciones pendientes
 
-No hay evidencia de navegación manual completa en Firefox, compra y descarga E2E, transacción real Webpay TEST, conexión real R2, SMTP real ni despliegue externo. El repositorio incluye `build.sh`, configuración de estáticos para Render y `frontend/client/vercel.json` con rewrites API/media hacia `beatscloud.onrender.com`. `build.sh`, `collectstatic` y migraciones se verificaron localmente en DB QA; no hay evidencia de despliegue Render/Vercel ni de sesión/CSRF a través del rewrite. La matriz y el registro QA indican el alcance pendiente; no se deben inferir resultados de tests con dobles.
+No hay evidencia de navegación manual completa en Firefox, compra y descarga E2E, transacción real Webpay TEST, conexión real R2, SMTP real ni despliegue externo. El repositorio incluye `build.sh`, configuración de estáticos para Render y `frontend/client/vercel.json` con rewrites API/media/CSRF/sesión hacia `beatscloud.onrender.com` y fallback SPA. La carpeta del frontend debe configurarse como Root Directory de Vercel para aplicar ese archivo; el panel de despliegue no se verificó. `build.sh`, `collectstatic` y migraciones se verificaron localmente en DB QA; no hay evidencia de despliegue Render/Vercel ni de sesión/CSRF a través del rewrite. La matriz y el registro QA indican el alcance pendiente; no se deben inferir resultados de tests con dobles.
 
 ## Documentación
 
