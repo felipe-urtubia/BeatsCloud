@@ -2,7 +2,7 @@
 
 BeatsCloud es un marketplace académico de instrumentales para productores y artistas. Los productores publican pistas; los artistas pueden explorar el catálogo, escuchar previews y comprar. El producto combina una SPA React con un backend Django y persistencia PostgreSQL mediante migraciones Django. Las sesiones Django y CSRF protegen la autenticación; Webpay Plus gestiona el flujo de pago y el acceso a archivos completos está sujeto a permisos de propietario o compra.
 
-**Corte técnico de entrega:** 19-11-2026 · **Fuente de código:** rama `main`, commit `5021ee84ada9fbd8121362c676572b3a3e68d6d4`.
+**Corte técnico:** 19-11-2026 · **Fuente de verdad del código:** rama `main` de este repositorio. El commit exacto del snapshot académico y sus hashes están en el repositorio de entrega.
 
 ## Tecnologías y alcance comprobado
 
@@ -72,13 +72,13 @@ npm run lint
 npm run build
 ```
 
-El registro QA del 18-11-2026 documenta 372 pruebas Django, 26 pruebas frontend, TypeScript/lint, build y comprobaciones HTTP locales en el código previo `f017627`. El commit `5021ee8` añade configuración de despliegue (settings de estáticos/proxy, dependencias y build script); esas suites no se repitieron después de ese cambio. Los resultados son pruebas automatizadas y smoke checks; no equivalen a un recorrido manual E2E ni a un despliegue probado.
+La ejecución local de cierre del 19-11-2026 registró 372 pruebas Django, 26 frontend, TypeScript/lint, build Vite, smoke HTTP y `bash build.sh` con el entorno QA aislado; el registro indica el commit y alcance exactos. Son pruebas automatizadas y smoke checks, no un recorrido manual E2E ni un despliegue externo probado.
 
 El entorno funcional aislado y su verificación reproducible están en `scripts/qa/` y `compose.qa.yml`. Sigue [la guía QA](docs/entrega-apt/qa/GUIA_QA_VICENTE.md) y usa sus guardas de base y medios.
 
 ## Validaciones pendientes
 
-No hay evidencia de navegación manual completa en Firefox, compra y descarga E2E, transacción real Webpay TEST, conexión real R2, SMTP real ni despliegue externo. El código de preparación Render se agregó en `5021ee8`; no hay evidencia de que `build.sh`, collectstatic, migraciones o Gunicorn se hayan ejecutado en Render. La matriz y el registro QA indican el alcance pendiente; no se deben inferir resultados de tests con dobles.
+No hay evidencia de navegación manual completa en Firefox, compra y descarga E2E, transacción real Webpay TEST, conexión real R2, SMTP real ni despliegue externo. La preparación Render se verificó localmente con `build.sh`, `collectstatic` y migraciones en la DB QA; no hay evidencia de ejecución de Gunicorn en Render ni de un despliegue externo. La matriz y el registro QA indican el alcance pendiente; no se deben inferir resultados de tests con dobles.
 
 ## Documentación
 
