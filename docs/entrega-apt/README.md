@@ -1,69 +1,35 @@
-# Paquete documental APT — BeatsCloud
+# Documentación técnica de BeatsCloud
 
-**Fecha de corte documental:** 18-11-2026
-**Presentación APT prevista:** 19-11-2026
-**Clasificación:** documentos de trabajo; no aprobados mientras la validación indicada siga pendiente.
+**Corte:** 18-11-2026 · **Código fuente:** `main` · `f017627fec99b2628e7753d3626ed33367836c5c`.
 
-Este índice guía la revisión técnica del repositorio. La documentación de trabajo preexistente se conserva; los documentos técnicos de corte describen el código consolidado localmente en `main`, sin tratar simulaciones, registros históricos o borradores como aprobaciones.
+`felipe-urtubia/BeatsCloud` es la fuente de verdad del código vigente. La entrega académica y sus artefactos están en [el repositorio Capstone](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4). Este índice resume la documentación técnica del producto; las evidencias académicas originales se mantienen en el repositorio de entrega y no se duplican aquí.
 
-La actualización controlada de ramas, saneamiento y validaciones finales se registra en [cierre de saneamiento y publicación](cierre_saneamiento_2026-11-18.md).
+## Documentación vigente
 
-## Documentos de entrega
+| Documento | Alcance |
+|---|---|
+| [README de ejecución](../../README.md) | Requisitos, plantillas de entorno, instalación, servicios locales y comandos de prueba. |
+| [Arquitectura](arquitectura.md) | Componentes actuales, flujo de sesión/CSRF, API JSON, rutas relevantes e integraciones. |
+| [Modelo de datos y almacenamiento](modelo_datos_y_almacenamiento.md) | Modelos, migraciones, PostgreSQL, almacenamiento local/R2 y permisos de archivos. |
+| [Validación QA 18-11-2026](validacion_qa_2026-11-18.md) | Ejecuciones automatizadas y HTTP locales; separa navegador y proveedores externos pendientes. |
+| [Guía de operación de integraciones](operacion/GUIA_FELIPE_GRABACION.md) | Preparación de Webpay TEST y R2 de desarrollo, con secretos gestionados localmente. |
+| [Guía QA](qa/GUIA_QA_VICENTE.md) | Entorno QA aislado, guardas, catálogo sintético y recolección segura de resultados. |
+| [Matriz QA](qa/matriz_qa_funcional.md) | Casos funcionales pendientes de ejecución manual cuando no existe resultado registrado. |
+| [Registro QA](qa/REGISTRO_EJECUCION_VICENTE.md) | Plantilla que debe completarse solo después de ejecutar cada caso. |
+| [Plan de pruebas](plan_pruebas.md) | Casos, precondiciones, criterios y resultados históricos fechados. |
+| [Trazabilidad de contribuciones](trazabilidad_tecnica.md) | Commits, PR y evidencias académicas individuales, con límites de atribución. |
+| [Matriz interrepositorios](contribuciones_interrepositorios.md) | Relación entre evidencia del producto y de la entrega académica. |
+| [Configuración y despliegue](despliegue_y_configuracion.md) | Configuración local y propuesta de despliegue; no acredita una publicación externa. |
+| [Riesgos](plan_riesgos.md) | Riesgos conocidos y acciones pendientes, incluidas validaciones externas y saneamiento. |
 
-| Documento | Estado | Uso |
-|---|---|---|
-| [Estado de la documentación](estado_documentacion.md) | Auditoría documental al corte; requiere validación del equipo | Resume fuente, nivel de evidencia y vacío por documento. |
-| [Inicio del proyecto](inicio_proyecto.md) | **BORRADOR** basado en producto/repositorio | Contexto, objetivos técnicos, alcance, actores, método, herramientas, fechas, dependencias. Validar negocio, roles y alcance oficial. |
-| [Visión del producto](vision_producto.md) | **BORRADOR** basado en funciones visibles | Visión funcional, usuarios, valor, capacidades, limitaciones y criterios sugeridos. Cliente/Product Owner debe aprobar. |
-| [Product Backlog](product_backlog.md) | **INVENTARIO TÉCNICO PRELIMINAR; NO es respaldo oficial Jira** | Conciliar con export del proyecto DDPB. Jira no fue accesible en esta sesión. |
-| [Arquitectura](arquitectura.md) | **DESCRIPCIÓN LÓGICA** derivada del código; topología productiva no acreditada | Componentes, datos, sesión, pagos, archivos, flujos Mermaid e integraciones. |
-| [Modelo de datos y almacenamiento](modelo_datos_y_almacenamiento.md) | Estado técnico derivado del código integrado; R2 externo no probado | Entidades, migraciones, archivos locales/R2, audio y persistencia de pagos. |
-| [Validación técnica 18-11-2026](validacion_tecnica_corte_2026-11-18.md) | Registro de comandos, resultados y límites del corte | Django, frontend, HTTP local, datos demo y pruebas pendientes. |
-| [Validación de QA 18-11-2026](validacion_qa_2026-11-18.md) | Ejecución actual de setup, suite y smoke checks | Distingue prueba automatizada, HTTP local, navegador y servicios externos. |
-| [Guía de QA para Vicente](qa/GUIA_QA_VICENTE.md) | Procedimiento reproducible del entorno local aislado | Requisitos, DB, seed, cuentas temporales, inicio, evidencias y límites. |
-| [Guía de operación de Felipe](operacion/GUIA_FELIPE_GRABACION.md) | Procedimiento de grabación y configuración de integraciones | Ejecución local, Webpay TEST, R2, recorrido y solución de problemas; proveedores reales pendientes. |
-| [Matriz QA funcional](qa/matriz_qa_funcional.md) | Casos derivados del código real; pendientes hasta ejecutarlos | Catálogo, auth, perfiles, upload, audio, compras, Webpay y roles. |
-| [Registro de ejecución QA](qa/REGISTRO_EJECUCION_VICENTE.md) | Plantilla vacía | Registrar resultados/evidencia y defectos sin atribuir ejecución previa. |
-| [Despliegue y configuración](despliegue_y_configuracion.md) | Propuesta futura, no desplegada | Render/Vercel, cookies/CSRF, PostgreSQL, R2, Webpay y bloqueos técnicos. |
-| Plantillas de configuración | `.env.example`, `frontend/client/.env.example` | Referencia versionada; copiar a `.env` locales. `.env.qa` es generado/excluido. |
-| [Trazabilidad técnica](trazabilidad_tecnica.md) | Metadatos Git observables; Jira no accesible | Commits, merges y límites de atribución individual. |
-| [Matriz de evidencias técnicas](matriz_evidencias_tecnicas.md) | Matriz de cumplimiento técnico del corte | Evidencias localizadas, estado y pendientes. |
-| [Plan de pruebas](plan_pruebas.md) | **PLAN DE TRABAJO**; contiene registro separado de resultados históricos y pruebas pendientes | Casos, precondiciones, pasos, resultados esperados y evidencia requerida. Las ejecuciones automatizadas/HTTP del 18-11 se registran por separado; E2E de navegador sigue pendiente. |
-| [Plan de riesgos](plan_riesgos.md) | Evaluación inicial **ABIERTA**, responsables no asignados | Riesgos de archivo/secretos, Webpay, E2E, audio, almacenamiento, integración y fecha APT. |
-| [Retrospectivas](retrospectivas/README.md) | Actas históricas no localizadas; plantillas y límites de evidencia | Documentar Sprint 1–4 solo con participantes, fechas y hechos confirmados. |
-| [Sprint Reviews](sprint-reviews/README.md) | Actas históricas no localizadas; plantillas y registro técnico histórico separado | No confundir el commit histórico `ceb3a9c` (verificación Sprint 2) con una Review. |
-| [Evidencia E2E](evidencias/e2e/README.md) | Protocolo preparado; ejecuciones/capturas **PENDIENTES** | Matriz de login, catálogo, carrito, Webpay, retorno, rechazo y descarga. DOCX referido no localizado. |
+## Estado de validación al corte
 
-## Convención de estados y límites de evidencia
+La ejecución documentada registró **372 pruebas Django**, **26 pruebas frontend**, `manage.py check`, comprobación de migraciones, TypeScript/lint, build y smoke HTTP local aprobados. Los detalles, comandos y límites están en [validación QA](validacion_qa_2026-11-18.md).
 
-- **IMPLEMENTADO** indica código presente, no una prueba aprobada.
-- **VALIDADO** se acompaña siempre de fecha/fuente y alcance exactos.
-- **PARCIAL** indica que falta parte del flujo o integración.
-- **SIMULADO** identifica mock o doble de prueba; no acredita servicio real.
-- **PENDIENTE** indica falta implementación, acceso, ejecución o evidencia.
-- Webpay está integrado; tests con dobles no equivalen a compra E2E TEST.
-- El cambio de `audioEngine.ts` del PR #2 requiere validación real en navegador.
-- `agregar.html` era un ZIP con un miembro `.env`; se inspeccionaron solo metadatos y no se extrajo ni imprimió contenido. La historia publicada de las ramas de trabajo se saneó. La rotación/revocación de credenciales y la purga de refs internas/cachés por GitHub Support se registran como seguimiento de seguridad, no como operaciones ya realizadas.
-- El corte técnico 18-11-2026 registra pruebas automatizadas y HTTP locales en [validación técnica](validacion_tecnica_corte_2026-11-18.md). No acredita R2 real, pago externo ni reproducción verificada en navegador.
+No se declaran aprobados por ese resultado: recorrido manual Firefox, compra y descarga de extremo a extremo, Webpay real, R2 real, SMTP real ni despliegue externo. El registro de Vicente permanece listo para los resultados que entregue; no completar casos anticipadamente.
 
-## Fuentes principales
+## Configuración y seguridad
 
-- [README del proyecto](../../README.md)
-- [Integración backend](../INTEGRACION_BACKEND.md)
-- [Evidencia de pruebas backend (log histórico, 14-10-2026)](../evidencias/pruebas_backend.txt)
-- [Registro de cambios del proyecto](../../REGISTRO_CAMBIOS_BEATSCLOUD.md)
-- Código: `app/models.py`, `app/api_shim.py`, `app/views.py`, `app/urls.py`, `beatcloud/settings.py`, `frontend/client/src/context/AppContext.tsx`, `frontend/client/src/api/django.service.ts`, `frontend/client/src/components/UploadTrackModal.tsx`.
-- Antecedente adicional: `VERIFICACION_SPRINT_2.md` se conserva en el historial a partir del commit `ceb3a9c`, fechado 05-11-2026. Es verificación técnica, no Review/Retrospectiva, y no se trata como resultado oficial.
+`.env.example` y `frontend/client/.env.example` son plantillas. Cada entorno crea sus archivos privados; `.env`, `.env.qa`, bases locales, credenciales, medios privados y builds no se publican. El ejemplo usa Webpay TEST y R2 desactivado. La rotación de credenciales que pudieron aparecer en historia anterior no se declara completada sin confirmación del custodio.
 
-## Forma de completar el paquete
-
-1. Obtener export de Jira DDPB y actas originales; conciliar alcance/prioridad/sprints/criterios.
-2. Asignar responsables confirmados y validar inicio/visión/arquitectura/riesgos.
-3. Ejecutar casos del plan en ambiente identificado y adjuntar evidencias saneadas al documento E2E existente si aparece.
-4. Incorporar reviews y retrospectivas solo después de verificar actas o celebrar la reunión real.
-5. Marcar cada documento como aprobado únicamente tras registrar quién lo validó y cuándo.
-# Documentación técnica
-
-Para levantar el entorno aislado y ejecutar QA, comenzar por la [Guía de QA de Vicente](qa/GUIA_QA_VICENTE.md), la [matriz funcional](qa/matriz_qa_funcional.md) y el [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md). Los resultados locales del corte se conservan en [validación técnica del 18-11-2026](validacion_tecnica_corte_2026-11-18.md); las pruebas de navegador y servicios externos siguen separadas como pendientes.
-
-La [configuración de despliegue](despliegue_y_configuracion.md) es una propuesta técnica, no evidencia de despliegue.
+Los documentos de Scrum y evidencias individuales pertenecen al [repositorio académico](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4); este repositorio conserva solo referencias técnicas necesarias para operar y justificar el código.

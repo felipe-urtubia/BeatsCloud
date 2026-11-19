@@ -1,23 +1,23 @@
-# Trazabilidad de contribuciones técnicas
+# Trazabilidad técnica de contribuciones
 
-**Fuente:** commits y PR consultados en GitHub, más historial saneado local, 18-11-2026. Jira no está conectado; las incidencias no se usan como fuente de estado. Los alias de autor son metadatos registrados por Git y no prueban por sí solos identidad o autoría exclusiva del contenido.
+**Corte:** 18-11-2026. Los SHA son del historial publicado saneado. No se reescribieron autores ni committers durante esta preparación. La evidencia académica complementaria está en el [repositorio de entrega](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4) y se relaciona en la [matriz interrepositorios](contribuciones_interrepositorios.md).
 
-| Integrante indicado | Actividad técnica verificable | Archivos/componentes o referencias | Evidencia Git/Jira | Observaciones |
+| Integrante | Responsabilidad principal | Evidencia en BeatsCloud | Evidencia académica | Alcance de atribución |
 |---|---|---|---|---|
-| Felipe Urtubia | Autoridad GitHub corroborada para PR #3 y cambios Webpay/R2/metadata del 17-11, preservados en la historia consolidada | PR #3: `6087f21` → `41f85b8` (feature), `71abdfc` → `1553203` (merge). Otros commits 17-11: `ea111ab` → `4323df2`, `01b3089` → `df8a28b`, `00a792a` → `b56c3e1`, `d0a0b6d` → `064101c`, `f721a33` → `e87280a`. | Commits originales consultados mediante GitHub API; SHA derecha es el equivalente local posterior al saneamiento actual. PR #3 MERGED. | La autoría del PR/commits no demuestra participación exclusiva en toda la integración o revisión de cada archivo. |
-| Vicente Monroy | No verificable con las fuentes disponibles | No se encontró autor Git coincidente en las referencias locales ni autoría/review suyo en los PR inspeccionados. | PR GitHub #1–#3 sin review/comentario de Vicente; Jira no disponible. | Esto no demuestra ausencia de QA o documentación; falta evidencia enlazada a su identidad para atribuirla con certeza. |
-| Ismael Araya | Autor de GitHub PR #1 de integración React-Django y PR #2 de subida/documentación; commits PR #2 cotejados por patch-id contra `main` | PR #1: `5023888` → `6ff738c`, `63865d2` → `4c64877`, `9b04db0` → `041f6f3`, merge `e2f144f` → `3bf2090`. PR #2: `6df926e` → `f0c54f9`, `2d66714` → `6883459`, `7ad680a` → `750e49e`. | GitHub vincula cuenta `yaeaelo` con los PR; tres commits exclusivos de PR #2 tienen patch-id equivalente en `main`. | PR #2 quedó CLOSED como obsoleto después de publicar los equivalentes en `main`; autoría del PR no prueba colaboración exclusiva en todo el código. |
+| Ismael Araya | Scrum Master; UI/UX, frontend e integración | PR #1 React/Django: commits actuales `6ff738c`, `4c64877`, `041f6f3` y merge `3bf2090`. PR #2: `f0c54f9`, `6883459`, `750e49e`, cotejados por `patch-id`. | `c2f2881` (catálogo React/API) y `17b5672` (sincronización de evidencias). | La cuenta autora de los PR vincula el trabajo a Ismael; no implica autoría exclusiva de cada archivo compartido. |
+| Felipe Urtubia | Product Owner; backend, pagos y almacenamiento | PR #3: `41f85b8` (descargas R2 expirables) y merge `1553203`; trabajo de R2/Webpay/metadatos en `8be7000`, `4323df2`, `df8a28b`, `b56c3e1`, `064101c`, `e87280a`. | `8c7def7` (API/serializers/PostgreSQL) y `d45d0f6` (reporte de pruebas backend). | PR y contenido de código sustentan integración/backend; el reporte académico de tests no prueba su repetición en el corte actual. |
+| Vicente Monroy | QA / Development Team; pruebas, evidencias y apoyo | El registro QA manual actual sigue vacío. Las pruebas automatizadas del corte constan en `validacion_qa_2026-11-18.md`; no se atribuyen a Vicente. | `4a48d6e` (registro de defectos), `4281f79` (métricas/respuesta API), `6f1bf7b` (Review/Retrospective Sprint 1). Autor registrado: Vicente; committer registrado: `yaeaelo`. | Acredita autoría de documentos y seguimiento. La planilla asigna las correcciones de código a Felipe/Ismael. Las métricas requieren sus capturas/logs originales para validación independiente. |
 
-Otros metadatos relevantes: GitHub vincula la cuenta `yaeaelo` (Ismael Araya) con PR #1 y PR #2; Git registra commits de esas contribuciones bajo `Yaelo`. GitHub vincula la cuenta `felipe-urtubia` con PR #3, cuyo commit aparece localmente como `Elmetaleroxd`. `Elmetaleroxd` firma además otros commits de producto, Webpay, metadatos y pruebas; no se asignan todos a Felipe sin evidencia individual de PR/autor. No se infieren porcentajes ni dedicación.
+## Correspondencias de PR
 
-Los commits de cierre de esta consolidación se crearon con el alias Git `Yaelo` que estaba configurado en el checkout. Esa metadata no demuestra que Ismael haya realizado individualmente la edición documental asistida durante esta sesión, por lo que no se cuentan como evidencia individual suya. Los autores históricos originales no se modificaron.
+| PR | SHA/actividad original documentada | SHA equivalente publicado | Estado |
+|---|---|---|---|
+| #1 | `5023888`, `63865d2`, `9b04db0`; merge `e2f144f` | `6ff738c`, `4c64877`, `041f6f3`; merge `3bf2090` | Integrado; frontend React/API y checkout híbrido. |
+| #2 | `6df926e`, `2d66714`, `7ad680a` | `f0c54f9`, `6883459`, `750e49e` | Cerrado tras comprobar equivalencias; no se fusionó el tip atrasado. |
+| #3 | `6087f21`; merge `71abdfc` | `41f85b8`; merge `1553203` | Integrado; descarga privada R2 temporal. |
 
-## Commits incorporados en este corte
+Los nombres `Yaelo` y `Elmetaleroxd` aparecen en commits históricos y no se normalizan automáticamente. Algunos commits documentales del saneamiento tienen atribución individual ambigua. Se conserva el historial y se evita usar conteos de commits como medida de esfuerzo.
 
-Antes de consolidar, `origin/main` aportaba 10 commits exclusivos respecto de `frontend-trabajo`, entre ellos integración R2/Webpay (`df8a28b`, `4323df2`), descargas temporales (`41f85b8`, `1553203`) y registros técnicos (`b56c3e1`, `064101c`, `e87280a`). La rama `integration/reorganization-checkpoint` aportaba cuatro commits exclusivos (`385ea56`, `1730278`, `975205d`, `ceb3a9c`); se preservan como ascendencia de `main` mediante merge `ours`, sin aplicar su árbol antiguo. Los OID a la derecha son equivalencias tras el saneamiento actual; las referencias originales se conservan solo para rastreo.
+## Evidencia de QA del corte
 
-Los commits útiles de las ramas iniciales se conservaron. Tras verificar la publicación de `main`, `frontend-trabajo` e `integration/react-frontend` se eliminaron del servidor y PR #2 se cerró con comentario de obsolescencia/consolidación. GitHub aún anuncia las refs internas de PR #1–#3; su purga y cachés requieren soporte.
-
-## Preparación QA del corte 18-11-2026
-
-Cambios locales de esta preparación: guard de DB QA (`app/management/commands/_qa_safety.py`), generación reproducible de catálogo sintético, cuentas QA temporales, pruebas de comandos, Compose y scripts bajo `scripts/qa/`, aislamiento de media/puerto y Vite proxy configurable. Registrados en `1ce8d5a` (`feat(qa): add isolated reproducible catalog and local environment`, 18-11-2026). Las guías/matrices se registran en un commit documental posterior. El autor de commit no demuestra colaboración exclusiva. La matriz QA y la plantilla no afirman ejecución de Vicente.
+La [validación automatizada](validacion_qa_2026-11-18.md) registra 372 tests Django, 26 frontend, TypeScript/lint, build y smoke HTTP. No es QA manual ni E2E real. El QA funcional que Vicente está ejecutando permanece separado y se incorpora al [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md) únicamente cuando entregue resultados reproducibles.

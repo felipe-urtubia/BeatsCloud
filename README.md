@@ -1,45 +1,48 @@
 # BeatsCloud
 
-Marketplace académico de instrumentales para artistas y productores. La aplicación combina una SPA React/TypeScript con API y backend Django. La única rama compartida de trabajo es `main`.
+BeatsCloud es un marketplace académico de instrumentales para productores y artistas. Los productores publican pistas; los artistas pueden explorar el catálogo, escuchar previews y comprar. El producto combina una SPA React con un backend Django y persistencia PostgreSQL mediante migraciones Django. Las sesiones Django y CSRF protegen la autenticación; Webpay Plus gestiona el flujo de pago y el acceso a archivos completos está sujeto a permisos de propietario o compra.
 
-## Stack
+**Corte técnico de entrega:** 18-11-2026 · **Fuente de código:** rama `main`, commit `f017627fec99b2628e7753d3626ed33367836c5c`.
 
-- Python 3.14.10 / Django 6.0.6; dependencias Python en `requirements.txt`.
-- PostgreSQL; el entorno aislado QA usa PostgreSQL 16 mediante Docker Compose.
-- React 19, TypeScript, Vite 6 y Tailwind CSS 4 en `frontend/client/`.
-- FFmpeg para generar previews; almacenamiento local o Cloudflare R2 privado opcional.
-- Webpay Plus mediante `transbank-sdk`; pruebas automatizadas usan dobles. No se afirma una transacción externa validada.
+## Tecnologías y alcance comprobado
 
-## Obtener la versión correcta
+- Frontend: React 19, TypeScript, Vite 6 y Tailwind CSS en `frontend/client/`.
+- Backend: Python y Django 6; API JSON implementada con vistas Django propias en `app/api_shim.py`. El código vigente no usa DRF ni JWT.
+- Datos: PostgreSQL y migraciones Django.
+- Identidad: cookies de sesión Django y protección CSRF.
+- Audio: previews de 30 segundos con FFmpeg y rutas protegidas para audio completo/descargas.
+- Pagos: integración Webpay Plus/Transbank. La suite usa dobles; no acredita cobros reales.
+- Archivos: almacenamiento local y flujo privado Cloudflare R2 opcional. R2 está desactivado en la configuración de ejemplo.
 
-Clona la rama oficial:
+## Requisitos
+
+- Python 3.12 o superior (corte probado con Python 3.14.10).
+- PostgreSQL 14 o superior.
+- Node.js 20 o superior y npm.
+- FFmpeg disponible en `PATH` o configurado con `FFMPEG_PATH`.
+- Git.
+
+## Instalación local
 
 ```bash
-git clone --branch main https://github.com/felipe-urtubia/BeatsCloud.git BeatsCloud
+git clone --branch main https://github.com/felipe-urtubia/BeatsCloud.git
 cd BeatsCloud
-```
-
-## Configuración local de desarrollo
-
-`.env.example` y `frontend/client/.env.example` son **plantillas versionadas**, no archivos cargados automáticamente ni credenciales de Felipe. Cada persona debe crear sus propios archivos locales:
-
-```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 cp .env.example .env
 cp frontend/client/.env.example frontend/client/.env
 ```
 
-Completa `.env` con clave Django y conexión a tu PostgreSQL local. Para desarrollo, el ejemplo fija `DJANGO_DEBUG=True`, DB `beatscloud_demo_local` y Webpay `TEST`; R2 queda desactivado y email usa consola. El `VITE_DJANGO_PROXY_TARGET` del ejemplo apunta a Django local en `127.0.0.1:8000`. No pongas secretos en variables `VITE_*`.
+`.env.example` y `frontend/client/.env.example` son plantillas versionadas. Cada integrante crea su propio `.env` privado y configura su PostgreSQL local. No se deben subir `.env`, `.env.qa`, credenciales ni valores privados a Git. No pongas secretos en variables `VITE_*`: se incluyen en el bundle del navegador.
 
-Con PostgreSQL disponible y la base local creada:
+En PostgreSQL, crea una base local con `createdb -U postgres beatscloud_demo_local` (o con el usuario configurado) y asegúrate de que ese usuario tenga acceso. Completa `DJANGO_SECRET_KEY`, `DB_USER` y `DB_PASSWORD` en `.env`; ajusta `DB_NAME`, host y puerto si usas otros valores. Después:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pip check
 python manage.py check
 python manage.py migrate
 python manage.py prepare_demo_catalog
+python manage.py runserver 127.0.0.1:8000
 ```
 
 En otra terminal:
@@ -50,30 +53,40 @@ npm ci
 npm run dev
 ```
 
-Frontend: <http://localhost:3000/>. Backend: <http://127.0.0.1:8000/>. La configuración detallada de proveedores y requisitos pendientes está en [configuración de despliegue](docs/entrega-apt/despliegue_y_configuracion.md).
+Vite sirve la SPA en `http://localhost:3000/` y reenvía `/api` y `/media` al backend local. Para detener servicios, usa `Ctrl+C` en cada terminal.
 
-## Preparación de QA
+## Pruebas
 
-En Fedora/Linux, con Docker Compose v2 o Podman Compose, Python, Node y FFmpeg:
+Pruebas automatizadas del backend:
 
 ```bash
-scripts/qa/setup.sh
-scripts/qa/start.sh
-scripts/qa/verify.sh
+python manage.py test
 ```
 
-Frontend QA: <http://127.0.0.1:3010/>. La guía incluye cuentas, catálogo sintético, pasos de Firefox, ejecución y reinicio seguro: [Guía de Vicente](docs/entrega-apt/qa/GUIA_QA_VICENTE.md). Detener con `scripts/qa/stop.sh`; el reset de QA pide confirmación y solo afecta DB/media identificadas de QA.
+Pruebas y comprobaciones automatizadas del frontend:
+
+```bash
+cd frontend/client
+npm test
+npm run lint
+npm run build
+```
+
+Al corte 18-11-2026, el registro QA documenta 372 pruebas Django, 26 pruebas frontend, TypeScript/lint, build y comprobaciones HTTP locales aprobadas. Son pruebas automatizadas y smoke checks; no equivalen a un recorrido manual E2E.
+
+El entorno funcional aislado y su verificación reproducible están en `scripts/qa/` y `compose.qa.yml`. Sigue [la guía QA](docs/entrega-apt/qa/GUIA_QA_VICENTE.md) y usa sus guardas de base y medios.
+
+## Validaciones pendientes
+
+No hay evidencia del corte de una navegación manual completa en Firefox, compra y descarga E2E, transacción real Webpay TEST, conexión real R2, SMTP real ni despliegue externo. La matriz y el registro QA indican el alcance pendiente; no se deben inferir resultados de tests con dobles.
 
 ## Documentación
 
-- [Índice técnico APT](docs/entrega-apt/README.md)
-- [Guía de Felipe: grabación y configuración externa](docs/entrega-apt/operacion/GUIA_FELIPE_GRABACION.md)
-- [Guía de Vicente: QA funcional](docs/entrega-apt/qa/GUIA_QA_VICENTE.md)
-- [Matriz de casos QA](docs/entrega-apt/qa/matriz_qa_funcional.md)
-- [Registro y reporte de defectos](docs/entrega-apt/qa/REGISTRO_EJECUCION_VICENTE.md)
-- [Arquitectura](docs/entrega-apt/arquitectura.md)
+- [Índice técnico del corte](docs/entrega-apt/README.md)
+- [Arquitectura y endpoints](docs/entrega-apt/arquitectura.md)
 - [Modelo de datos y almacenamiento](docs/entrega-apt/modelo_datos_y_almacenamiento.md)
-- [Validación QA del 18-11-2026](docs/entrega-apt/validacion_qa_2026-11-18.md)
-- [Trazabilidad técnica](docs/entrega-apt/trazabilidad_tecnica.md)
-
-La verificación local automatizada aprobó 372 pruebas Django, 26 pruebas frontend, TypeScript, build y smoke HTTP. Navegación Firefox, R2 real, SMTP real, Webpay real y despliegue siguen pendientes de evidencia.
+- [Validación automatizada y manual](docs/entrega-apt/validacion_qa_2026-11-18.md)
+- [Guía operativa de integraciones](docs/entrega-apt/operacion/GUIA_FELIPE_GRABACION.md)
+- [Guía, matriz y registro QA](docs/entrega-apt/qa/GUIA_QA_VICENTE.md)
+- [Trazabilidad técnica de contribuciones](docs/entrega-apt/trazabilidad_tecnica.md)
+- [Entrega académica y evidencias](https://github.com/yaeaelo/2026_2_MA_CAPSTONE_005D_GRUPO_4)
