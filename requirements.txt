@@ -21,3 +21,5 @@ python-dotenv>=1,<2
 gunicorn
 whitenoise
 django-anymail==15.2
+google-api-python-client==2.202.0
+google-auth==2.62.2
