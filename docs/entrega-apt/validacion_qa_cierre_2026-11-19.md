@@ -2,7 +2,7 @@
 
 ## Alcance y versión
 
-Validación local del producto desde el commit `6c19529` en la rama local `closure/2026-11-19`. El commit funcional del producto no se modificó en esta ejecución; los únicos cambios preparados son de aislamiento/arranque del entorno QA y esta documentación. El SHA final se registrará en la entrega después de crear el commit documental de QA.
+Validación local repetida sobre el árbol de producto `7ad7305fecdbdeff8b4f9d8c301b1f6f1c3e7dbe`, posterior a los commits remotos `d4d6bf6` (elimina el valor predeterminado de contraseña de PostgreSQL) y `68acadd` (agrega rewrites Vercel). La suite completa de 372 pruebas Django, 26 frontend, TypeScript/lint, build y smoke terminó correctamente sobre ese árbol. Luego se probó `bash build.sh` con `.env.qa` cargado; collectstatic y migraciones también terminaron correctamente. Los cambios posteriores `cbebac5` y el commit que actualiza este reporte son documentales; la configuración Vercel no se probó en un despliegue externo.
 
 Entorno: Linux, Python 3.14, Django 6.0.6, PostgreSQL 16 en Docker Compose local, Node 22 y npm 10. Se usó `.env.qa` local con modo `0600`, base `beatscloud_qa_local`, R2 desactivado, Webpay TEST sin credenciales, email de consola y medios bajo `media/qa`. No se conectaron servicios externos ni bases de datos de producto.
 
@@ -21,9 +21,9 @@ Entorno: Linux, Python 3.14, Django 6.0.6, PostgreSQL 16 en Docker Compose local
 | `bash -n scripts/qa/*.sh` | OK | Sintaxis de scripts QA. |
 | `bash build.sh` con `.env.qa` y `.venv` | OK | `collectstatic` confirmó 141 estáticos; migraciones sin cambios. No se ejecutó un despliegue Render. |
 
-La primera llamada a `verify.sh` se hizo antes de iniciar los servicios y falló en el smoke HTTP, conforme al diseño del script. Se inició el entorno con `scripts/qa/start.sh` y la ejecución completa posterior terminó correctamente.
+La ejecución repetida tras incorporar los commits remotos inició PostgreSQL QA, no detectó migraciones nuevas, pasó `manage.py check`, ejecutó 372/372 pruebas Django y completó 26/26 frontend, TypeScript/lint, build y smoke HTTP. La llamada inicial de la preparación anterior a `verify.sh` ocurrió antes de iniciar los servicios y falló en el smoke HTTP; se inició el entorno y la ejecución posterior pasó. La repetición actual volvió a pasar desde el árbol rebased.
 
-Un intento inicial de `build.sh` sin cargar `.env.qa` copió estáticos y luego recibió conexión rechazada al PostgreSQL local predeterminado en 5432; no aplicó migraciones. El build se repitió con el entorno QA aislado y terminó correctamente.
+En la repetición del corte actualizado se cargó `.env.qa` y se ejecutaron `manage.py check`, `makemigrations --check --dry-run` y `bash build.sh`: collectstatic dejó 141 archivos sin cambios y no hubo migraciones por aplicar. El intento inicial de la preparación anterior sin `.env.qa` recibió conexión rechazada al PostgreSQL local 5432; no aplicó migraciones.
 
 Durante `manage.py test`, WhiteNoise advirtió que `staticfiles/` aún no existía; `collectstatic` posterior creó los archivos esperados. No hubo fallo de pruebas asociado.
 
