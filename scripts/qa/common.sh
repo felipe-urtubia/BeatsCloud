@@ -18,7 +18,9 @@ qa_load_env() {
 
   [[ "${DB_NAME:-}" == "beatscloud_qa_local" ]] || qa_error "DB_NAME no es la base QA aislada esperada."
   [[ "${DB_HOST:-}" == "127.0.0.1" ]] || qa_error "DB_HOST debe ser 127.0.0.1."
-  [[ "${DB_PORT:-}" == "55433" ]] || qa_error "DB_PORT debe ser 55433."
+  [[ "${DB_PORT:-}" =~ ^[0-9]+$ ]] || qa_error "DB_PORT debe ser un puerto local del rango QA."
+  local db_port=$((10#$DB_PORT))
+  (( db_port >= 55433 && db_port <= 55499 )) || qa_error "DB_PORT debe estar entre 55433 y 55499."
   [[ "${QA_BACKEND_PORT:-}" == "8010" ]] || qa_error "QA_BACKEND_PORT debe ser 8010."
   [[ "${QA_FRONTEND_PORT:-}" == "3010" ]] || qa_error "QA_FRONTEND_PORT debe ser 3010."
   [[ "${DB_ENGINE:-}" == "django.db.backends.postgresql" ]] || qa_error "Solo se admite PostgreSQL local."
@@ -105,4 +107,15 @@ except OSError:
 finally:
     sock.close()
 PY
+}
+
+qa_find_db_port() {
+  local port
+  for port in $(seq 55433 55499); do
+    if qa_port_free "$port"; then
+      printf '%s\n' "$port"
+      return 0
+    fi
+  done
+  qa_error "No hay puertos libres en el rango QA 55433-55499."
 }

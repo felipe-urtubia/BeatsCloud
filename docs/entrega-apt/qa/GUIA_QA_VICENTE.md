@@ -22,7 +22,7 @@ Comprobar que la rama sea `main` y registrar el SHA de `git rev-parse HEAD` en c
 - Python 3.12 o posterior compatible con dependencias; corte probado en 3.14.10.
 - Node.js 22/npm 10; FFmpeg en `PATH`.
 - Docker Engine con Compose v2, o Podman rootless con Compose. No usar `sudo`.
-- Puertos locales libres: PostgreSQL 55433, Django 8010 y Vite 3010.
+- Puerto PostgreSQL local libre entre 55433 y 55499 (el setup selecciona uno); Django 8010 y Vite 3010 deben estar libres.
 - Espacio para PostgreSQL de QA y hasta 300 clips WAV, previews MP3 y portadas. El valor predeterminado es 120 clips.
 - Firefox actualizado para los casos manuales de navegador; no hay Playwright/E2E automatizado integrado.
 
@@ -34,7 +34,7 @@ Desde la raíz del repositorio:
 scripts/qa/setup.sh
 ```
 
-El script crea `.env.qa` con modo `0600`, genera una clave local aleatoria, arranca solo el servicio `db` con un proyecto Compose único, aplica migraciones y ejecuta los seeders. La base exacta es `beatscloud_qa_local`, publicada en `127.0.0.1:55433`; el volumen Compose persiste. R2 queda desactivado, Webpay queda en `TEST` sin claves y el correo se imprime en la consola de Django.
+El script crea `.env.qa` con modo `0600`, genera una clave local aleatoria, arranca solo el servicio `db` con un proyecto Compose único, aplica migraciones y ejecuta los seeders. La base exacta es `beatscloud_qa_local`, publicada en `127.0.0.1` en el puerto QA libre que `setup.sh` selecciona dentro del rango 55433–55499; el volumen Compose persiste. Si ya existe `.env.qa`, se conserva su puerto y credenciales locales. R2 queda desactivado, Webpay queda en `TEST` sin claves y el correo se imprime en la consola de Django.
 
 Los datos no usan identidad real: 5 pistas demo, 120 pistas sintéticas reproducibles, 12 perfiles ficticios y cuentas `qa-*`. Los WAV/MP3/PNG quedan bajo `media/qa/`, excluido de Git. Los 120 tracks sintéticos tienen WAV, preview y portada generados localmente; no son beats comerciales. El usuario `qa-comprador-carrito` tiene dos artículos pendientes de checkout.
 
@@ -123,6 +123,8 @@ scripts/qa/stop.sh
 El script valida PID, comando, cwd antes de detener Django/Vite y detiene únicamente el contenedor DB del proyecto identificado; conserva volumen y medios. Si su PID no corresponde con el proceso esperado, no fuerza terminación: inspeccionar y resolver manualmente. `docker compose ps` o `podman ps` son lectura. Para volver a iniciar, repetir `scripts/qa/start.sh`; para reset completo usar el procedimiento con confirmación anterior.
 
 ## 8. Orden de pruebas sugerido
+
+`verify.sh` ejecuta las suites, lint/build y smoke HTTP, pero presupone servicios activos. Ejecutar `scripts/qa/start.sh` antes de `scripts/qa/verify.sh`; para una ejecución solo automatizada sin smoke, ejecutar las suites por separado.
 
 1. BUILD-01: versión, setup, puertos, frontend, API, conteo.
 2. CAT-01–07: catálogo, navegación, búsqueda, filtros, orden y paginación.

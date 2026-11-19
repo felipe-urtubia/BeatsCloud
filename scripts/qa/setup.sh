@@ -8,6 +8,7 @@ if [[ ! -f .env.qa ]]; then
   command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; }
   umask 077
   project_id="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
+  db_port="$(source "$QA_ROOT/scripts/qa/common.sh"; qa_find_db_port)"
   django_key="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
   db_password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
   cat > .env.qa <<EOF
@@ -23,7 +24,7 @@ DB_NAME=beatscloud_qa_local
 DB_USER=beatscloud_qa
 DB_PASSWORD=${db_password}
 DB_HOST=127.0.0.1
-DB_PORT=55433
+DB_PORT=${db_port}
 QA_BACKEND_PORT=8010
 QA_FRONTEND_PORT=3010
 MEDIA_ROOT=${QA_ROOT}/media/qa
