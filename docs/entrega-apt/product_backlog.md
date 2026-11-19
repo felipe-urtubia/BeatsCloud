@@ -31,7 +31,7 @@ Los códigos `TEC-*` son referencias editoriales locales de este documento, no c
 
 ## Ejecución de cierre 19-11-2026
 
-Se ejecutaron 372 pruebas Django, 26 pruebas frontend, TypeScript/lint, build Vite y smoke HTTP en una base QA aislada; `bash build.sh` también completó collectstatic y migraciones locales. La evidencia y las limitaciones están en [validacion_qa_cierre_2026-11-19.md](validacion_qa_cierre_2026-11-19.md). Estos resultados no convierten en validados manualmente los flujos UI, pago, descarga, SMTP o R2 externos.
+Se repitieron 372 pruebas Django, `manage.py check`, migraciones, `build.sh` y smoke HTTP en `4569613b29e7023161149ca5e7d5fddabf6437db`; las 26 pruebas frontend, TypeScript/lint y build Vite pertenecen al histórico `7ad7305…`. Cortes y límites: [validacion_qa_cierre_2026-11-19.md](validacion_qa_cierre_2026-11-19.md). Estos resultados no convierten en validados manualmente los flujos UI, pago, descarga o integraciones externas.
 
 ## Antecedentes identificados (no equivalen a consulta de Jira)
 

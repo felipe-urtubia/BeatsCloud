@@ -16,7 +16,7 @@ flowchart LR
   MODELS --> DB[(Base de datos relacional<br/>configurable por DB_ENGINE<br/>ejemplo/default: PostgreSQL)]
   VIEWS --> FS[(MEDIA_ROOT<br/>filesystem configurado)]
   VIEWS -->|create / commit / status| WEBPAY[Webpay Plus / Transbank]
-  VIEWS --> SMTP[SMTP o backend de correo<br/>activación y recuperación]
+  VIEWS --> MAIL[Consola QA / SMTP / Resend / Gmail API<br/>activación y recuperación]
   SPA -->|desarrollo local /media| API
 ```
 
@@ -42,7 +42,7 @@ El login de la SPA usa la sesión de Django en cookie (backend de sesión en bas
 
 ### Pago y servicios externos
 
-El backend integra `transbank-sdk` y mantiene `WebpayTransaction` con orden, monto, snapshot y estados `PENDING`, `AUTHORIZED`, `CANCELLED`. La aplicación debe crear, devolver al callback, confirmar con proveedor y solo entonces materializar la compra. Hay pruebas automatizadas para guards/ramas con respuestas de prueba, pero no acreditan interacción real E2E en Webpay TEST. SMTP se configura para activación de cuenta y recuperación de contraseña; servicio y cuenta activa deben verificarse en el ambiente de demo. Variables Stripe aparecen en configuración, pero no hay base suficiente para describir Stripe como flujo de pago operativo.
+El backend integra `transbank-sdk` y mantiene `WebpayTransaction` con orden, monto, snapshot y estados `PENDING`, `AUTHORIZED`, `CANCELLED`. La aplicación debe crear, devolver al callback, confirmar con proveedor y solo entonces materializar la compra. Hay pruebas automatizadas para guards/ramas con respuestas de prueba, pero no acreditan interacción real E2E en Webpay TEST. El código admite SMTP, Anymail/Resend y Gmail API (`beatcloud.gmail_backend.EmailBackend`) para activación y recuperación; QA mantiene `console`. No se probó envío real ni tokens OAuth/cuenta Gmail/Resend/SMTP. Variables Stripe aparecen en configuración, pero no hay base suficiente para describir Stripe como flujo de pago operativo.
 
 ## Flujos principales
 
@@ -77,7 +77,7 @@ La API expone endpoints distintos para preview y audio completo. Django controla
 | Django ↔ PostgreSQL | **IMPLEMENTADO/configurable** | Conexión real del ambiente APT no confirmada en este paquete. |
 | Django ↔ almacenamiento local MEDIA_ROOT | **IMPLEMENTADO** | Persistencia compartida/durable o remota **PENDIENTE** de definición/despliegue. |
 | Django ↔ Webpay Plus | **IMPLEMENTADO; algunas respuestas SIMULADAS** | Pago, retorno y descarga E2E en TEST **PENDIENTES**. |
-| Django ↔ SMTP | **IMPLEMENTADO/configurable** | Activación real en la cuenta/ambiente de entrega **PENDIENTE**. |
+| Django ↔ correo | **Código configurable**: consola, SMTP, Resend/Anymail o Gmail API | Envío y activación real en cuenta/ambiente de entrega **PENDIENTES**. |
 | SPA `mock` | **SIMULADO** | Solo demostración visual; no es integración. |
 
 ## Restricciones y cuestiones de arquitectura
@@ -93,7 +93,7 @@ Para entidades, migraciones, flujos de almacenamiento privado y límites de vali
 
 ## Pendiente de validación del equipo
 
-Confirmar el motor y almacenamiento del ambiente de presentación, URL/origen y proxy usados, HTTPS/CSRF, configuración de Webpay TEST, backend SMTP, servicio de medios y entorno de despliegue. Registrar el diagrama físico solo cuando exista evidencia del despliegue.
+Confirmar el motor y almacenamiento del ambiente de presentación, URL/origen y proxy usados, HTTPS/CSRF, configuración de Webpay TEST, backend de correo seleccionado, servicio de medios y entorno de despliegue. Registrar el diagrama físico solo cuando exista evidencia del despliegue.
 
 ## Fuentes
 

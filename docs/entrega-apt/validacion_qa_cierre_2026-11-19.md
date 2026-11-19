@@ -1,38 +1,36 @@
-# Validación automatizada de cierre — 19-11-2026
+# Validación QA de cierre — 19-11-2026
 
-## Alcance y versión
+## Referencias Git comprobadas
 
-Validación local repetida sobre el árbol de producto `7ad7305fecdbdeff8b4f9d8c301b1f6f1c3e7dbe`, posterior a los commits remotos `d4d6bf6` (elimina el valor predeterminado de contraseña de PostgreSQL) y `68acadd` (agrega rewrites Vercel). La suite completa de 372 pruebas Django, 26 frontend, TypeScript/lint, build y smoke terminó correctamente sobre ese árbol. Luego se probó `bash build.sh` con `.env.qa` cargado; collectstatic y migraciones también terminaron correctamente. Los cambios posteriores `cbebac5` y el commit que actualiza este reporte son documentales; la configuración Vercel no se probó en un despliegue externo.
+- **Commit de producto donde se repitió la suite Django, `manage.py check`, `makemigrations --check --dry-run`, `build.sh` y smoke HTTP:** `4569613b29e7023161149ca5e7d5fddabf6437db` (`4569613`). Contiene los commits remotos de correo Resend/Gmail y la protección QA de proveedores externos.
+- **Último corte histórico de la suite frontend de 26 pruebas, TypeScript/lint y build Vite:** `7ad7305fecdbdeff8b4f9d8c301b1f6f1c3e7dbe`, según el registro de ejecución anterior. Entre ese corte y el de este documento no cambió el código fuente del frontend; el corte actual sí integra correo en backend y los guards QA.
+- El commit `12a3ea0` documenta un corte anterior; `e48174f` fue un snapshot local de cierre previo. No son la versión vigente. `8468063` y `92c39dc` eran referencias cortas residuales de documentos anteriores, no se usan como versión actual.
+- El snapshot académico definitivo debe señalar el commit final de documentación del producto y verificar sus hashes; el snapshot identifica el corte documental, no retroactivamente el commit de ejecución de pruebas.
 
-Entorno: Linux, Python 3.14, Django 6.0.6, PostgreSQL 16 en Docker Compose local, Node 22 y npm 10. Se usó `.env.qa` local con modo `0600`, base `beatscloud_qa_local`, R2 desactivado, Webpay TEST sin credenciales, email de consola y medios bajo `media/qa`. No se conectaron servicios externos ni bases de datos de producto.
+## Ejecuciones actuales sobre `4569613b29e7023161149ca5e7d5fddabf6437db`
 
-## Resultados
+Entorno Linux, Python 3.14, Django 6.0.6, PostgreSQL 16 aislado en el contenedor del worktree de cierre, Node 22/npm 10. `.env.qa` local modo 0600; DB `beatscloud_qa_local`, host `127.0.0.1`, puerto QA dentro de 55433–55499; correo console, Gmail/Resend/SMTP sin credenciales, R2 desactivado y Webpay TEST sin secretos.
 
-| Comprobación | Resultado | Alcance |
-|---|---|---|
-| `scripts/qa/setup.sh` | OK | PostgreSQL QA aislado, migraciones y datos sintéticos locales. El puerto predeterminado 55433 estaba ocupado por un contenedor QA de otro checkout; se usó 55434 sin detener ni reutilizar ese contenedor. |
-| `manage.py check` | OK | Sin errores del sistema Django. |
-| `makemigrations --check --dry-run` | OK | No se detectaron migraciones pendientes. |
-| Suite Django | **372/372 OK** | Pruebas automatizadas con dobles para proveedores externos donde corresponde. No son una prueba manual ni una transacción real de Webpay. |
-| Frontend Node | **26/26 OK** | Casos unitarios sobre checkout, navegación y estado de subida. |
-| TypeScript/lint (`npm run lint`) | OK | `tsc -b` sin errores. |
-| Build Vite | OK | 1.926 módulos transformados; build de producción local. |
-| Smoke HTTP local | OK | Frontend en `127.0.0.1:3010`, sesión Django y catálogo; la primera página mostró 6 de 125 pistas, 21 páginas. |
-| `bash -n scripts/qa/*.sh` | OK | Sintaxis de scripts QA. |
-| `bash build.sh` con `.env.qa` y `.venv` | OK | `collectstatic` confirmó 141 estáticos; migraciones sin cambios. No se ejecutó un despliegue Render. |
+| Comprobación | Resultado | Interpretación |
+|---|---:|---|
+| Guardas `.env.qa` y configuración QA | OK | Verifican host, puerto QA, medios, permisos 0600, correo console y credenciales externas vacías; no permiten symlink. |
+| `manage.py check` | OK | Django inicializa con AnyMail/Gmail API instalados; no se envió correo. |
+| `makemigrations --check --dry-run` | OK | No hay migraciones pendientes. |
+| Suite Django | **372/372 OK** | Runner automatizado en `4569613b29e7023161149ca5e7d5fddabf6437db`; proveedores externos no contactados. |
+| `bash build.sh` | OK | Dependencias instaladas, `collectstatic`: 141 sin cambios, migraciones: ninguna. Ejecución local; no prueba Render. |
+| Smoke HTTP local | OK | Django/Vite locales; sesión responde; catálogo 6 de 125 pistas, 21 páginas. Servicios QA iniciados y luego detenidos con script del worktree; volumen/medios retenidos. |
+| Frontend: 26 tests, `tsc -b`, lint y build Vite | **OK en corte histórico** | Se conserva la ejecución registrada en `7ad7305…`; no se repitió porque la aplicación frontend no cambió desde ese árbol. El rewrite Vercel se inspeccionó estáticamente, no se desplegó. |
 
-La ejecución repetida tras incorporar los commits remotos inició PostgreSQL QA, no detectó migraciones nuevas, pasó `manage.py check`, ejecutó 372/372 pruebas Django y completó 26/26 frontend, TypeScript/lint, build y smoke HTTP. La llamada inicial de la preparación anterior a `verify.sh` ocurrió antes de iniciar los servicios y falló en el smoke HTTP; se inició el entorno y la ejecución posterior pasó. La repetición actual volvió a pasar desde el árbol rebased.
+La suite de 372 pruebas se ejecutó tras integrar dos commits nuevos en `origin/main`: configuración Resend con Anymail y backend Gmail API. Las credenciales y envíos reales siguen sin verificarse. Las pruebas incluyen dobles/mock donde corresponde; no son transacciones reales ni un recorrido E2E.
 
-En la repetición del corte actualizado se cargó `.env.qa` y se ejecutaron `manage.py check`, `makemigrations --check --dry-run` y `bash build.sh`: collectstatic dejó 141 archivos sin cambios y no hubo migraciones por aplicar. El intento inicial de la preparación anterior sin `.env.qa` recibió conexión rechazada al PostgreSQL local 5432; no aplicó migraciones.
+## Pruebas manuales
 
-Durante `manage.py test`, WhiteNoise advirtió que `staticfiles/` aún no existía; `collectstatic` posterior creó los archivos esperados. No hubo fallo de pruebas asociado.
+Los cuatro casos preparados por Vicente permanecen **pendientes** de ejecución manual de Ismael: catálogo/carrito, pasarela Webpay, pago exitoso y descarga. Los pasos exactos y las precondiciones están en [guía manual de Ismael](qa/GUIA_EJECUCION_MANUAL_ISMAEL.md); el [registro](qa/REGISTRO_EJECUCION_VICENTE.md) reserva una fila por caso. Los pagos requieren integración oficial TEST y autorización de Felipe. No se ejecutó ni automatizó una compra, y no se usaron credenciales financieras reales.
 
-## Lo que esta validación no demuestra
+## Límites
 
-No se ejecutó Firefox manual ni un recorrido E2E de navegador. No se completó compra y descarga de extremo a extremo; Webpay TEST real, Cloudflare R2 real, SMTP real y despliegue externo siguen sin evidencia de ejecución. Los resultados mockeados o automatizados no se presentan como operaciones reales.
+No se probó transacción real/sandbox de Webpay, operación R2, Gmail API, Resend, SMTP, Firefox manual, compra/descarga E2E ni despliegue externo. El código de integración no acredita cuenta configurada ni entrega del servicio. La ejecución automatizada se atribuye al runner, no a Vicente ni a Ismael. El diseño de casos se atribuye a Vicente según las evidencias disponibles; no se recuperó su DOCX original de E2E.
 
-Los casos preparados por Vicente mantienen su autoría de diseño. Esta ejecución fue automatizada por el runner local; no se atribuye a Vicente ni a una ejecución manual de Ismael. El documento E2E reportado por Vicente no se recuperó; véase el registro de evidencia correspondiente.
+## Reproducibilidad y seguridad
 
-## Reproducibilidad y cuidado del entorno
-
-Para repetir, crear/clonar el código, instalar dependencias y ejecutar `scripts/qa/setup.sh`, `scripts/qa/start.sh`, `scripts/qa/verify.sh`; al finalizar, usar `scripts/qa/stop.sh`. El setup selecciona un puerto libre solo dentro de 55433–55499 para una configuración nueva. `.env.qa`, sus claves temporales, datos sintéticos, volúmenes y medios son locales y no se versionan. No reutilizar contraseñas o datos de demostración fuera del entorno aislado.
+En el worktree aislado: `scripts/qa/setup.sh` si hace falta crear el entorno, `scripts/qa/start.sh`, `scripts/qa/verify.sh`; detener con `scripts/qa/stop.sh`. El setup usa solo PostgreSQL `127.0.0.1:55433–55499`, DB/volumen propios y `media/qa`. No copiar `.env.qa` al repositorio ni snapshot. Los casos externos se ejecutan solo con cuentas de prueba y autorización; no poner secretos en archivos ni evidencias.

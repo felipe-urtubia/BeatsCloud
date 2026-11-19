@@ -1,6 +1,6 @@
 # Matriz interrepositorios de contribuciones
 
-**Corte documental:** 19-11-2026. La fuente de verdad del código es `felipe-urtubia/BeatsCloud` (`main`); el SHA exacto del snapshot académico aparece en `SOURCE_COMMIT.txt`. El cierre local reejecutó las suites y verificó `build.sh` contra una base QA aislada. No se infiere autoría por carpeta ni por cantidad de commits. La entrega académica aporta documentos y evidencia individual complementaria; no se infiere autoría por carpetas ni por cantidad de commits.
+**Corte documental:** 19-11-2026. La fuente de verdad del código es `felipe-urtubia/BeatsCloud`; el SHA exacto del snapshot académico aparece en `SOURCE_COMMIT.txt`. La suite Django actual y los checks están registrados en `validacion_qa_cierre_2026-11-19.md`; frontend 26/TypeScript/lint/build tienen un corte histórico separado. No se infiere autoría por carpeta ni por cantidad de commits.
 
 | Integrante | Rol | Contribuciones verificables | Evidencia y commits asociados | Estado / límite |
 |---|---|---|---|---|
@@ -14,19 +14,11 @@ Los tres commits del repositorio académico se conservan con Vicente como autor.
 
 ## Validación actual y límites
 
-La evidencia del 19-11-2026 está en `validacion_qa_cierre_2026-11-19.md`: 372 pruebas Django, 26 frontend, TypeScript/lint, build, smoke HTTP y `build.sh` local con base QA aislada. Es ejecución automatizada por runner, no prueba manual de Vicente. La autoría de casos de Vicente se conserva separada del ejecutor. Firefox manual, compra/descarga E2E, Webpay real, R2 real, SMTP real y despliegue externo siguen sin evidencia aprobada.
+La evidencia del 19-11-2026 está en `validacion_qa_cierre_2026-11-19.md`: 372 pruebas Django, checks, `build.sh` y smoke HTTP en `4569613b29e7023161149ca5e7d5fddabf6437db`; frontend 26/TypeScript/lint/build en `7ad7305fecdbdeff8b4f9d8c301b1f6f1c3e7dbe`. La suite actual la ejecutó el runner, no Vicente o Ismael manualmente. Los cuatro procedimientos manuales están separados en `qa/GUIA_EJECUCION_MANUAL_ISMAEL.md`; siguen pendientes.
 
-## Commits de cierre documentados aparte de la matriz histórica
+## Identidad y alcance de autoría
 
-La matriz CSV académica conserva el universo histórico de los cortes base (112 commits) y no se reescribe para incluir trabajo posterior. En la rama local `closure/2026-11-19` se agregaron estos commits bajo la identidad verificada de Ismael para consolidar tooling y documentación; la ejecución automatizada se atribuye al runner, no a una prueba manual del autor:
-
-| SHA | Autor / committer registrado | Contenido |
-|---|---|---|
-| `6c19529` | Ismael Araya | Selección aislada de puerto PostgreSQL QA y actualización de guía; no cambia funcionalidades del producto. |
-| `b4dc23b` | Ismael Araya | Registro de resultados de cierre QA local; incluye límites explícitos. |
-| `cb4f16c` | Ismael Araya | README e índice técnico alineados con los resultados de cierre. |
-
-El snapshot académico identifica el árbol completo y sus hashes. Los commits de integración documental no se usan para alterar la autoría histórica de Felipe o Vicente.
+La rama de cierre se rebasa localmente sobre el `origin/main` observado; los autores originales de los commits publicados se conservan. Los commits de consolidación no publicados se atribuyen a Ismael según la identidad verificada de su perfil. No se reasigna trabajo de Felipe o Vicente. La matriz CSV histórica conserva su corte base; los SHA de cierre se consultan en el historial Git local del repositorio, no se sustituyen dentro de esa matriz.
 
 ## Coherencia documental
 

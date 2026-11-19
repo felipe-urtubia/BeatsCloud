@@ -18,9 +18,9 @@
 
 Los nombres `Yaelo` y `Elmetaleroxd` aparecen en commits históricos y no se normalizan automáticamente. Algunos commits documentales del saneamiento tienen atribución individual ambigua. Se conserva el historial y se evita usar conteos de commits como medida de esfuerzo.
 
-## Evidencia de QA del corte previo
+## Evidencia de QA por cortes
 
-La [validación automatizada de cierre](validacion_qa_cierre_2026-11-19.md) registra 372 pruebas Django, 26 frontend, TypeScript/lint, build, smoke HTTP y build local contra DB QA aislada. No es QA manual ni E2E real. El trabajo de diseño de casos de Vicente permanece atribuido a él; los resultados manuales solo se incorporan al [registro de ejecución](qa/REGISTRO_EJECUCION_VICENTE.md) cuando exista ejecución reproducible.
+La [validación de cierre](validacion_qa_cierre_2026-11-19.md) separa las 372 pruebas Django repetidas en `4569613b29e7023161149ca5e7d5fddabf6437db` de las 26 pruebas frontend, TypeScript/lint y build del histórico `7ad7305…`; build y smoke actuales también se identifican por SHA. No es QA manual ni E2E real. El diseño de Vicente se conserva; los resultados manuales solo se incorporan al [registro](qa/REGISTRO_EJECUCION_VICENTE.md) después de ejecución reproducible por Ismael.
 
 
 ## Evidencia de trabajo externo del semestre
