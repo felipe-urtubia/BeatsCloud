@@ -5,7 +5,7 @@ Estado actualizado al 22-11-2026: Django y PostgreSQL están desplegados en Rend
 - Frontend: https://beats-cloud.vercel.app/
 - Backend: https://beatscloud.onrender.com/
 
-Está pendiente publicar el nuevo código de previews y validar la reproducción en navegador. Las secciones de preparación siguientes conservan las recomendaciones y limitaciones del corte técnico anterior.
+El código de previews fue publicado en el commit 7cec7e1 y desplegado correctamente en Render. Se verificaron la reproducción en navegador y la subida de una nueva canción. Las secciones de preparación siguientes conservan las recomendaciones y limitaciones del corte técnico anterior.
 
 ## Topología propuesta
 
@@ -102,4 +102,4 @@ autorizado conectado temporalmente a PostgreSQL de Render.
 No se modificaron los audios originales ni se versionaron
 credenciales.
 
-Resultado: tres previews recuperadas y verificadas.
+Resultado: tres previews recuperadas, una nueva subida verificada y cuatro previews válidas en la auditoría final.

@@ -83,7 +83,7 @@ La validación local de los cambios de previews registró **405 pruebas Django a
 
 El despliegue de BeatsCloud se encuentra disponible en Render y Vercel. Se comprobó la conexión a PostgreSQL de producción y la existencia de tres audios originales en Cloudflare R2. Las tres previews fueron recuperadas y verificadas en el bucket privado.
 
-Los cambios de entrega de previews mediante URL firmada están pendientes de publicación. La reproducción en navegador después del despliegue y la subida de una nueva pista permanecen pendientes de validación.
+Los cambios de entrega de previews mediante URL firmada fueron publicados en el commit 7cec7e1 y desplegados en Render. Se verificó la reproducción con y sin sesión, la subida de una nueva pista y una auditoría final de cuatro previews válidas en R2.
 
 No se ha acreditado una compra/descarga E2E mediante Webpay ni pruebas de carga o usabilidad con usuarios externos.
 

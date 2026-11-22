@@ -3186,3 +3186,114 @@ También se verificaron los registros de ejecución de Django.
 - Publicación en main: pendiente.
 
 ---
+## 22-11-2026 - Persistencia y recuperación de previews en producción
+
+**Estado:** IMPLEMENTADO Y FUNCIONALMENTE VERIFICADO.
+
+### 1. Diagnóstico
+
+- Los audios originales estaban almacenados en Cloudflare R2.
+- Las previews se almacenaban localmente en Render.
+- El almacenamiento efímero no garantizaba su persistencia.
+- Las solicitudes de reproducción presentaban errores HTTP 404 y 500.
+
+### 2. Solución implementada
+
+- Generación de previews MP3 mediante FFmpeg.
+- Almacenamiento persistente de previews en Cloudflare R2.
+- Registro de las referencias en PostgreSQL.
+- Entrega mediante URLs GET firmadas con vigencia de 600 segundos.
+- Conservación del acceso privado a los audios originales.
+- Compatibilidad con el almacenamiento local.
+- Validación de existencia y tamaño de los objetos R2.
+
+### 3. Nuevos módulos
+
+- app/r2_preview_storage.py
+- app/r2_preview_delivery.py
+- app/r2_preview_recovery.py
+- app/management/commands/recuperar_previews_r2.py
+
+### 4. Recuperación de previews existentes
+
+Se estableció una conexión TLS con PostgreSQL de Render.
+
+Se auditaron las canciones existentes:
+
+- ID 1: Mi Nuevo Beat Rock 2026.
+- ID 2: preview prueba.
+- ID 3: BeatCloud D8 prueba WAV 24bit 48kHz 45s.
+
+Los tres originales fueron verificados y sus previews recuperadas.
+
+La recuperación no modificó los audios originales.
+
+### 5. Validación automatizada
+
+- Pruebas Django ejecutadas: 405.
+- Pruebas aprobadas: 405.
+- Errores: 0.
+- Django system check: correcto.
+- Migraciones pendientes de generación: ninguna.
+- Compilación TypeScript y Vite: correcta.
+
+### 6. Publicación y despliegue
+
+- Rama: main.
+- Commit: 7cec7e1.
+- Archivos modificados y agregados: 21.
+- Inserciones: 1775.
+- Eliminaciones: 28.
+- Publicación GitHub: correcta.
+- Despliegue automático Render: correcto.
+- Duración del despliegue: 57,5 segundos.
+- Estado del servicio: Live.
+
+### 7. Pruebas HTTP en producción
+
+| Track | Render | Vercel | Tamaño MP3 |
+|---|---|---|---|
+| 1 | HTTP 200 | HTTP 200 | 235557 bytes |
+| 2 | HTTP 200 | HTTP 200 | 3063 bytes |
+| 3 | HTTP 200 | HTTP 200 | 322101 bytes |
+
+Todas las respuestas entregaron contenido audio/mpeg.
+
+### 8. Validación funcional en navegador
+
+- Reproducción sin iniciar sesión: VERIFICADA.
+- Reproducción con sesión iniciada: VERIFICADA.
+- Subida de una nueva canción: VERIFICADA.
+- Confirmación de publicación por Django: VERIFICADA.
+- Reproducción de la nueva canción: VERIFICADA.
+
+### 9. Auditoría final de producción
+
+- Canciones R2 disponibles: 4.
+- Previews correctas: 4.
+- Previews pendientes: 0.
+- Previews con problemas: 0.
+
+**Resultado: corrección de persistencia y reproducción R2 completada.**
+
+### 10. Documentación actualizada
+
+- README.md.
+- Modelo de datos y almacenamiento.
+- Despliegue y configuración.
+- Registro de validación QA.
+- Registro histórico de cambios BeatsCloud.
+
+### 11. Tareas pendientes
+
+- [ ] Modificar la posición de la notificación de subida exitosa.
+  - Mensaje: Subida completada y confirmada por Django.
+  - Ubicación actual: parte superior de la pantalla.
+  - Ubicación requerida: parte inferior de la pantalla.
+  - Tipo: mejora visual del frontend.
+  - Prioridad: baja.
+  - No modificar el flujo funcional de subida.
+
+- [ ] Validar el flujo completo de compra y descarga mediante Webpay TEST.
+
+---

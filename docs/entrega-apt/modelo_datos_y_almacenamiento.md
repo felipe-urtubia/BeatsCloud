@@ -40,7 +40,7 @@ Los tracks R2 solo son visibles cuando `media_status=ready`. La entrega privada 
 - El bucket permanece privado.
 - El almacenamiento local conserva su comportamiento.
 
-El 22-11-2026 se verificaron tres originales de producción y se recuperaron sus previews. La auditoría final confirmó tres correctas, cero pendientes y cero con problemas. La reproducción mediante el nuevo código desplegado permanece pendiente.
+El 22-11-2026 se verificaron tres originales de producción y se recuperaron sus previews. La auditoría final confirmó tres correctas, cero pendientes y cero con problemas. La reproducción mediante el nuevo código desplegado fue verificada. Una nueva subida confirmó cuatro previews válidas en R2.
 
 ## Audio
 

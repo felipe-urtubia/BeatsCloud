@@ -55,9 +55,9 @@ No versionar `.env` ni `.env.qa`; `.env.example` contiene solo claves y valores 
 | Originales existentes en R2 | 3/3 |
 | Recuperación de previews | 3/3 |
 | Auditoría posterior | 3 correctas, 0 pendientes, 0 con problemas |
-| Reproducción con el nuevo despliegue | Pendiente |
-| Subida nueva con persistencia R2 | Pendiente |
+| Reproducción con el nuevo despliegue | Verificada con y sin sesión |
+| Subida nueva con persistencia R2 | Verificada |
 
 Esta validación es independiente del corte original del
 19-11-2026. No acredita una compra Webpay real ni una prueba
-completa de reproducción del código pendiente de publicar.
+de compra y descarga mediante Webpay.
