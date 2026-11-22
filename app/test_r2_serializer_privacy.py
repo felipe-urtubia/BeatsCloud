@@ -40,5 +40,5 @@ class TrackSerializerPrivacyTests(SimpleTestCase):
         self.assertIsNone(resultado["track"])
         self.assertEqual(
             resultado["preview"],
-            "/media/previews/prueba.mp3"
+            f"/api/track/{resultado['id_track']}/preview/"
         )

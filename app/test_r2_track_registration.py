@@ -1,7 +1,7 @@
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -103,6 +103,11 @@ class R2TrackRegistrationTests(TestCase):
             timeout=30,
         )
 
+        self.r2_client = Mock()
+        self.r2_client.head_object.return_value = {
+            "ContentLength": self.origen.stat().st_size,
+        }
+
         self.draft = R2RegistrationDraft(
             owner=self.user.pk,
             pending_key=pendiente,
@@ -118,6 +123,8 @@ class R2TrackRegistrationTests(TestCase):
             "claim_id": self.reserva.pk,
             "user_id": self.user.pk,
             "draft": self.draft,
+            "client": self.r2_client,
+            "bucket": "bucket-prueba",
             "nombre_track": "Beat R2 de prueba",
             "precio": 1000,
             "genero_id": self.genero.pk,
@@ -126,6 +133,62 @@ class R2TrackRegistrationTests(TestCase):
         opciones.update(cambios)
 
         return register_prepared_r2_track(**opciones)
+
+
+    def test_fallo_subida_preview_limpia_objeto(self):
+        from app.r2_preview_storage import R2PreviewStorageError
+
+        self.r2_client.put_object.side_effect = OSError(
+            "Fallo simulado de subida"
+        )
+
+        with self.assertRaises(R2PreviewStorageError):
+            self.registrar()
+
+        self.assertFalse(Track.objects.exists())
+        self.reserva.refresh_from_db()
+        self.assertEqual(self.reserva.status, "failed")
+
+        self.r2_client.delete_object.assert_called_once()
+        borrado = self.r2_client.delete_object.call_args.kwargs
+
+        self.assertEqual(borrado["Bucket"], "bucket-prueba")
+        self.assertRegex(
+            borrado["Key"],
+            r"^previews/r2-[a-f0-9]{32}\.mp3$",
+        )
+        self.assertNotEqual(
+            borrado["Key"],
+            self.draft.private_key,
+        )
+
+    def test_fallo_verificacion_preview_limpia_objeto(self):
+        from app.r2_preview_storage import R2PreviewStorageError
+
+        self.r2_client.head_object.return_value = {
+            "ContentLength": 0,
+        }
+
+        with self.assertRaises(R2PreviewStorageError):
+            self.registrar()
+
+        self.assertFalse(Track.objects.exists())
+        self.reserva.refresh_from_db()
+        self.assertEqual(self.reserva.status, "failed")
+
+        self.r2_client.put_object.assert_called_once()
+        self.r2_client.delete_object.assert_called_once()
+
+        borrado = self.r2_client.delete_object.call_args.kwargs
+        self.assertEqual(borrado["Bucket"], "bucket-prueba")
+        self.assertRegex(
+            borrado["Key"],
+            r"^previews/r2-[a-f0-9]{32}\.mp3$",
+        )
+        self.assertNotEqual(
+            borrado["Key"],
+            self.draft.private_key,
+        )
 
     def test_registra_cancion_y_preview(self):
         cancion = self.registrar()
@@ -148,9 +211,11 @@ class R2TrackRegistrationTests(TestCase):
         self.assertEqual(cancion.r2_cover_key, "")
 
         self.assertTrue(cancion.preview.name.startswith("previews/"))
-        self.assertTrue(cancion.preview.storage.exists(
-            cancion.preview.name
-        ))
+        self.r2_client.put_object.assert_called_once()
+        self.r2_client.head_object.assert_called_once_with(
+            Bucket="bucket-prueba",
+            Key=cancion.preview.name,
+        )
 
         self.assertEqual(self.reserva.status, "ready")
         self.assertEqual(self.reserva.track_id, cancion.pk)

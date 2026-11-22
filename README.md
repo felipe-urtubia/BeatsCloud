@@ -10,7 +10,7 @@ BeatsCloud es un marketplace académico de instrumentales para productores y art
 - Backend: Python y Django 6; API JSON implementada con vistas Django propias en `app/api_shim.py`. El código vigente no usa DRF ni JWT.
 - Datos: PostgreSQL y migraciones Django.
 - Identidad: cookies de sesión Django y protección CSRF.
-- Audio: previews de 30 segundos con FFmpeg y rutas protegidas para audio completo/descargas.
+- Audio: previews MP3 de hasta 30 segundos con FFmpeg, almacenamiento persistente en R2 y rutas protegidas para audio completo y descargas.
 - Pagos: integración Webpay Plus/Transbank. La suite usa dobles; no acredita cobros reales.
 - Archivos: almacenamiento local y flujo privado Cloudflare R2 opcional. R2 está desactivado en la configuración de ejemplo.
 - Cuentas: registro y activación, recuperación de contraseña y eliminación de cuenta. El equipo confirmó pruebas funcionales de estos flujos con el proveedor de correo configurado en su entorno; esta confirmación de equipo se distingue de la ejecución automatizada local, que usa backend de correo en memoria/consola.
@@ -77,9 +77,15 @@ En una ejecución local aislada sobre `ee981a750904b4263b20be2f91e3568c0e1699ea`
 
 El entorno funcional aislado y sus guardas reproducibles están en `scripts/qa/` y `compose.qa.yml`. La ejecución y sus límites constan en el [registro QA de cierre](docs/entrega-apt/validacion_qa_cierre_2026-11-19.md).
 
+La validación local de los cambios de previews registró **405 pruebas Django aprobadas**, manage.py check correcto, ausencia de cambios pendientes de migración y build Vite exitoso.
+
 ## Validaciones pendientes
 
-No se completó compra/descarga E2E con Webpay: no hay evidencia de inicio de transacción, aprobación/rechazo real, retorno SPA ni descarga posterior. El flujo de subida directa R2 está implementado en frontend y backend (firma de subida 3.600 s; enlace de descarga 300 s), pero el bucket real, la persistencia externa y descarga cloud no se validaron; el modo QA mantiene R2 desactivado. El equipo confirmó pruebas funcionales de registro/correo, recuperación de contraseña y eliminación de cuentas; el registro automatizado local usa correo en memoria/consola y no reproduce esa prueba del proveedor. Tampoco hay evidencia de despliegue externo, usabilidad con usuarios externos ni carga cloud. El repositorio incluye `build.sh`, configuración de estáticos para Render y `frontend/client/vercel.json` con rewrites API/media/CSRF/sesión hacia `beatscloud.onrender.com` y fallback SPA. El panel de despliegue y el comportamiento de sesión/CSRF tras el rewrite no se verificaron.
+El despliegue de BeatsCloud se encuentra disponible en Render y Vercel. Se comprobó la conexión a PostgreSQL de producción y la existencia de tres audios originales en Cloudflare R2. Las tres previews fueron recuperadas y verificadas en el bucket privado.
+
+Los cambios de entrega de previews mediante URL firmada están pendientes de publicación. La reproducción en navegador después del despliegue y la subida de una nueva pista permanecen pendientes de validación.
+
+No se ha acreditado una compra/descarga E2E mediante Webpay ni pruebas de carga o usabilidad con usuarios externos.
 
 ## Documentación
 

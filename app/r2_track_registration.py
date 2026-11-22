@@ -2,7 +2,7 @@ import re
 import secrets
 from pathlib import Path
 
-from django.core.files import File
+from app.r2_preview_storage import upload_r2_preview
 from django.db import transaction
 from mutagen import File as MutagenFile
 
@@ -95,6 +95,8 @@ def register_prepared_r2_track(
     foto=None,
     cover_draft=None,
     stems_draft=None,
+    client=None,
+    bucket=None,
 ):
     """
     Persiste una cancion R2 y su preview ya preparada.
@@ -107,6 +109,11 @@ def register_prepared_r2_track(
     """
 
     metadata = _normalizar_metadata(metadata)
+
+    if client is None or not isinstance(bucket, str) or not bucket.strip():
+        raise R2TrackRegistrationError(
+            "Almacenamiento R2 no disponible."
+        )
 
     if foto is not None:
         if not hasattr(foto, "read") or getattr(foto, "size", 0) > 10 * 1024 * 1024:
@@ -334,7 +341,6 @@ def register_prepared_r2_track(
     nombre_preview = ""
     nombre_foto = ""
     cancion = None
-    almacenamiento = Track._meta.get_field("preview").storage
     almacenamiento_foto = Track._meta.get_field("foto").storage
 
     try:
@@ -385,14 +391,16 @@ def register_prepared_r2_track(
                 + ".mp3"
             )
 
-            with origen.open("rb") as archivo:
-                cancion.preview.save(
-                    nombre_archivo,
-                    File(archivo),
-                    save=False,
-                )
+            nombre_preview = f"previews/{nombre_archivo}"
 
-            nombre_preview = cancion.preview.name
+            upload_r2_preview(
+                client=client,
+                bucket=bucket,
+                preview_path=origen,
+                key=nombre_preview,
+            )
+
+            cancion.preview = nombre_preview
             cancion.save()
             nombre_foto = cancion.foto.name if cancion.foto else ""
 
@@ -435,7 +443,13 @@ def register_prepared_r2_track(
             )
 
             if nombre_preview and estado["track_id"] is None:
-                almacenamiento.delete(nombre_preview)
+                try:
+                    client.delete_object(
+                        Bucket=bucket,
+                        Key=nombre_preview,
+                    )
+                except Exception:
+                    pass
             if nombre_foto and estado["track_id"] is None:
                 almacenamiento_foto.delete(nombre_foto)
 

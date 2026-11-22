@@ -41,3 +41,23 @@ npm run build
 ```
 
 No versionar `.env` ni `.env.qa`; `.env.example` contiene solo claves y valores de ejemplo.
+
+
+## Seguimiento de almacenamiento R2 - 22-11-2026
+
+| Comprobación | Resultado |
+|---|---|
+| Pruebas Django de los cambios de previews | 405/405 aprobadas |
+| Comprobación Django | OK |
+| Cambios pendientes de migración | Ninguno |
+| Build React/Vite | OK |
+| Conexión PostgreSQL de producción | Verificada |
+| Originales existentes en R2 | 3/3 |
+| Recuperación de previews | 3/3 |
+| Auditoría posterior | 3 correctas, 0 pendientes, 0 con problemas |
+| Reproducción con el nuevo despliegue | Pendiente |
+| Subida nueva con persistencia R2 | Pendiente |
+
+Esta validación es independiente del corte original del
+19-11-2026. No acredita una compra Webpay real ni una prueba
+completa de reproducción del código pendiente de publicar.

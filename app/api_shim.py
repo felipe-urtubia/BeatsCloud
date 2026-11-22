@@ -217,7 +217,7 @@ def ser_track(t: Track, comprador=None):
         "nombre_track": t.nombre_track,
         "precio": t.precio,
         "track": None,  # No exponer URL del original.
-        "preview": _media_url(t.preview),      # idem -> /api/track/<id>/preview/
+        "preview": f"/api/track/{t.id_track}/preview/" if t.preview else None,
         "descripcion": t.descripcion,
         "foto": (
             f"/api/track/{t.id_track}/cover/"
@@ -652,6 +652,10 @@ def preview_stream_api(request, track_id):
     track = Track.objects.filter(id_track=track_id).first()
     if track is None or not is_media_ready(track) or not track.preview:
         raise Http404("Este track todavía no tiene una vista previa disponible.")
+    if getattr(track, "storage_backend", "local") == "r2":
+        from app.r2_preview_delivery import r2_preview_response
+        return r2_preview_response(track)
+
     archivo = track.preview.open("rb")
     content_type, _ = mimetypes.guess_type(track.preview.name)
     response = FileResponse(archivo, content_type=content_type or "audio/mpeg")

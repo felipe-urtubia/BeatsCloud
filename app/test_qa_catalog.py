@@ -74,8 +74,13 @@ class QACatalogCommandTests(TestCase):
             self.assertEqual(page.status_code, 200)
             self.assertEqual(page.json()["total_resultados"], 4)
             preview = self.client.get(reverse("api_preview", args=[generated[0].pk]))
-            self.assertEqual(preview.status_code, 200)
-            self.assertTrue(preview["Content-Type"].startswith("audio/"))
+            try:
+                self.assertEqual(preview.status_code, 200)
+                self.assertTrue(preview["Content-Type"].startswith("audio/"))
+            finally:
+                if preview.streaming:
+                    for _ in preview.streaming_content:
+                        pass
 
             before = {
                 track.original_filename: (

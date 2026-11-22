@@ -101,6 +101,7 @@ def complete_r2_track_upload(
             kwargs = {
                 "claim_id": reserva.claim_id, "user_id": user_id,
                 "draft": preparado, "nombre_track": nombre_track,
+                "client": client, "bucket": bucket,
                 "precio": precio, "genero_id": genero_id,
                 "metadata": metadata, "foto": foto,
                 "cover_draft": portada_preparada,

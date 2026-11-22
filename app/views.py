@@ -835,6 +835,10 @@ def reproducir_preview_track(request, track_id):
     if not track.preview:
         raise Http404("Este track todavía no tiene una vista previa disponible.")
 
+    if getattr(track, "storage_backend", "local") == "r2":
+        from app.r2_preview_delivery import r2_preview_response
+        return r2_preview_response(track)
+
     archivo = track.preview.open("rb")
     content_type, _ = mimetypes.guess_type(track.preview.name)
 

@@ -1,6 +1,6 @@
 # Modelo de datos y almacenamiento
 
-**Corte técnico:** 18-11-2026. Descripción derivada del código consolidado localmente en `main`; no acredita servicios cloud externos.
+**Corte técnico inicial:** 18-11-2026. Actualización de almacenamiento R2: 22-11-2026.
 
 ## Entidades principales
 
@@ -18,7 +18,7 @@
 
 ## Migraciones
 
-La secuencia integrada de `app` llega a `0027_track_r2_owner_user_id`. Las migraciones `0023`–`0027` agregan estado y claves R2, claims, nombre original, clave de portada y backfill del propietario R2 desde las claves privadas. En la validación del 18-11-2026 las 27 migraciones de `app` estaban aplicadas en la base aislada de demostración y `makemigrations --check --dry-run` no encontró cambios pendientes. No se aplicaron migraciones a bases preexistentes.
+La secuencia integrada de app incluye la migración 0028_seed_generos_musicales.py. Las migraciones 0023 a 0027 incorporan campos y controles de almacenamiento R2. La migración 0028 incorpora los géneros musicales iniciales. Los cambios de persistencia de previews reutilizan los campos existentes y no requieren una migración nueva.
 
 ## Almacenamiento local
 
@@ -30,7 +30,17 @@ Los modelos usan `FileField`/`ImageField` y el backend de archivos configurado p
 
 Los tracks R2 solo son visibles cuando `media_status=ready`. La entrega privada comprueba sesión y autorización (propietario o comprador según la operación), valida formato de clave privada y existencia del objeto antes de emitir una URL temporal. Las URLs firmadas expiran según el código: 3.600 segundos para subida (`app/r2_presign.py`) y 300 segundos para descarga (`app/r2_private_delivery.py`). Las respuestas privadas no se almacenan en caché. Los puentes de audio limitan la entrega y contemplan solicitudes de rango conforme al código de `app/r2_audio_bridge.py` y `app/r2_private_delivery.py`.
 
-**Límite de evidencia:** las pruebas automatizadas de R2 usan mocks y el `.env` inspeccionado no tenía credenciales/configuración R2 habilitada. No se realizó carga, lectura, borrado ni prueba de URL firmada contra Cloudflare. No se presenta R2 externo como validado.
+### Persistencia de previews R2
+
+- Los originales permanecen privados en sus claves R2.
+- FFmpeg genera una preview MP3 de hasta 30 segundos.
+- La preview se almacena bajo previews/r2-<identificador>.mp3.
+- PostgreSQL conserva la referencia al archivo.
+- Django valida la existencia del objeto antes de emitir una URL GET firmada con vigencia de 600 segundos.
+- El bucket permanece privado.
+- El almacenamiento local conserva su comportamiento.
+
+El 22-11-2026 se verificaron tres originales de producción y se recuperaron sus previews. La auditoría final confirmó tres correctas, cero pendientes y cero con problemas. La reproducción mediante el nuevo código desplegado permanece pendiente.
 
 ## Audio
 

@@ -1,6 +1,11 @@
 # Configuración y preparación de despliegue
 
-Estado: **preparación de código presente; build probado localmente; despliegue externo no ejecutado**. El SHA exacto del snapshot de entrega está en `SOURCE_COMMIT.txt` del repositorio académico. No se verificó el despliegue/publicación en Render o Vercel, DNS, dominio propio, proveedores, backups ni salud operativa. El repositorio sí contiene preparación de configuración para ambas plataformas.
+Estado actualizado al 22-11-2026: Django y PostgreSQL están desplegados en Render; el frontend está disponible en Vercel. Se verificó la conexión con PostgreSQL y la recuperación de tres previews en Cloudflare R2.
+
+- Frontend: https://beats-cloud.vercel.app/
+- Backend: https://beatscloud.onrender.com/
+
+Está pendiente publicar el nuevo código de previews y validar la reproducción en navegador. Las secciones de preparación siguientes conservan las recomendaciones y limitaciones del corte técnico anterior.
 
 ## Topología propuesta
 
@@ -67,3 +72,34 @@ Primero preferir un origen visible único/proxy para `/api` y medios. Si se adop
 ## Verificación y referencias
 
 No hay health endpoint dedicado confirmado. Para QA local se usan `GET /api/session/`, `GET /api/catalogo/` y frontend HTTP, sin inferir salud de DB/servicios externos por un status 200. Fuentes de configuración: `beatcloud/settings.py`, `beatcloud/urls.py`, `app/r2_presign.py`, `app/r2_upload_http.py`, `app/webpay_reconciliation.py`, `frontend/client/src/api/django.service.ts`, `frontend/client/vite.config.ts`.
+
+
+## Actualización de almacenamiento R2 - 22-11-2026
+
+Se identificó que el almacenamiento local de previews en Render
+no garantizaba su persistencia entre despliegues.
+
+La corrección almacena las previews MP3 en Cloudflare R2.
+
+### Recuperación controlada
+
+El comando recuperar_previews_r2 permite auditar registros
+individuales sin modificar datos.
+
+Ejemplo de auditoría:
+
+    python manage.py recuperar_previews_r2 --track-id 1
+
+La escritura requiere --apply y confirmación explícita.
+Solo debe ejecutarse después de verificar el entorno,
+el bucket y los identificadores de las canciones.
+
+FFmpeg debe estar disponible mediante PATH o FFMPEG_PATH.
+
+La recuperación de producción se ejecutó desde un entorno local
+autorizado conectado temporalmente a PostgreSQL de Render.
+
+No se modificaron los audios originales ni se versionaron
+credenciales.
+
+Resultado: tres previews recuperadas y verificadas.

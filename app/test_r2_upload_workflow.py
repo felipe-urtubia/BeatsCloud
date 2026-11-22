@@ -141,6 +141,11 @@ class R2UploadWorkflowTests(TestCase):
             timeout=30,
         )
 
+        self.r2_client = Mock()
+        self.r2_client.head_object.return_value = {
+            "ContentLength": self.preview.stat().st_size,
+        }
+
         self.draft = R2RegistrationDraft(
             owner=self.user.pk,
             pending_key=self.pendiente,
@@ -152,7 +157,7 @@ class R2UploadWorkflowTests(TestCase):
 
     def ejecutar(self, **cambios):
         datos = {
-            "client": object(),
+            "client": self.r2_client,
             "bucket": "beatcloud-media",
             "user_id": self.user.pk,
             "upload_token": self.token,
@@ -188,9 +193,12 @@ class R2UploadWorkflowTests(TestCase):
         self.assertEqual(cancion.r2_object_key, self.privada)
 
         self.assertTrue(
-            cancion.preview.storage.exists(
-                cancion.preview.name
-            )
+            cancion.preview.name.startswith("previews/")
+        )
+        self.r2_client.put_object.assert_called_once()
+        self.r2_client.head_object.assert_called_once_with(
+            Bucket="beatcloud-media",
+            Key=cancion.preview.name,
         )
 
     def test_flujo_completo_registra_portada_r2(self):
