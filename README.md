@@ -85,7 +85,7 @@ El despliegue de BeatsCloud se encuentra disponible en Render y Vercel. Se compr
 
 Los cambios de entrega de previews mediante URL firmada fueron publicados en el commit 7cec7e1 y desplegados en Render. Se verificó la reproducción con y sin sesión, la subida de una nueva pista y una auditoría final de cuatro previews válidas en R2.
 
-No se ha acreditado una compra/descarga E2E mediante Webpay ni pruebas de carga o usabilidad con usuarios externos.
+El 22-11-2026 se verificó el flujo E2E de compra y descarga mediante Webpay TEST, incluyendo pagos aprobados y rechazados, persistencia en PostgreSQL y permisos de acceso al audio original. La suite frontend alcanzó 33 pruebas aprobadas. No se han acreditado cobros reales ni pruebas de carga o usabilidad con usuarios externos.
 
 ## Documentación
 

@@ -3294,7 +3294,7 @@ Todas las respuestas entregaron contenido audio/mpeg.
   - Prioridad: baja.
   - No modificar el flujo funcional de subida.
 
-- [ ] Validar el flujo completo de compra y descarga mediante Webpay TEST.
+- [x] Validar el flujo completo de compra y descarga mediante Webpay TEST.
 
 ---
 
@@ -3312,5 +3312,76 @@ Todas las respuestas entregaron contenido audio/mpeg.
 - Build Vite: correcto (2,99 segundos).
 - Commit: cef7140.
 - Publicación en GitHub y validación en Vercel: correctas.
+
+---
+
+## 22-11-2026 - Validación integral de Webpay y seguridad de audio
+
+**Estado:** IMPLEMENTADO Y VERIFICADO EN AMBIENTE TEST.
+
+### 1. Profesionalización de mensajes
+
+- Eliminación de referencias técnicas a Django en los mensajes visibles revisados.
+- Actualización de textos de pagos, descargas, conexión y subida.
+- 15 archivos actualizados.
+- 36 textos reemplazados.
+- 26 pruebas frontend aprobadas.
+- TypeScript y compilación Vite correctos.
+- Commit: `4d97b99`.
+
+### 2. Sincronización de reproductores
+
+- Corrección de la duración mostrada en el detalle de las canciones.
+- Selección coherente entre preview y audio original.
+- Sincronización del contador y la barra de progreso.
+- Control de saltos de reproducción.
+- Incorporación de siete pruebas automatizadas.
+- Total de pruebas frontend: 33 aprobadas.
+- Validación funcional en navegador: correcta.
+- Commit: `c029e0d`.
+
+### 3. Integración Webpay TEST
+
+- Configuración del ambiente de integración de Transbank.
+- Compra aprobada mediante tarjeta de prueba.
+- Retorno correcto a BeatsCloud.
+- Registro de compra en PostgreSQL.
+- Descarga y reproducción del audio original desde R2.
+- Simulación de un pago rechazado.
+- Mensaje de rechazo mostrado correctamente.
+- Conservación de las compras anteriores.
+
+### 4. Auditoría de PostgreSQL
+
+| Transacción | Pista | Monto CLP | Estado | Compra registrada |
+|---|---|---|---|---|
+| 1 | 5 | 21420 | AUTHORIZED | Sí |
+| 2 | 4 | 21420 | CANCELLED | No |
+
+- Historial de compras: 1 registro.
+- Historial de ventas: 1 registro.
+- Precio base: 18000 CLP.
+- IVA: 3420 CLP.
+- Total autorizado: 21420 CLP.
+- Transacciones archivadas para revisión: 0 de las dos auditadas.
+- Auditoría ejecutada en modo de solo lectura.
+
+### 5. Validación de permisos HTTP
+
+| Acceso | Reproducción original | Descarga original |
+|---|---|---|
+| Visitante anónimo | HTTP 403 | HTTP 403 |
+| Artista sin compra | HTTP 403 | HTTP 403 |
+| Artista comprador | HTTP 200 | HTTP 200 |
+
+### 6. Resultado
+
+- Protección del audio original verificada.
+- Compra y descarga E2E en Webpay TEST verificadas.
+- Pago rechazado sin entrega de producto verificado.
+- Reproducción de previews verificada.
+- Sincronización de reproductores verificada.
+
+**Nota:** Las operaciones corresponden al ambiente de integración de Transbank. No se realizaron cobros reales ni una certificación comercial de Webpay para producción.
 
 ---

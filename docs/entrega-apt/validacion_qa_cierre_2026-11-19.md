@@ -23,7 +23,7 @@ Estos resultados pertenecen a una sola ejecución en el SHA integrado. No son pr
 
 Felipe confirmó que el equipo probó funcionalmente registro/activación, recuperación/cambio de contraseña y eliminación de cuentas con el proveedor de correo configurado. Esta confirmación corresponde al equipo; la ejecución local arriba no envió mensajes externos.
 
-El código integra URL firmada para subida R2, carga directa desde frontend, confirmación/finalización en backend y URL firmada de descarga expirable. No hay evidencia de bucket R2 real, persistencia cloud ni descarga desde infraestructura. Webpay Plus está implementado y tiene pruebas automatizadas con dobles, pero no hay transacción TEST real ni compra/descarga E2E acreditada. Tampoco se acredita despliegue externo, pruebas de usabilidad con usuarios externos ni carga cloud.
+El código integra URL firmada para subida R2, carga directa desde frontend, confirmación/finalización en backend y URL firmada de descarga expirable. En el corte original del 19-11-2026 no se acreditaron pruebas externas contra R2 ni Webpay. Las validaciones posteriores del 22-11-2026 verificaron persistencia R2, despliegue en Render y Vercel, y compra/descarga E2E mediante Webpay TEST. Las pruebas de usabilidad con usuarios externos y carga cloud permanecen sin acreditar.
 
 ## Reproducir suites localmente
 
@@ -59,5 +59,33 @@ No versionar `.env` ni `.env.qa`; `.env.example` contiene solo claves y valores 
 | Subida nueva con persistencia R2 | Verificada |
 
 Esta validación es independiente del corte original del
-19-11-2026. No acredita una compra Webpay real ni una prueba
-de compra y descarga mediante Webpay.
+19-11-2026. No acredita cobros reales ni certificación comercial de Webpay. La compra y descarga E2E en el ambiente TEST fueron verificadas posteriormente el 22-11-2026.
+
+## Actualización QA - 22-11-2026: Webpay TEST y permisos de audio
+
+Validación funcional en Render, Vercel, PostgreSQL y Cloudflare R2.
+
+| Caso de prueba | Resultado |
+|---|---|
+| Webpay TEST: pago aprobado | Correcto |
+| Registro de compra en PostgreSQL | Correcto |
+| Descarga y reproducción del original | Correcto |
+| Webpay TEST: pago rechazado | Correcto |
+| Pago rechazado sin nueva compra | Correcto |
+| Acceso anónimo al original | HTTP 403 |
+| Acceso autenticado sin compra | HTTP 403 |
+| Acceso autenticado con compra | HTTP 200 |
+| Preview y sincronización de reproductores | Correcto |
+| Pruebas automatizadas frontend | 33/33 |
+| TypeScript y build Vite | Correcto |
+
+Commits de referencia:
+
+- `4d97b99`: profesionalización de mensajes visibles.
+- `c029e0d`: sincronización de duración y progreso del audio.
+
+La validación corresponde al ambiente de integración de Transbank,
+sin cobros reales. No acredita certificación comercial LIVE,
+pruebas de carga ni usabilidad con usuarios externos.
+
+Detalle: [Registro histórico de cambios](../../REGISTRO_CAMBIOS_BEATSCLOUD.md).
