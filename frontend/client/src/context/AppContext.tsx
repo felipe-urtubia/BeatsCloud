@@ -413,7 +413,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const status = (e as Error & { status?: number }).status;
       const network = e instanceof TypeError && /fetch|network/i.test(e.message);
-      setBackendError({ phase, type: network ? 'network' : 'api', ...(status ? { status } : {}), message: network ? 'No se pudo conectar con Django.' : 'Django rechazó o no pudo completar la solicitud.' });
+      setBackendError({ phase, type: network ? 'network' : 'api', ...(status ? { status } : {}), message: network ? 'No se pudo conectar con BeatsCloud.' : 'No se pudo completar la solicitud. Inténtalo nuevamente.' });
       setBackendStatus('offline');
       throw e;
     }
@@ -486,17 +486,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPaymentReturnReady(false);
 
     if (pago === 'exito') {
-      setPaymentNotice('Webpay regresó con resultado exitoso. Actualizando tu cuenta con Django...');
+      setPaymentNotice('Webpay informó una operación exitosa. Estamos actualizando tu cuenta...');
       void withSync(loadFromBackend)
         .then(() => {
           setPaymentNotice(
-            'Webpay informó una operación exitosa. Django actualizó tu cuenta; revisa tus compras registradas.'
+            'Webpay informó una operación exitosa. Tu cuenta está actualizada. Consulta tus compras y descargas.'
           );
           setPaymentReturnReady(true);
         })
         .catch(() => {
           setPaymentNotice(
-            'No pudimos actualizar las compras desde Django. Verifica el estado de tu compra antes de intentar pagar otra vez.'
+            'No pudimos actualizar tus compras. Verifica el estado de tu operación antes de intentar pagar nuevamente.'
           );
           setPaymentReturnReady(false);
         });
@@ -780,7 +780,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (modeRef.current !== 'hybrid') {
       return {
         status: 'error',
-        message: 'El pago Webpay requiere el modo hybrid conectado a Django.',
+        message: 'El servicio de pagos no está disponible en este momento.',
       };
     }
 
@@ -796,7 +796,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     if (!selected || !Number.isSafeInteger(selected.id) || selected.id <= 0) {
-      throw new Error('Selecciona un genero valido de Django.');
+      throw new Error('Selecciona un género musical válido.');
     }
 
     return String(selected.id);
@@ -855,7 +855,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const generoId = Number(getDjangoGenreId(data.genre));
       if (!Number.isInteger(generoId) || generoId <= 0) {
-        throw new Error('No se pudo identificar el género musical en Django.');
+        throw new Error('No se pudo identificar el género musical seleccionado.');
       }
 
       // 1. Solicitar una URL firmada para subir el audio directamente a R2.
@@ -1503,7 +1503,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await DjangoApi.downloadPreview(djangoId(track.id), track.title.replace(/[\s/]/g, '_'));
       return;
     }
-    throw new Error('Las descargas de audio requieren el backend Django conectado.');
+    throw new Error('Las descargas requieren conexión con BeatsCloud.');
   };
 
   const getContractForPurchase = (purchase: PurchaseRecord): LicenseContract => {

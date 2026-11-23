@@ -17,11 +17,11 @@ test('successful initialization submits the server URL and token, without claimi
 test('initialization errors are returned as errors and do not submit to Webpay', async () => {
   let submitted = false;
   const result = await startWebpayCheckout(
-    async () => { throw new Error('Django no pudo iniciar Webpay.'); },
+    async () => { throw new Error('No se pudo iniciar el proceso de pago.'); },
     () => { submitted = true; },
   );
 
-  assert.deepEqual(result, { status: 'error', message: 'Django no pudo iniciar Webpay.' });
+  assert.deepEqual(result, { status: 'error', message: 'No se pudo iniciar el proceso de pago.' });
   assert.equal(submitted, false);
 });
 

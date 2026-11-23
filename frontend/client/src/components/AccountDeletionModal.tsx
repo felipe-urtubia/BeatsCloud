@@ -57,7 +57,7 @@ export const AccountDeletionModal: React.FC<AccountDeletionModalProps> = ({ isOp
           </button>
         </div>
         <p className="mb-4 text-sm text-zinc-300">
-          Esta acción es permanente. Django conservará anonimizados los registros necesarios para compras anteriores.
+          Esta acción es permanente. Se conservarán de forma anonimizada los registros necesarios de compras anteriores.
         </p>
         <form onSubmit={verificationStarted ? handleConfirm : handleStart} className="space-y-3">
           {!verificationStarted ? (

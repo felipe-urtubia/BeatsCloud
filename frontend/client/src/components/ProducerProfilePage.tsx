@@ -474,7 +474,7 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
 
                     {!isOwner && configuredMode === 'hybrid' && !isSubscribed && (
                       <p className="text-center text-xs text-zinc-400">
-                        La contratación de suscripciones aún se realiza desde Django.
+                        La contratación de suscripciones aún no está disponible desde esta sección.
                       </p>
                     )}
                     {!isOwner && (

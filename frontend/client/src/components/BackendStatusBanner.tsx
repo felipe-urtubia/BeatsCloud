@@ -19,7 +19,7 @@ export const BackendStatusBanner: React.FC = () => {
     return (
       <div role="status" className={`${base} border-sky-400/20 bg-sky-400/10 text-sky-200`}>
         <LoaderCircle className="h-4 w-4 animate-spin" />
-        Django está comprobando la conexión y sincronizando los datos…
+        Sincronizando información…
       </div>
     );
   }

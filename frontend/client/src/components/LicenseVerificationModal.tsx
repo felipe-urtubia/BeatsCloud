@@ -36,7 +36,7 @@ export const LicenseVerificationModal: React.FC<LicenseVerificationModalProps> =
             <h3 id="purchase-record-title" className="font-mono text-base font-black uppercase tracking-tight text-white">
               Comprobantes de compra
             </h3>
-            <p className="text-xs text-zinc-400">Consulta los datos guardados por Django en tu biblioteca.</p>
+            <p className="text-xs text-zinc-400">Consulta los datos registrados en tu biblioteca.</p>
           </div>
         </div>
         <div className="flex items-start gap-3 rounded-2xl border border-[#232a40] bg-[#121520] p-4 text-xs leading-relaxed text-zinc-300">

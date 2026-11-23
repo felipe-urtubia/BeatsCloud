@@ -187,7 +187,7 @@ export function mapLicense(d: DLicense): import('../types').LicenseContract {
     licenseType: d.amount_clp === 0 ? 'maqueta_ensayo' : 'comercial_wav_stems',
     musicRightsSplit: { producerPercent: 0, artistPercent: 0, scdRegistered: false },
     distributionTerms: {
-      streamsLimit: 'No especificado por Django',
+      streamsLimit: 'No especificado',
       musicVideoMonetized: false,
       radioBroadcasting: false,
       livePerformancesForProfit: false,

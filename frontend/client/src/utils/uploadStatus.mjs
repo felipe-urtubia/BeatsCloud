@@ -14,8 +14,8 @@ export function uploadStatusReducer(state, action) {
 }
 
 export function getUploadStatusLabel(status, configuredMode) {
-  if (status === 'error') return configuredMode === 'hybrid' ? 'La subida a Django falló' : 'No se pudo crear el track de demostración';
-  if (status === 'uploading') return configuredMode === 'hybrid' ? 'Subiendo a Django y esperando confirmación' : 'Creando track en el entorno de demostración…';
-  if (status === 'complete') return configuredMode === 'hybrid' ? 'Subida completada y confirmada por Django' : 'Track creado en el entorno de demostración';
+  if (status === 'error') return configuredMode === 'hybrid' ? 'No se pudo completar la subida' : 'No se pudo crear el track de demostración';
+  if (status === 'uploading') return configuredMode === 'hybrid' ? 'Subiendo archivo y verificando su publicación…' : 'Creando track en el entorno de demostración…';
+  if (status === 'complete') return configuredMode === 'hybrid' ? 'Subida completada correctamente' : 'Track creado en el entorno de demostración';
   return configuredMode === 'hybrid' ? 'Archivo pendiente de subida' : 'Track pendiente de creación en el entorno de demostración';
 }

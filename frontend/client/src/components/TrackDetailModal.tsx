@@ -74,7 +74,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
     if (!trackId?.startsWith('dj-') || configuredMode !== 'hybrid') return;
     setCommentsError(null);
     refreshTrackComments(trackId).catch(() =>
-      setCommentsError('No se pudieron cargar los comentarios de Django.'),
+      setCommentsError('No se pudieron cargar los comentarios.'),
     );
     // Load once per opened track; context updates must not restart the request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,7 +110,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
   const handleDownloadFree = async () => {
     setDownloadError(null);
     if (configuredMode !== 'hybrid' || !track.id.startsWith('dj-')) {
-      setDownloadError('Las descargas de audio requieren el backend Django conectado.');
+      setDownloadError('Las descargas requieren conexión con BeatsCloud.');
       return;
     }
     try {
@@ -127,7 +127,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
   const handleDownload = async () => {
     setDownloadError(null);
     if (configuredMode !== 'hybrid' || !track.id.startsWith('dj-')) {
-      setDownloadError('Las descargas de audio requieren el backend Django conectado.');
+      setDownloadError('Las descargas requieren conexión con BeatsCloud.');
       return;
     }
     try {
@@ -338,7 +338,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   <div className="flex items-center gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                     <span>
-                      <strong>Compra registrada:</strong> Django autoriza la descarga del archivo disponible para esta pista.
+                      <strong>Compra registrada:</strong> Ya puedes descargar el archivo disponible para esta pista.
                     </span>
                   </div>
                   <button

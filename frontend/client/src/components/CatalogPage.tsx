@@ -106,7 +106,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const handleDownloadFree = async (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
     if (configuredMode !== 'hybrid' || !track.id.startsWith('dj-')) {
-      window.alert('Las descargas de audio requieren el backend Django conectado.');
+      window.alert('Las descargas requieren conexión con BeatsCloud.');
       return;
     }
     try {

@@ -84,7 +84,7 @@ export const CartPage: React.FC<CartPageProps> = ({
           ) ||
           response.subtotal + response.iva !== response.total
         ) {
-          throw new Error('Django devolvi? totales no v?lidos.');
+          throw new Error('No se pudieron verificar los montos de la compra.');
         }
 
         setServerTotals({
@@ -135,7 +135,7 @@ export const CartPage: React.FC<CartPageProps> = ({
 
     if (configuredMode === 'hybrid' && !verifiedTotals) {
       setTotalsIssue(
-        'Debes verificar los totales de Django antes de continuar.'
+        'Debes verificar los montos de tu compra antes de continuar.'
       );
       return;
     }
@@ -195,7 +195,7 @@ export const CartPage: React.FC<CartPageProps> = ({
       }
 
       setCheckoutNotice(
-        'Continuando hacia Webpay. Django confirmará el resultado al recibir y validar el retorno de Transbank.',
+        'Redirigiendo a Webpay. Confirmaremos el resultado de tu pago al finalizar la operación.',
       );
       // Keep the action disabled while the browser posts to Webpay.
       return;
@@ -215,7 +215,7 @@ export const CartPage: React.FC<CartPageProps> = ({
             <span>CARRITO DE COMPRAS</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Django confirma el pago después de validar el retorno de Transbank.
+            El pago se confirma después de verificar la operación con Transbank.
           </p>
         </div>
 
@@ -237,7 +237,7 @@ export const CartPage: React.FC<CartPageProps> = ({
         >
           <p>
             {totalsIssue ??
-              'Verificando subtotal, IVA y total oficiales con Django...'}
+              'Verificando los montos de tu compra...'}
           </p>
           <button
             type="button"
@@ -444,7 +444,7 @@ export const CartPage: React.FC<CartPageProps> = ({
             </div>
 
             <p className="text-xs text-zinc-400">
-              Django verifica el monto definitivo al iniciar la orden.
+              El monto definitivo se verifica al iniciar la orden.
               La compra solo se registra tras validar el pago con Webpay.
             </p>
 

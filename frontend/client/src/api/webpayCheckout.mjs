@@ -12,7 +12,7 @@ export async function startWebpayCheckout(initialize, submit) {
         typeof response?.token_ws !== 'string' || !response.token_ws) {
       return {
         status: 'error',
-        message: 'Django no devolvió los datos necesarios para abrir Webpay.',
+        message: 'No se pudo iniciar el proceso de pago con Webpay.',
       };
     }
 

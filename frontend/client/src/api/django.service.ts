@@ -105,7 +105,7 @@ async function parse(res: Response): Promise<any> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = res.status === 403 && isHtml
-      ? 'Django rechazó la solicitud por CSRF. Reinicia Django y verifica que el origen donde abriste React esté en DJANGO_CSRF_TRUSTED_ORIGINS.'
+      ? 'No pudimos validar la seguridad de tu sesión. Recarga la página e inténtalo nuevamente.'
       : data.detail || data.message || `Error ${res.status}: ${res.statusText}`;
     const err = new Error(message) as Error & {
       status?: number;

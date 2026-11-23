@@ -223,7 +223,7 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
       configuredMode === 'hybrid' &&
       !genreOptions.some((g) => g.descripcion === genre)
     ) {
-      setUploadError('Selecciona un genero disponible en Django.');
+      setUploadError('Selecciona un género musical disponible.');
       dispatchUploadStatus({ type: 'fail' });
       return;
     }
