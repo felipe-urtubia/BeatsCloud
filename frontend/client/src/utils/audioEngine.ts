@@ -26,6 +26,7 @@ class BeatsAudioEngine {
   private onPlayStateChangeCallback: ((playing: boolean) => void) | null = null;
   private currentTime: number = 0;
   private duration: number = 180;
+  private pendingSeek: number | null = null;
   private activeTrackId: string | null = null;
 
   private initContext() {
@@ -98,6 +99,8 @@ class BeatsAudioEngine {
       this.duration = duration;
       this.currentTime = 0;
       this.currentStep = 0;
+      this.pendingSeek = null;
+      this.onTimeUpdateCallback?.(0, this.duration);
     }
 
     this.isPlaying = true;
@@ -164,6 +167,7 @@ class BeatsAudioEngine {
   /** Asigna la URL del archivo real (preview o full según seguridad server-side). */
   public setAudioSource(url: string | null) {
     if (this.audioUrl === url) return;
+    this.pendingSeek = null;
     this.audioUrl = url;
     if (this.audioEl) {
       if (url) {
@@ -187,7 +191,15 @@ class BeatsAudioEngine {
     el.addEventListener('loadedmetadata', () => {
       if (Number.isFinite(el.duration) && el.duration > 0) {
         this.duration = el.duration;
-        this.onTimeUpdateCallback?.(this.currentTime, this.duration);
+
+        if (this.pendingSeek !== null) {
+          const target = this.pendingSeek;
+          this.pendingSeek = null;
+          this.seek(target);
+        } else {
+          this.currentTime = el.currentTime;
+          this.onTimeUpdateCallback?.(this.currentTime, this.duration);
+        }
       }
     });
     el.addEventListener('timeupdate', () => {
@@ -241,6 +253,7 @@ class BeatsAudioEngine {
     }
 
     this.activeTrackId = null;
+    this.pendingSeek = null;
     this.currentTime = 0;
     this.duration = 0;
     this.currentStep = 0;
@@ -251,9 +264,22 @@ class BeatsAudioEngine {
   }
 
   public seek(seconds: number) {
+    if (!Number.isFinite(seconds)) return;
+
     this.currentTime = Math.max(0, Math.min(this.duration, seconds));
-    if (this.mode === 'file' && this.audioEl && Number.isFinite(this.audioEl.duration)) {
-      this.audioEl.currentTime = this.currentTime;
+
+    if (this.mode === 'file' && this.audioEl) {
+      if (
+        this.audioEl.readyState >= 1 &&
+        Number.isFinite(this.audioEl.duration) &&
+        this.audioEl.duration > 0
+      ) {
+        this.pendingSeek = null;
+        this.currentTime = Math.min(this.currentTime, this.audioEl.duration);
+        this.audioEl.currentTime = this.currentTime;
+      } else {
+        this.pendingSeek = this.currentTime;
+      }
     }
     if (this.onTimeUpdateCallback) {
       this.onTimeUpdateCallback(this.currentTime, this.duration);

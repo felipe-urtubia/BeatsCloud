@@ -44,6 +44,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
     tracks,
     users,
     playTrack,
+    getTrackPlaybackDuration,
     activeTrack,
     isPlaying,
     currentTime,
@@ -86,7 +87,18 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
   if (!track) return null;
 
   const producer = users.find((u) => u.id === track.producerId);
-  const isThisPlaying = isPlaying && activeTrack?.id === track.id;
+  const isThisTrack = activeTrack?.id === track.id;
+  const isThisPlaying = isPlaying && isThisTrack;
+
+  const playbackDuration =
+    isThisTrack && Number.isFinite(duration) && duration > 0
+      ? duration
+      : getTrackPlaybackDuration(track);
+
+  const playbackTime =
+    isThisTrack && Number.isFinite(currentTime)
+      ? Math.max(0, Math.min(currentTime, playbackDuration))
+      : 0;
   const isLiked = currentUser?.likedTrackIds.includes(track.id);
   const isPurchased = currentUser?.purchasedTrackIds.includes(track.id);
   // Regla de negocio "Punto Medio": un beat de pago puede ofrecer la maqueta
@@ -368,13 +380,13 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                 {isThisPlaying ? 'Reproduciendo vista previa en vivo' : 'Haz clic para escuchar'}
               </span>
               <span>
-                {formatTime(isThisPlaying ? currentTime : 0)} / {formatTime(track.duration)}
+                {formatTime(playbackTime)} / {formatTime(playbackDuration)}
               </span>
             </div>
 
             <div className="flex items-center gap-1 h-12 bg-black/50 rounded-xl px-4 border border-[#1f2538]">
               {Array.from({ length: 48 }).map((_, i) => {
-                const isActive = isThisPlaying && (currentTime / (track.duration || 180)) * 48 > i;
+                const isActive = isThisTrack && playbackDuration > 0 && (playbackTime / playbackDuration) * 48 > i;
                 const dynamicHeight = isThisPlaying
                   ? Math.sin(currentTime * 3 + i * 0.4) * 35 + 45
                   : Math.sin(i * 0.5) * 20 + 35;
@@ -383,8 +395,9 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   <button
                     key={i}
                     onClick={() => {
+                      if (playbackDuration <= 0) return;
                       if (!isThisPlaying) playTrack(track);
-                      seekAudio((i / 48) * (track.duration || 180));
+                      seekAudio((i / 48) * playbackDuration);
                     }}
                     className="flex-1 h-full flex items-center justify-center focus:outline-none group py-1"
                     title={`Ir al ${Math.round((i / 48) * 100)}%`}

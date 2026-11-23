@@ -46,6 +46,8 @@ export type ApiMode = 'mock' | 'hybrid';
 const CONFIGURED_MODE: ApiMode =
   ((import.meta.env.VITE_API_MODE as string | undefined) || 'hybrid') === 'mock' ? 'mock' : 'hybrid';
 
+import { resolveTrackPlayback } from '../utils/playbackDuration.mjs';
+
 // Extensión interna del Track para URLs de audio real (la inyecta mappers.mapTrack)
 type TrackWithSrc = Track & { previewSrc?: string; fullSrc?: string; downloadSrc?: string; playbackAuthorized?: boolean };
 
@@ -69,6 +71,7 @@ interface AppContextType {
   activeResourceFilter: ResourceType | 'all';
   setActiveResourceFilter: (filter: ResourceType | 'all') => void;
   playTrack: (track: Track) => void;
+  getTrackPlaybackDuration: (track: Track) => number;
   togglePlay: () => void;
   closeAudioPlayer: () => void;
   seekAudio: (seconds: number) => void;
@@ -588,28 +591,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   }, []);
 
+  const resolvePlayback = (track: Track) =>
+    resolveTrackPlayback(
+      track as TrackWithSrc,
+      modeRef.current,
+      Boolean(currentUser?.purchasedTrackIds.includes(track.id))
+    );
+
+  const getTrackPlaybackDuration = (track: Track) =>
+    resolvePlayback(track).duration;
+
   const playTrack = (track: Track) => {
+    const playback = resolvePlayback(track);
     // En modo real, el <audio> apunta al archivo auténtico de Django:
     // reproducir completo solo si es gratis/dueño/comprado (la guarda vive
     // server-side en /api/track/<id>/reproducir/); si no, suena el preview 30s.
     if (modeRef.current === 'hybrid') {
-      const t = track as TrackWithSrc;
-      const hasFullAccess = Boolean(
-        t.playbackAuthorized || currentUser?.purchasedTrackIds.includes(track.id)
-      );
-      const src = hasFullAccess && t.fullSrc ? t.fullSrc : t.previewSrc ?? null;
-      audioEngine.setAudioSource(src);
+      audioEngine.setAudioSource(playback.src);
     }
 
     if (activeTrack?.id === track.id) {
       if (isPlaying) {
         audioEngine.pause();
       } else {
-        audioEngine.playTrack(track.id, track.audioBeatType, track.bpm, track.duration);
+        audioEngine.playTrack(track.id, track.audioBeatType, track.bpm, playback.duration);
       }
     } else {
       setActiveTrack(track);
-      audioEngine.playTrack(track.id, track.audioBeatType, track.bpm, track.duration);
+      audioEngine.playTrack(track.id, track.audioBeatType, track.bpm, playback.duration);
     }
   };
 
@@ -631,13 +640,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isPlaying) {
       audioEngine.pause();
     } else {
-      audioEngine.playTrack(activeTrack.id, activeTrack.audioBeatType, activeTrack.bpm, activeTrack.duration);
+      audioEngine.playTrack(activeTrack.id, activeTrack.audioBeatType, activeTrack.bpm, getTrackPlaybackDuration(activeTrack));
     }
   };
 
   const seekAudio = (seconds: number) => {
     audioEngine.seek(seconds);
-    setCurrentTime(seconds);
   };
 
   const setAudioVolume = (vol: number) => {
@@ -1652,6 +1660,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeResourceFilter,
         setActiveResourceFilter,
         playTrack,
+        getTrackPlaybackDuration,
         togglePlay,
         closeAudioPlayer,
         seekAudio,
