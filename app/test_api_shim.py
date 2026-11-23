@@ -191,6 +191,7 @@ class ApiShimSecurityTests(TestCase):
         self.assertEqual(user_data["email"], "")
         self.assertNotIn("liked_track_ids", user_data)
         self.assertNotIn("subscription_ids", user_data)
+        self.assertNotIn("subscription_periods", user_data)
 
     def test_session_contains_own_likes_and_subscriptions(self):
         subscription = Suscripcion.objects.create(
@@ -198,8 +199,21 @@ class ApiShimSecurityTests(TestCase):
             precio=5000,
             user=self.profile,
         )
+        from django.utils import timezone
+        from .models import WebpayTransaction
+
         self.profile.tracks_gustados.add(self.track)
         self.profile.sus.add(subscription)
+
+        WebpayTransaction.objects.create(
+            user=self.user,
+            suscripcion=subscription,
+            buy_order="session-membership-test",
+            session_id=self.user.username,
+            amount=subscription.precio,
+            status=WebpayTransaction.ESTADO_AUTORIZADO,
+            fulfilled_at=timezone.now(),
+        )
         self.client.force_login(self.user)
 
         response = self.client.get("/api/session/")
@@ -207,6 +221,11 @@ class ApiShimSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["liked_track_ids"], [self.track.pk])
         self.assertEqual(response.json()["subscription_ids"], [subscription.pk])
+        self.assertTrue(
+            response.json()["subscription_periods"][
+                str(subscription.pk)
+            ]["active"]
+        )
 
     def test_upload_api_persists_track_for_catalog_and_producer_profile(self):
         producer = User.objects.create_user(username="producer", password="test-password")
@@ -397,6 +416,9 @@ class ApiShimSecurityTests(TestCase):
         self.assertFalse(Comentario.objects.filter(pk=comment.pk).exists())
 
     def test_subscription_directory_includes_public_producer(self):
+        self.profile.tipo_usu = Usuario.PRODUCTOR
+        self.profile.save(update_fields=["tipo_usu"])
+
         Suscripcion.objects.create(
             detalle="Plan productor",
             precio=5000,

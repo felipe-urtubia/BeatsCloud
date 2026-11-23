@@ -172,25 +172,30 @@ def ser_user_public(u: User):
 
 
 def ser_user_private(u: User):
+    from .subscription_membership import subscription_periods
+
     data = _ser_user_base(u, include_email=True)
     perfil = Usuario.objects.filter(user=u).first()
     if perfil is None:
         data["liked_track_ids"] = []
         data["subscription_ids"] = []
+        data["subscription_periods"] = {}
         return data
 
     data["liked_track_ids"] = list(
         perfil.tracks_gustados.values_list("id_track", flat=True)
     )
-    subscription_ids = set(perfil.sus.values_list("id_sus", flat=True))
-    subscription_ids.update(
-        WebpayTransaction.objects.filter(
-            user=u,
-            status=WebpayTransaction.ESTADO_AUTORIZADO,
-            suscripcion__isnull=False,
-        ).values_list("suscripcion_id", flat=True)
+    periods = subscription_periods(u.pk)
+
+    data["subscription_ids"] = sorted(
+        plan_id
+        for plan_id, period in periods.items()
+        if period["active"]
     )
-    data["subscription_ids"] = sorted(subscription_ids)
+    data["subscription_periods"] = {
+        str(plan_id): period
+        for plan_id, period in periods.items()
+    }
     return data
 
 
@@ -833,11 +838,9 @@ def pago_init_api(request):
             return _err("Plan de suscripción no encontrado.", 404)
         if suscripcion.user.user_id == request.user.id:
             return _err("No puedes contratar tu propio plan.", 400)
-        if WebpayTransaction.objects.filter(
-            user=request.user,
-            suscripcion=suscripcion,
-            status=WebpayTransaction.ESTADO_AUTORIZADO,
-        ).exists():
+        from .subscription_membership import has_active_subscription
+
+        if has_active_subscription(request.user.pk, suscripcion.pk):
             return _err("Ya tienes una membresía activa para este plan.", 409)
         amount = int(round(float(suscripcion.precio)))
         return_view = "exito"
@@ -1590,50 +1593,126 @@ def perfil_publico_api(request, username):
     return JsonResponse(data)
 
 
+def ser_subscription_plan(plan):
+    return {
+        "id_sus": plan.id_sus,
+        "detalle": plan.detalle,
+        "precio": plan.precio,
+        "descripcion": plan.descripcion,
+        "beneficios": plan.beneficios,
+        "activo": plan.activo,
+        "duracion_cantidad": plan.duracion_cantidad,
+        "duracion_unidad": plan.duracion_unidad,
+        "user": ser_user_public(plan.user.user),
+    }
+
+
 def suscripciones_api(request):
+    from django.db.models import Q
+    from .subscription_plans import validate_subscription_plan
+    from .subscription_membership import subscription_periods
+
     if request.method == "POST":
         if not request.user.is_authenticated:
             return _err("Autenticación requerida.", 401)
+
         perfil = Usuario.objects.filter(user=request.user).first()
+
         if perfil is None or perfil.tipo_usu != Usuario.PRODUCTOR:
             return _err("Solo los productores pueden crear planes.", 403)
-        body = _json_body(request)
-        detalle = str(body.get("detalle", "")).strip()
+
         try:
-            precio = int(body.get("precio", 0))
-        except (TypeError, ValueError):
-            return _err("El precio debe ser un número entero.", 400)
-        if not detalle or len(detalle) > 200 or precio <= 0:
-            return _err("Ingresa un nombre de hasta 200 caracteres y un precio mayor a cero.", 400)
-        suscripcion = Suscripcion.objects.create(detalle=detalle, precio=precio, user=perfil)
+            valores = validate_subscription_plan(_json_body(request))
+        except ValueError as error:
+            return _err(str(error), 400)
+
+        plan = Suscripcion.objects.create(user=perfil, **valores)
+
         return JsonResponse(
-            {
-                "id_sus": suscripcion.id_sus,
-                "detalle": suscripcion.detalle,
-                "precio": suscripcion.precio,
-                "user": ser_user_public(request.user),
-            },
+            ser_subscription_plan(plan),
             status=201,
         )
+
     if request.method != "GET":
         return _method_not_allowed(["GET", "POST"])
-    qs = Suscripcion.objects.select_related("user__user").all()
+
+    visibles = Q(
+        activo=True,
+        user__tipo_usu=Usuario.PRODUCTOR,
+        user__user__is_active=True,
+    )
+
+    if request.user.is_authenticated:
+        visibles |= Q(user__user=request.user)
+        visibles |= Q(
+            pk__in=list(subscription_periods(request.user.pk))
+        )
+
+    qs = (
+        Suscripcion.objects
+        .select_related("user__user")
+        .filter(visibles)
+        .order_by("-id_sus")
+    )
+
     uid = request.GET.get("user")
+
     if uid:
+        if not uid.isascii() or not uid.isdigit() or len(uid) > 10:
+            return _err("Productor no válido.", 400)
+
+        uid = int(uid)
+
+        if not 1 <= uid <= 2147483647:
+            return _err("Productor no válido.", 400)
+
         qs = qs.filter(user_id=uid)
+
     return JsonResponse(
-        [
-            {
-                "id_sus": s.id_sus,
-                "detalle": s.detalle,
-                "precio": s.precio,
-                "user": ser_user_public(s.user.user),
-            }
-            for s in qs
-        ],
+        [ser_subscription_plan(plan) for plan in qs],
         safe=False,
     )
 
+
+def suscripcion_detalle_api(request, suscripcion_id):
+    from django.db import transaction
+    from .subscription_plans import validate_subscription_plan
+
+    if request.method != "PATCH":
+        return _method_not_allowed(["PATCH"])
+
+    if not request.user.is_authenticated:
+        return _err("Autenticación requerida.", 401)
+
+    perfil = Usuario.objects.filter(user=request.user).first()
+
+    if perfil is None or perfil.tipo_usu != Usuario.PRODUCTOR:
+        return _err("Solo los productores pueden editar planes.", 403)
+
+    with transaction.atomic():
+        plan = (
+            Suscripcion.objects.select_for_update()
+            .filter(pk=suscripcion_id, user=perfil)
+            .first()
+        )
+
+        if plan is None:
+            return _err("Plan de suscripción no encontrado.", 404)
+
+        try:
+            valores = validate_subscription_plan(
+                _json_body(request),
+                partial=True,
+            )
+        except ValueError as error:
+            return _err(str(error), 400)
+
+        for campo, valor in valores.items():
+            setattr(plan, campo, valor)
+
+        plan.save(update_fields=list(valores))
+
+    return JsonResponse(ser_subscription_plan(plan))
 
 # --------------------------------------------------------------------------
 # URLs — se agregan al urlpatterns de app/urls.py con UNA sola línea
@@ -1678,6 +1757,11 @@ urlpatterns = [
     path("api/like/<int:track_id>/", like_toggle_api, name="api_like"),
     path("api/perfil/<str:username>/", perfil_publico_api, name="api_profile"),
     path("api/suscripciones/", suscripciones_api, name="api_suscripciones"),
+    path(
+        "api/suscripciones/<int:suscripcion_id>/",
+        suscripcion_detalle_api,
+        name="api_suscripcion_detalle",
+    ),
 ]
 
 

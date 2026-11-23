@@ -31,6 +31,7 @@ export interface DUser {
   liked_track_ids?: number[];
   /** Solo en sesión propia; no se exponen las relaciones privadas en el directorio público. */
   subscription_ids?: number[];
+  subscription_periods?: Record<string, DSubscriptionPeriod>;
 }
 
 /** app.models.Genero_Musical — 9 choices declarados */
@@ -134,10 +135,37 @@ export interface DPagoInit {
 }
 
 /** app.models.Suscripcion */
-export interface DSuscripcion {
-  id_sus: number;
+export interface DSubscriptionPeriod {
+  starts_at: string;
+  expires_at: string;
+  active: boolean;
+  duration_count: number;
+  duration_unit: 'dias' | 'meses' | 'anios';
+  contract?: {
+    detalle: string;
+    descripcion: string;
+    beneficios: string[];
+    precio: number;
+  } | null;
+  amount_clp?: string;
+}
+
+export interface DSubscriptionPlanInput {
   detalle: string;
   precio: number;
+  descripcion?: string;
+  beneficios?: string[];
+  activo?: boolean;
+  duracion_cantidad?: number;
+  duracion_unidad?: 'meses' | 'anios';
+}
+
+export type DSubscriptionPlanDetails = Omit<
+  DSubscriptionPlanInput, 'detalle' | 'precio'
+>;
+
+export interface DSuscripcion extends DSubscriptionPlanInput {
+  id_sus: number;
   user: DUser;
 }
 

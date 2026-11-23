@@ -1,3 +1,4 @@
+import type { DSubscriptionPlanInput, DSubscriptionPlanDetails } from '../api/types';
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   User,
@@ -123,7 +124,15 @@ interface AppContextType {
   >;
   updateProfile: (data: ProfileUpdate) => Promise<void>;
   subscribeToProducer: (sub: ProducerSubscription) => boolean;
-  createSubscription: (title: string, price: number) => Promise<void>;
+  createSubscription: (
+    title: string,
+    price: number,
+    details?: DSubscriptionPlanDetails,
+  ) => Promise<void>;
+  updateSubscription: (
+    subscriptionId: string,
+    data: Partial<DSubscriptionPlanInput>,
+  ) => Promise<void>;
   purchaseSubscription: (subscription: ProducerSubscription) => Promise<WebpayCheckoutResult>;
   // ---- Integración backend (Sprint 1, modo hybrid) ----
   apiMode: ApiMode;            // modo efectivo; hybrid no cambia automáticamente a mock
@@ -1492,12 +1501,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const createSubscription = async (title: string, price: number) => {
+  const createSubscription = async (
+    title: string,
+    price: number,
+    details: DSubscriptionPlanDetails = {},
+  ) => {
     if (modeRef.current === 'hybrid') {
-      const created = await withSync(() => DjangoApi.crearSuscripcion(title, price));
+      const created = await withSync(() =>
+        DjangoApi.crearSuscripcion(title, price, details)
+      );
       setSubscriptions((prev) => [...prev, mapSubscription(created)]);
       return;
     }
+  };
+
+  const updateSubscription = async (
+    subscriptionId: string,
+    data: Partial<DSubscriptionPlanInput>,
+  ) => {
+    if (modeRef.current !== 'hybrid') {
+      throw new Error('La edicion requiere conexion con BeatsCloud.');
+    }
+
+    const id = Number(subscriptionId.replace(/^sus-/, ''));
+
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error('Plan no valido.');
+    }
+
+    const updated = await withSync(() =>
+      DjangoApi.editarSuscripcion(id, data)
+    );
+
+    const plan = mapSubscription(updated);
+
+    setSubscriptions((prev) =>
+      prev.map((item) => item.id === plan.id ? plan : item)
+    );
   };
 
   const purchaseSubscription = (subscription: ProducerSubscription) =>
@@ -1688,6 +1728,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProfile,
         subscribeToProducer,
         createSubscription,
+        updateSubscription,
         purchaseSubscription,
         apiMode,
         configuredMode: CONFIGURED_MODE,

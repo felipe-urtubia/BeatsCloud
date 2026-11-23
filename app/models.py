@@ -32,6 +32,18 @@ class Suscripcion(models.Model):
     detalle = models.CharField(max_length=200)
     precio = models.IntegerField()
     user = models.ForeignKey(Usuario, on_delete=models.PROTECT)
+    descripcion = models.TextField(max_length=1000, blank=True, default="")
+    beneficios = models.JSONField(default=list, blank=True)
+    activo = models.BooleanField(default=True)
+    duracion_cantidad = models.PositiveSmallIntegerField(default=1)
+    duracion_unidad = models.CharField(
+        max_length=10,
+        choices=[
+            ("meses", "Meses"),
+            ("anios", "Anios"),
+        ],
+        default="meses",
+    )
     def __str__(self):
         return self.detalle
     
@@ -225,6 +237,20 @@ class WebpayTransaction(models.Model):
 
     # Pedido original asociado a la transaccion.
     cart_snapshot = models.JSONField(default=list, blank=True)
+    suscripcion_snapshot = models.JSONField(default=dict, blank=True)
+
+    suscripcion_duracion_cantidad = models.PositiveSmallIntegerField(
+        default=30
+    )
+    suscripcion_duracion_unidad = models.CharField(
+        max_length=10,
+        default="dias",
+        choices=[
+            ("dias", "Dias"),
+            ("meses", "Meses"),
+            ("anios", "Anios"),
+        ],
+    )
 
     # Fecha en que se completo el registro de la compra.
     fulfilled_at = models.DateTimeField(null=True, blank=True)

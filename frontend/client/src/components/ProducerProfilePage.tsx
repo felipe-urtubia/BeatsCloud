@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { User, Track } from '../types';
+import { User, Track, ProducerSubscription } from '../types';
 import { ProfileEditForm } from './ProfileEditForm';
 import {
   Play,
@@ -47,6 +47,7 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
     updateProfile,
     configuredMode,
     createSubscription,
+    updateSubscription,
     purchaseSubscription,
   } = useApp();
 
@@ -55,6 +56,12 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
   const [subSuccess, setSubSuccess] = useState<string | null>(null);
   const [newPlanTitle, setNewPlanTitle] = useState('');
   const [newPlanPrice, setNewPlanPrice] = useState('');
+  const [newPlanDescription, setNewPlanDescription] = useState('');
+  const [newPlanBenefits, setNewPlanBenefits] = useState('');
+  const [newPlanDuration, setNewPlanDuration] = useState('1');
+  const [newPlanUnit, setNewPlanUnit] = useState<'meses' | 'anios'>('meses');
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [planNotice, setPlanNotice] = useState<string | null>(null);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [isProcessingSubscription, setIsProcessingSubscription] = useState(false);
@@ -81,7 +88,17 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
     setIsEditingBio(false);
   };
 
-  const handleSubscribe = async (sub: any) => {
+  const handleSubscribe = async (sub: ProducerSubscription) => {
+    if (!currentUser || currentUser.role !== 'artista') {
+      setSubscriptionError('Inicia sesión como artista para contratar un plan.');
+      return;
+    }
+
+    if (sub.active === false) {
+      setSubscriptionError('Este plan ya no está disponible.');
+      return;
+    }
+
     setSubscriptionError(null);
     if (configuredMode === 'hybrid') {
       if (isProcessingSubscription) return;
@@ -113,25 +130,130 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
     }
   };
 
+  const resetPlanForm = () => {
+    setEditingPlanId(null);
+    setNewPlanTitle('');
+    setNewPlanPrice('');
+    setNewPlanDescription('');
+    setNewPlanBenefits('');
+    setNewPlanDuration('1');
+    setNewPlanUnit('meses');
+  };
+
+  const handleEditPlan = (sub: ProducerSubscription) => {
+    setEditingPlanId(sub.id);
+    setNewPlanTitle(sub.title);
+    setNewPlanPrice(String(sub.price));
+    setNewPlanDescription(sub.description ?? '');
+    setNewPlanBenefits(sub.benefits.join('\n'));
+    setNewPlanDuration(String(sub.durationCount ?? 1));
+    setNewPlanUnit(sub.durationUnit ?? 'meses');
+    setSubscriptionError(null);
+    setPlanNotice(null);
+
+    document.getElementById('subscription-plan-form')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const handleCreatePlan = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (isSavingPlan || !isOwner || currentUser?.role !== 'productor') return;
+
     const price = Number(newPlanPrice);
-    if (!newPlanTitle.trim() || !Number.isInteger(price) || price <= 0) {
-      setSubscriptionError('Ingresa un nombre y un precio válido mayor a cero.');
+    const duration = Number(newPlanDuration);
+    const benefits = newPlanBenefits
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (!newPlanTitle.trim() || !Number.isInteger(price) || price < 1 || price > 99999999) {
+      setSubscriptionError('Ingresa un nombre y un precio válido en CLP.');
       return;
     }
+
+    const maxDuration = newPlanUnit === 'meses' ? 12 : 5;
+
+    if (!Number.isInteger(duration) || duration < 1 || duration > maxDuration) {
+      setSubscriptionError('Selecciona una duración válida.');
+      return;
+    }
+
+    if (benefits.length > 10 || benefits.some((item) => item.length > 200)) {
+      setSubscriptionError('Agrega hasta 10 beneficios de máximo 200 caracteres cada uno.');
+      return;
+    }
+
     setIsSavingPlan(true);
     setSubscriptionError(null);
+    setPlanNotice(null);
+
+    const details = {
+      descripcion: newPlanDescription.trim(),
+      beneficios: benefits,
+      duracion_cantidad: duration,
+      duracion_unidad: newPlanUnit,
+    };
+
     try {
-      await createSubscription(newPlanTitle.trim(), price);
-      setNewPlanTitle('');
-      setNewPlanPrice('');
+      if (editingPlanId) {
+        await updateSubscription(editingPlanId, {
+          detalle: newPlanTitle.trim(),
+          precio: price,
+          ...details,
+        });
+
+        setPlanNotice('Plan actualizado correctamente.');
+      } else {
+        await createSubscription(newPlanTitle.trim(), price, details);
+        setPlanNotice('Plan publicado correctamente.');
+      }
+
+      resetPlanForm();
     } catch (error) {
-      setSubscriptionError((error as Error).message);
+      setSubscriptionError(
+        error instanceof Error ? error.message : 'No se pudo guardar el plan.'
+      );
     } finally {
       setIsSavingPlan(false);
     }
   };
+
+  const handleTogglePlan = async (sub: ProducerSubscription) => {
+    if (isSavingPlan || !isOwner || currentUser?.role !== 'productor') return;
+
+    const nextActive = sub.active === false;
+
+    setIsSavingPlan(true);
+    setSubscriptionError(null);
+    setPlanNotice(null);
+
+    try {
+      await updateSubscription(sub.id, { activo: nextActive });
+
+      setPlanNotice(nextActive
+        ? 'Plan reactivado correctamente.'
+        : 'Plan desactivado. Las membresías vigentes conservarán su duración.');
+    } catch (error) {
+      setSubscriptionError(
+        error instanceof Error ? error.message : 'No se pudo actualizar el plan.'
+      );
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
+
+  const durationLabel = (count: number, unit: string) => {
+    const label = unit === 'anios'
+      ? (count === 1 ? 'año' : 'años')
+      : unit === 'dias'
+        ? (count === 1 ? 'día' : 'días')
+        : (count === 1 ? 'mes' : 'meses');
+
+    return `${count} ${label}`;
+  };
+
+  const planFieldClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white';
 
   return (
     <div className="pb-32">
@@ -406,94 +528,257 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
         {/* Tab 2: Subscriptions */}
         {activeTab === 'suscripciones' && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {isOwner && configuredMode === 'hybrid' && (
-              <form onSubmit={handleCreatePlan} className="col-span-full rounded-2xl border border-zinc-800 bg-[#14151f] p-5 space-y-3">
-                <h3 className="text-sm font-bold text-white">Crear plan de suscripción</h3>
-                <div className="grid gap-3 sm:grid-cols-[1fr_180px_auto]">
-                  <input
-                    value={newPlanTitle}
-                    onChange={(event) => setNewPlanTitle(event.target.value)}
-                    maxLength={200}
-                    placeholder="Nombre del plan"
-                    aria-label="Nombre del plan"
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+            {isOwner && configuredMode === 'hybrid' && currentUser?.role === 'productor' && (
+              <form
+                id="subscription-plan-form"
+                onSubmit={handleCreatePlan}
+                className="col-span-full rounded-2xl border border-zinc-800 bg-[#14151f] p-6 space-y-4"
+              >
+                <h3 className="text-lg font-bold text-white">
+                  {editingPlanId ? 'Editar plan de suscripción' : 'Crear plan de suscripción'}
+                </h3>
+
+                <p className="text-xs text-zinc-400">
+                  Define tus servicios, beneficios y duración. El precio corresponde al período completo.
+                </p>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-2 text-xs text-zinc-300">
+                    <span>Nombre del plan</span>
+                    <input
+                      required
+                      value={newPlanTitle}
+                      onChange={(e) => setNewPlanTitle(e.target.value)}
+                      maxLength={200}
+                      placeholder="Producción musical VIP"
+                      className={planFieldClass}
+                    />
+                  </label>
+
+                  <label className="space-y-2 text-xs text-zinc-300">
+                    <span>Precio total (CLP)</span>
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      max="99999999"
+                      step="1"
+                      value={newPlanPrice}
+                      onChange={(e) => setNewPlanPrice(e.target.value)}
+                      placeholder="45000"
+                      className={planFieldClass}
+                    />
+                  </label>
+
+                  <label className="space-y-2 text-xs text-zinc-300">
+                    <span>Unidad de duración</span>
+                    <select
+                      value={newPlanUnit}
+                      onChange={(e) => {
+                        setNewPlanUnit(e.target.value as 'meses' | 'anios');
+                        setNewPlanDuration('1');
+                      }}
+                      className={planFieldClass}
+                    >
+                      <option value="meses">Meses</option>
+                      <option value="anios">Años</option>
+                    </select>
+                  </label>
+
+                  <label className="space-y-2 text-xs text-zinc-300">
+                    <span>Cantidad</span>
+                    <select
+                      value={newPlanDuration}
+                      onChange={(e) => setNewPlanDuration(e.target.value)}
+                      className={planFieldClass}
+                    >
+                      {Array.from(
+                        { length: newPlanUnit === 'meses' ? 12 : 5 },
+                        (_, i) => i + 1
+                      ).map((count) => (
+                        <option key={count} value={count}>
+                          {durationLabel(count, newPlanUnit)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <label className="block space-y-2 text-xs text-zinc-300">
+                  <span>Descripción del servicio</span>
+                  <textarea
+                    value={newPlanDescription}
+                    onChange={(e) => setNewPlanDescription(e.target.value)}
+                    maxLength={1000}
+                    rows={3}
+                    placeholder="Describe el servicio que ofrecerás al artista..."
+                    className={planFieldClass}
                   />
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={newPlanPrice}
-                    onChange={(event) => setNewPlanPrice(event.target.value)}
-                    placeholder="Precio en CLP"
-                    aria-label="Precio en CLP"
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                </label>
+
+                <label className="block space-y-2 text-xs text-zinc-300">
+                  <span>Beneficios incluidos (uno por línea, máximo 10)</span>
+                  <textarea
+                    value={newPlanBenefits}
+                    onChange={(e) => setNewPlanBenefits(e.target.value)}
+                    rows={4}
+                    placeholder={'Mezcla profesional\nMasterización\nAsesoría musical'}
+                    className={planFieldClass}
                   />
-                  <button disabled={isSavingPlan} className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-black text-zinc-950 disabled:opacity-50">
-                    {isSavingPlan ? 'Guardando…' : 'Publicar plan'}
+                </label>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    disabled={isSavingPlan}
+                    className="rounded-xl bg-amber-400 px-5 py-3 text-xs font-black text-zinc-950 disabled:opacity-50"
+                  >
+                    {isSavingPlan ? 'Guardando...' : editingPlanId ? 'Guardar cambios' : 'Publicar plan'}
                   </button>
+
+                  {editingPlanId && (
+                    <button
+                      type="button"
+                      onClick={resetPlanForm}
+                      disabled={isSavingPlan}
+                      className="rounded-xl bg-zinc-800 px-5 py-3 text-xs text-white"
+                    >
+                      Cancelar edición
+                    </button>
+                  )}
                 </div>
               </form>
             )}
+
             {subscriptionError && (
-              <p role="alert" className="col-span-full text-xs text-rose-400">{subscriptionError}</p>
+              <p role="alert" className="col-span-full rounded-xl bg-rose-500/10 p-3 text-sm text-rose-400">
+                {subscriptionError}
+              </p>
             )}
+
+            {planNotice && (
+              <p role="status" className="col-span-full rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-400">
+                {planNotice}
+              </p>
+            )}
+
             {producerSubscriptions.length === 0 ? (
               <div className="col-span-full bg-[#14151f] border border-zinc-800 rounded-2xl p-10 text-center text-sm text-zinc-400">
-                Este productor no tiene planes de suscripción activos actualmente.
+                Este productor no tiene planes de suscripción disponibles.
               </div>
             ) : (
               producerSubscriptions.map((sub) => {
-                const isSubscribed = currentUser?.subscriptions?.includes(sub.id);
+                const membership = currentUser?.subscriptionPeriods?.[sub.id];
+                const isSubscribed = membership
+                  ? membership.active && Date.parse(membership.expires_at) > Date.now()
+                  : Boolean(currentUser?.subscriptions?.includes(sub.id));
+
+                const planActive = sub.active !== false;
+                const count = sub.durationCount ?? 1;
+                const unit = sub.durationUnit ?? (sub.period === 'anual' ? 'anios' : 'meses');
+                const canPurchase = currentUser?.role === 'artista' && planActive;
 
                 return (
                   <div
                     key={sub.id}
-                    className="bg-[#14151f] border border-amber-400/20 rounded-3xl p-6 sm:p-8 flex flex-col justify-between"
+                    className="bg-[#14151f] border border-amber-400/20 rounded-3xl p-6 sm:p-8 flex flex-col justify-between gap-4"
                   >
                     <div>
-                      <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">
-                        Plan de Creador
-                      </span>
-                      <h3 className="text-2xl font-black text-white mt-1 mb-2">{sub.title}</h3>
-                      <div className="text-3xl font-black text-amber-400 mb-6">
-                        ${sub.price.toLocaleString('es-CL')}{' '}
-                        {sub.period && (
-                          <span className="text-xs font-normal text-zinc-400">/ {sub.period}</span>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-bold uppercase text-amber-400">
+                          Plan de Creador
+                        </span>
+                        {!planActive && (
+                          <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-400">
+                            Desactivado
+                          </span>
                         )}
                       </div>
 
-                      <ul className="space-y-3 text-xs sm:text-sm text-zinc-300 mb-6">
-                        {sub.benefits.map((b, idx) => (
-                          <li key={idx} className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                            <span>{b}</span>
+                      <h3 className="text-2xl font-black text-white mt-2 mb-2">
+                        {sub.title}
+                      </h3>
+
+                      <div className="text-3xl font-black text-amber-400">
+                        ${sub.price.toLocaleString('es-CL')} CLP
+                      </div>
+
+                      <p className="text-sm text-zinc-400 mt-1 mb-4">
+                        Pago único por {durationLabel(count, unit)}
+                      </p>
+
+                      {sub.description && (
+                        <p className="text-sm text-zinc-300 whitespace-pre-wrap mb-5 break-words">
+                          {sub.description}
+                        </p>
+                      )}
+
+                      <ul className="space-y-3 text-sm text-zinc-300">
+                        {sub.benefits.map((benefit, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <CheckCircle className="w-4 h-4 mt-0.5 text-amber-400 flex-shrink-0" />
+                            <span className="break-words min-w-0">{benefit}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
 
-                    {!isOwner && configuredMode === 'hybrid' && !isSubscribed && (
-                      <p className="text-center text-xs text-zinc-400">
-                        La contratación de suscripciones aún no está disponible desde esta sección.
-                      </p>
+                    {membership && (
+                      <div className="rounded-xl bg-zinc-900 p-4 text-xs text-zinc-300 space-y-2">
+                        <p className={isSubscribed ? 'font-bold text-emerald-400' : 'font-bold text-amber-400'}>
+                          {isSubscribed ? 'Tu membresía está activa' : 'Tu membresía ha vencido'}
+                        </p>
+                        <p>Duración contratada: {durationLabel(membership.duration_count, membership.duration_unit)}</p>
+                        <p>Inicio: {new Date(membership.starts_at).toLocaleDateString('es-CL')}</p>
+                        <p>Vencimiento: {new Date(membership.expires_at).toLocaleDateString('es-CL')}</p>
+                      </div>
                     )}
+
+                    {isOwner && configuredMode === 'hybrid' && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditPlan(sub)}
+                          disabled={isSavingPlan}
+                          className="rounded-xl bg-zinc-800 py-3 text-xs font-bold text-white"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleTogglePlan(sub)}
+                          disabled={isSavingPlan}
+                          className="rounded-xl border border-zinc-700 py-3 text-xs font-bold text-amber-400"
+                        >
+                          {planActive ? 'Desactivar' : 'Reactivar'}
+                        </button>
+                      </div>
+                    )}
+
                     {!isOwner && (
                       <button
+                        type="button"
                         onClick={() => void handleSubscribe(sub)}
-                        disabled={isSubscribed || isProcessingSubscription}
-                        className={`w-full py-3 rounded-xl text-xs font-black transition-all ${
+                        disabled={!canPurchase || isSubscribed || isProcessingSubscription}
+                        className={`w-full py-3 rounded-xl text-xs font-black transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                           isSubscribed
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-md shadow-amber-400/20'
+                            : 'bg-amber-400 hover:bg-amber-300 text-zinc-950'
                         }`}
                       >
                         {isSubscribed
-                          ? '✓ Membresía Activa'
-                          : isProcessingSubscription
-                          ? 'Conectando con Webpay...'
-                          : subSuccess === sub.id
-                          ? '¡Suscrito con Éxito!'
-                          : 'Suscribirse al Productor'}
+                          ? 'Membresía activa'
+                          : !planActive
+                            ? 'Plan no disponible'
+                            : currentUser?.role !== 'artista'
+                              ? 'Disponible para artistas'
+                              : isProcessingSubscription
+                                ? 'Conectando con Webpay...'
+                                : subSuccess === sub.id
+                                  ? 'Suscripción completada'
+                                  : membership
+                                    ? 'Renovar membresía'
+                                    : 'Contratar servicio'}
                       </button>
                     )}
                   </div>

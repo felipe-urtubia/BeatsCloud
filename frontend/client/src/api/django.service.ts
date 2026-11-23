@@ -1,3 +1,4 @@
+import type { DSubscriptionPlanInput, DSubscriptionPlanDetails } from './types';
 /**
  * django.service.ts — Cliente tipado de la API JSON del backend Django (api_shim.py).
  *
@@ -405,11 +406,26 @@ export const DjangoApi = {
         ...(subscriptionId === undefined ? {} : { body: JSON.stringify({ subscription_id: subscriptionId }) }),
       }),
     ),
-  crearSuscripcion: (detalle: string, precio: number) =>
+  crearSuscripcion: (
+    detalle: string,
+    precio: number,
+    details: DSubscriptionPlanDetails = {},
+  ) =>
     ensureCsrf().then(() =>
       request<DSuscripcion>('/api/suscripciones/', {
         method: 'POST',
-        body: JSON.stringify({ detalle, precio }),
+        body: JSON.stringify({ detalle, precio, ...details }),
+      }),
+    ),
+
+  editarSuscripcion: (
+    id: number,
+    data: Partial<DSubscriptionPlanInput>,
+  ) =>
+    ensureCsrf().then(() =>
+      request<DSuscripcion>(`/api/suscripciones/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
       }),
     ),
   cancelPago: (transactionId: number) =>

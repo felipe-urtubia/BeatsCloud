@@ -3,7 +3,9 @@ import secrets
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from .models import HistorialCompra, Usuario, WebpayTransaction
+from .models import HistorialCompra, Suscripcion, Usuario, WebpayTransaction
+from .subscription_membership import has_active_subscription
+from .subscription_plans import validate_plan_duration
 
 
 class PaymentStartBlocked(Exception):
@@ -71,6 +73,57 @@ def create_pending_webpay_order(
         )
 
         if suscripcion is not None:
+            perfil = Usuario.objects.filter(user_id=user.pk).first()
+
+            if perfil is None or perfil.tipo_usu != Usuario.ARTISTA:
+                raise PaymentStartBlocked(
+                    "Solo los artistas pueden contratar membresías."
+                )
+
+            suscripcion = (
+                Suscripcion.objects.select_for_update()
+                .filter(pk=suscripcion.pk)
+                .first()
+            )
+
+            if suscripcion is None or not suscripcion.activo:
+                raise PaymentStartBlocked(
+                    "Este plan ya no está disponible."
+                )
+
+            if not suscripcion.user.user.is_active:
+                raise PaymentStartBlocked(
+                    "Este productor ya no está disponible."
+                )
+
+            if suscripcion.user.user_id == user.pk:
+                raise PaymentStartBlocked(
+                    "No puedes contratar tu propio plan."
+                )
+
+            if suscripcion.user.tipo_usu != Usuario.PRODUCTOR:
+                raise PaymentStartBlocked(
+                    "El plan no pertenece a un productor habilitado."
+                )
+
+            if suscripcion.precio <= 0 or amount != suscripcion.precio:
+                raise PaymentStartBlocked(
+                    "El precio del plan no es válido."
+                )
+
+            try:
+                validate_plan_duration(
+                    suscripcion.duracion_cantidad,
+                    suscripcion.duracion_unidad,
+                )
+            except ValueError as error:
+                raise PaymentStartBlocked(str(error))
+
+            if has_active_subscription(user.pk, suscripcion.pk):
+                raise PaymentStartBlocked(
+                    "Ya tienes una membresía activa para este plan."
+                )
+
             if sin_entrega.filter(
                 suscripcion_id=suscripcion.pk
             ).exists():
@@ -111,4 +164,19 @@ def create_pending_webpay_order(
             amount=amount,
             suscripcion=suscripcion,
             cart_snapshot=snapshot,
+            suscripcion_snapshot=(
+                {
+                    "detalle": suscripcion.detalle,
+                    "descripcion": suscripcion.descripcion,
+                    "beneficios": suscripcion.beneficios,
+                    "precio": suscripcion.precio,
+                }
+                if suscripcion else {}
+            ),
+            suscripcion_duracion_cantidad=(
+                suscripcion.duracion_cantidad if suscripcion else 30
+            ),
+            suscripcion_duracion_unidad=(
+                suscripcion.duracion_unidad if suscripcion else "dias"
+            ),
         )

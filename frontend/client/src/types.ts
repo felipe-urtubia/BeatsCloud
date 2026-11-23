@@ -13,6 +13,20 @@ export interface User {
   youtube?: string;
   instagram?: string;
   subscriptions?: string[]; // IDs de productores a los que se está suscrito
+  subscriptionPeriods?: Record<string, {
+    starts_at: string;
+    expires_at: string;
+    active: boolean;
+    duration_count: number;
+    duration_unit: 'dias' | 'meses' | 'anios';
+    contract?: {
+      detalle: string;
+      descripcion: string;
+      beneficios: string[];
+      precio: number;
+    } | null;
+    amount_clp?: string;
+  }>;
   purchasedTrackIds: string[];
   likedTrackIds: string[];
   hasProfile?: boolean;
@@ -88,6 +102,10 @@ export interface ProducerSubscription {
   title: string;
   price: number;
   period?: 'mensual' | 'anual';
+  description?: string;
+  active?: boolean;
+  durationCount?: number;
+  durationUnit?: 'meses' | 'anios';
   benefits: string[];
 }
 

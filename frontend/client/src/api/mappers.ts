@@ -57,6 +57,11 @@ export function mapUser(d: DUser): User {
     youtube: d.youtube ?? undefined,
     instagram: d.instagram ?? undefined,
     subscriptions: (d.subscription_ids ?? []).map((id) => `sus-${id}`),
+    subscriptionPeriods: Object.fromEntries(
+      Object.entries(d.subscription_periods ?? {}).map(
+        ([id, period]) => [`sus-${id}`, period]
+      )
+    ),
     purchasedTrackIds: [],   // se hidratan con tracks_comprados del catálogo
     likedTrackIds: (d.liked_track_ids ?? []).map(slug),
   };
@@ -159,7 +164,11 @@ export function mapSubscription(d: DSuscripcion): ProducerSubscription {
     producerId: String(d.user.id),
     title: d.detalle,
     price: d.precio,
-    benefits: [],
+    description: d.descripcion ?? '',
+    benefits: d.beneficios ?? [],
+    active: d.activo ?? true,
+    durationCount: d.duracion_cantidad ?? 1,
+    durationUnit: d.duracion_unidad ?? 'meses',
   };
 }
 

@@ -66,9 +66,33 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     ? purchases.filter((purchase) => purchase.userId === targetUser.id)
     : [];
   const likedTracks = tracks.filter((t) => targetUser.likedTrackIds.includes(t.id));
-  const activeSubs = isOwner
-    ? subscriptions.filter((s) => targetUser.subscriptions?.includes(s.id))
-    : [];
+  const membershipIds = isOwner ? Array.from(new Set([
+    ...Object.keys(currentUser?.subscriptionPeriods ?? {}),
+    ...(currentUser?.subscriptions ?? []),
+  ])) : [];
+
+  const membershipRows = membershipIds.map((id) => {
+    const sub = subscriptions.find((item) => item.id === id);
+    const period = currentUser?.subscriptionPeriods?.[id];
+
+    const active = period
+      ? period.active && Date.parse(period.expires_at) > Date.now()
+      : Boolean(currentUser?.subscriptions?.includes(id));
+
+    return { id, sub, period, active };
+  }).filter((item) => item.sub || item.period);
+
+  const activeSubs = membershipRows.filter((item) => item.active);
+
+  const durationLabel = (count: number, unit: string) => {
+    const label = unit === 'anios'
+      ? (count === 1 ? 'año' : 'años')
+      : unit === 'dias'
+        ? (count === 1 ? 'día' : 'días')
+        : (count === 1 ? 'mes' : 'meses');
+
+    return `${count} ${label}`;
+  };
 
   const handleSaveProfile = async (data: Parameters<typeof updateProfile>[0]) => {
     await updateProfile(data);
@@ -390,32 +414,110 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
         )}
 
         {/* Tab 3: Subscriptions */}
-        {activeTab === 'membresias' && (
-          <div className="mt-6 space-y-3">
-            {activeSubs.length === 0 ? (
-              <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-8 text-center text-xs text-zinc-400">
-                No tienes suscripciones activas a productores.
+        {activeTab === 'membresias' && isOwner && (
+          <div className="mt-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">
+              Mis membresías
+            </h3>
+
+            <p className="text-xs text-zinc-400">
+              Consulta tus servicios contratados, condiciones y fechas de vencimiento.
+            </p>
+
+            {membershipRows.length === 0 ? (
+              <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-8 text-center text-sm text-zinc-400">
+                Todavía no tienes membresías contratadas.
               </div>
             ) : (
-              activeSubs.map((sub) => (
-                <div
-                  key={sub.id}
-                  className="bg-[#0e111a] border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between gap-4"
-                >
-                  <div>
-                    <span className="text-[9px] font-mono font-black uppercase text-emerald-400">
-                      Membresía Activa
-                    </span>
-                    <h4 className="text-base font-black text-white">{sub.title}</h4>
-                    <p className="text-xs text-zinc-400 font-mono">
-                      ${sub.price.toLocaleString('es-CL')} CLP / {sub.period}
+              membershipRows.map(({ id, sub, period, active }) => {
+                const contract = period?.contract;
+                const producer = users.find((u) => u.id === sub?.producerId);
+                const amount = period?.amount_clp !== undefined
+                  ? Number(period.amount_clp)
+                  : !period ? sub?.price : undefined;
+
+                return (
+                  <div key={id} className="bg-[#0e111a] border border-zinc-800 rounded-2xl p-5 space-y-4">
+                    <div className="flex flex-wrap justify-between gap-3">
+                      <div>
+                        <h4 className="text-lg font-black text-white">
+                          {contract?.detalle ?? sub?.title ?? 'Servicio contratado'}
+                        </h4>
+
+                        <p className="text-xs text-zinc-400">
+                          Productor: {producer?.artistName ?? 'No disponible'}
+                        </p>
+                      </div>
+
+                      <span className={`h-fit rounded-full px-3 py-1 text-xs font-bold ${
+                        active
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {active ? 'Vigente' : 'Vencida'}
+                      </span>
+                    </div>
+
+                    {amount !== undefined && Number.isFinite(amount) && (
+                      <p className="text-2xl font-black text-amber-400">
+                        ${amount.toLocaleString('es-CL')} CLP
+                      </p>
+                    )}
+
+                    {period && (
+                      <div className="grid gap-3 rounded-xl bg-zinc-900 p-4 text-sm text-zinc-300 sm:grid-cols-3">
+                        <div>
+                          <p className="text-xs text-zinc-500">Duración contratada</p>
+                          {durationLabel(period.duration_count, period.duration_unit)}
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-zinc-500">Fecha de inicio</p>
+                          {new Date(period.starts_at).toLocaleDateString('es-CL')}
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-zinc-500">Fecha de vencimiento</p>
+                          {new Date(period.expires_at).toLocaleDateString('es-CL')}
+                        </div>
+                      </div>
+                    )}
+
+                    {contract ? (
+                      <div className="space-y-3">
+                        {contract.descripcion && (
+                          <p className="text-sm text-zinc-300 whitespace-pre-wrap break-words">
+                            {contract.descripcion}
+                          </p>
+                        )}
+
+                        {contract.beneficios.map((benefit, index) => (
+                          <div key={index} className="flex items-start gap-2 text-sm text-zinc-300">
+                            <CheckCircle className="h-4 w-4 mt-0.5 shrink-0 text-emerald-400" />
+                            <span className="break-words min-w-0">{benefit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : period && (
+                      <p className="text-xs text-zinc-500">
+                        Los detalles originales de esta contratación anterior no están disponibles.
+                      </p>
+                    )}
+
+                    {!active && (
+                      <p className="text-xs text-zinc-400">
+                        {sub?.active === false
+                          ? 'El productor ha desactivado este plan.'
+                          : 'Puedes renovar tu membresía desde el perfil del productor si el plan continúa disponible.'}
+                      </p>
+                    )}
+
+                    <p className="text-xs text-zinc-500">
+                      No se realizan cobros automáticos.
                     </p>
                   </div>
-                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg text-xs font-bold">
-                    ✓ Activa
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

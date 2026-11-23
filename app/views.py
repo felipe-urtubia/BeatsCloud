@@ -491,7 +491,17 @@ def _ejecutar_eliminacion_cuenta(request, usuario):
 
                 suscripcion.user = perfil_anonimo
                 suscripcion.detalle = 'Suscripción de usuario eliminado'
-                suscripcion.save(update_fields=['user', 'detalle'])
+                suscripcion.descripcion = ""
+                suscripcion.beneficios = []
+                suscripcion.activo = False
+
+                suscripcion.save(update_fields=[
+                    "user",
+                    "detalle",
+                    "descripcion",
+                    "beneficios",
+                    "activo",
+                ])
             else:
                 suscripcion.delete()
 
@@ -1085,7 +1095,10 @@ def perfil_productor1(request, username):
     usuario = get_object_or_404(User, username=username)
     perfil = get_object_or_404(Usuario, user=usuario)
     canciones = only_ready_tracks(Track.objects.filter(usuario=perfil))
-    suscripcion = Suscripcion.objects.filter(user=perfil).first()
+    suscripcion = Suscripcion.objects.filter(
+        user=perfil,
+        activo=True,
+    ).first()
     context = {
         'perfil': perfil,
         'canciones': canciones,
@@ -2130,36 +2143,75 @@ def catalogo_usuarios(request):
 
     return render(request, 'app/catalogo_usuarios.html', context)
 
+@login_required
 def ingresar_suscripcion_view(request):
-    if request.method == 'POST':
-        detalle = request.POST.get('detalle')
-        precio = request.POST.get('precio')
-        user = request.user.usuario
+    from django.http import HttpResponseForbidden, HttpResponseBadRequest
+    from django.http import HttpResponseNotAllowed
+    from .subscription_plans import validate_subscription_plan
 
-        # Crear una nueva instancia de Suscripcion
-        suscripcion = Suscripcion(detalle=detalle, precio=precio, user=user)
-        suscripcion.save()
+    perfil = Usuario.objects.filter(user=request.user).first()
 
-        return redirect('perfil_productor')
+    if perfil is None or perfil.tipo_usu != Usuario.PRODUCTOR:
+        return HttpResponseForbidden(
+            "Solo los productores pueden crear planes."
+        )
 
-    return render(request, 'app/ingresar_suscripcion.html')
+    if request.method == "POST":
+        try:
+            valores = validate_subscription_plan({
+                "detalle": request.POST.get("detalle"),
+                "precio": request.POST.get("precio"),
+            })
+        except ValueError as error:
+            return HttpResponseBadRequest(str(error))
+
+        Suscripcion.objects.create(user=perfil, **valores)
+
+        return redirect("perfil_productor")
+
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET", "POST"])
+
+    return render(request, "app/ingresar_suscripcion.html")
+
 
 @login_required
 def realizar_pago(request, suscripcion_id):
-    suscripcion = get_object_or_404(Suscripcion, id_sus=suscripcion_id)
+    from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 
-    # Si esta cuenta ya compró esta misma suscripción y el pago fue
-    # autorizado por Webpay, no permitimos volver a cobrarla.
-    ya_suscrito = WebpayTransaction.objects.filter(
-        user=request.user,
-        suscripcion=suscripcion,
-        status=WebpayTransaction.ESTADO_AUTORIZADO,
-    ).exists()
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
+
+    perfil = Usuario.objects.filter(user=request.user).first()
+
+    if perfil is None or perfil.tipo_usu != Usuario.ARTISTA:
+        return HttpResponseForbidden(
+            "Solo los artistas pueden contratar membresías."
+        )
+
+    suscripcion = get_object_or_404(
+        Suscripcion,
+        id_sus=suscripcion_id,
+        activo=True,
+        user__tipo_usu=Usuario.PRODUCTOR,
+        user__user__is_active=True,
+    )
+
+    if suscripcion.user.user_id == request.user.id:
+        return HttpResponseForbidden(
+            "No puedes contratar tu propio plan."
+        )
+
+    from .subscription_membership import has_active_subscription
+
+    ya_suscrito = has_active_subscription(
+        request.user.pk, suscripcion.pk
+    )
 
     if ya_suscrito:
         messages.info(
             request,
-            'Ya compraste esta suscripción anteriormente.'
+            'Ya tienes una membresía activa para este plan.'
         )
         return redirect(
             'perfil_productor1',

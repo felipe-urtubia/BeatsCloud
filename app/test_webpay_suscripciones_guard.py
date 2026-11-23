@@ -134,3 +134,92 @@ class WebpaySuscripcionesGuardTests(TestCase):
 
         self.orden.refresh_from_db()
         self.assertIsNotNone(self.orden.fulfilled_at)
+
+    def iniciar_api(self):
+        from django.test import RequestFactory
+        from .api_shim import pago_init_api
+
+        request = RequestFactory().post(
+            "/api/pago/init/",
+            {"subscription_id": self.plan.pk},
+            content_type="application/json",
+        )
+        request.user = self.comprador
+
+        return pago_init_api(request)
+
+    def confirmar_orden(self, antiguedad=0):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        self.orden.status = WebpayTransaction.ESTADO_AUTORIZADO
+        self.orden.fulfilled_at = (
+            timezone.now() - timedelta(days=antiguedad)
+        )
+
+        self.orden.save(
+            update_fields=["status", "fulfilled_at"]
+        )
+
+    def test_membresia_activa_bloquea_nuevo_pago(self):
+        self.confirmar_orden()
+
+        with patch("app.api_shim._webpay_tx") as tx:
+            respuesta = self.iniciar_api()
+            tx.assert_not_called()
+
+        self.assertEqual(respuesta.status_code, 409)
+
+    def test_membresia_vencida_permite_renovar(self):
+        self.confirmar_orden(antiguedad=31)
+
+        with patch("app.api_shim._webpay_tx") as tx:
+            tx.return_value.create.return_value = {
+                "url": "https://example.test/webpay",
+                "token": "token-renovacion-test",
+            }
+
+            respuesta = self.iniciar_api()
+
+            self.assertEqual(respuesta.status_code, 200)
+            tx.return_value.create.assert_called_once()
+
+        self.assertEqual(
+            WebpayTransaction.objects.filter(
+                user=self.comprador,
+                suscripcion=self.plan,
+            ).count(),
+            2,
+        )
+
+        with patch("app.api_shim._webpay_tx") as tx:
+            respuesta = self.iniciar_api()
+            tx.assert_not_called()
+
+        self.assertEqual(respuesta.status_code, 409)
+
+    def test_autorizada_sin_entrega_bloquea_renovacion(self):
+        self.orden.status = WebpayTransaction.ESTADO_AUTORIZADO
+        self.orden.save(update_fields=["status"])
+
+        with patch("app.api_shim._webpay_tx") as tx:
+            respuesta = self.iniciar_api()
+            tx.assert_not_called()
+
+        self.assertEqual(respuesta.status_code, 409)
+
+    def test_retorno_repetido_no_extiende_vigencia(self):
+        self.retorno(self.autorizacion())
+
+        self.orden.refresh_from_db()
+        fecha_original = self.orden.fulfilled_at
+
+        self.assertIsNotNone(fecha_original)
+
+        self.retorno(self.autorizacion())
+        self.orden.refresh_from_db()
+
+        self.assertEqual(
+            self.orden.fulfilled_at,
+            fecha_original,
+        )
