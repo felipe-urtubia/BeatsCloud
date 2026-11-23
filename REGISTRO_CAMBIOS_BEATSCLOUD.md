@@ -3385,3 +3385,47 @@ Todas las respuestas entregaron contenido audio/mpeg.
 **Nota:** Las operaciones corresponden al ambiente de integración de Transbank. No se realizaron cobros reales ni una certificación comercial de Webpay para producción.
 
 ---
+
+## Validación de suscripciones personalizadas - 23-11-2026
+
+**Commit implementado:** `5cb3ad9`
+
+### Funcionalidades implementadas
+
+- Creación de planes por productores.
+- Configuración de precios, descripciones y beneficios.
+- Contratos de 1 a 12 meses o de 1 a 5 años.
+- Edición, desactivación y reactivación de planes.
+- Contratación mediante Webpay Plus en entorno TEST.
+- Activación de membresías después de confirmar el pago.
+- Cálculo del vencimiento según la duración contratada.
+- Conservación de las condiciones originales del contrato.
+- Renovación manual, sin cobros automáticos.
+- Visualización de membresías vigentes y vencidas.
+
+### Validación técnica
+
+- 428 pruebas Django aprobadas.
+- 33 pruebas frontend aprobadas.
+- Despliegue de Django en Render: exitoso.
+- Despliegue de React en Vercel: exitoso.
+- Migraciones 0029, 0030 y 0031 aplicadas correctamente.
+
+### Prueba funcional con Webpay TEST
+
+- Productor: felipes.
+- Artista: feli-urtubia.
+- Plan: Plan de prueba BeatsCloud.
+- Monto: $1.000 CLP.
+- Duración contratada: 1 mes.
+- Inicio: 23-11-2026.
+- Vencimiento calculado: 23-12-2026.
+- Resultado: operación exitosa y membresía vigente.
+- Persistencia después de recargar: comprobada.
+- Desactivación del plan duplicado: comprobada.
+- Membresía conservada después de desactivar el plan: comprobada.
+
+### Pendiente de validación funcional
+
+- Renovación de una membresía después de su vencimiento real.
+- Verificación del cambio automático a estado vencido cuando llegue la fecha.
