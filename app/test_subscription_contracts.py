@@ -247,3 +247,154 @@ class SubscriptionContractTests(TestCase):
                 periodo["expires_at"],
             )
         )
+
+    @patch("app.webpay_reconciliation.reconcile_stale_pending_for_user")
+    def test_manual_renewal_after_calendar_expiry(self, reconcile):
+        from datetime import timedelta
+
+        inicio = datetime(
+            2026, 11, 23, 12, 0,
+            tzinfo=dt_timezone.utc,
+        )
+
+        self.plan.duracion_cantidad = 1
+        self.plan.duracion_unidad = "meses"
+        self.plan.save(
+            update_fields=[
+                "duracion_cantidad",
+                "duracion_unidad",
+            ]
+        )
+
+        # Primera contratacion.
+        with patch("django.utils.timezone.now", return_value=inicio):
+            primera = create_pending_webpay_order(
+                user=self.artist,
+                amount=self.plan.precio,
+                suscripcion=self.plan,
+            )
+
+            # Una orden pendiente no activa la membresia.
+            self.assertFalse(
+                has_active_subscription(
+                    self.artist.pk, self.plan.pk
+                )
+            )
+
+            # Simular confirmacion autorizada del proveedor.
+            primera.status = WebpayTransaction.ESTADO_AUTORIZADO
+            primera.fulfilled_at = inicio
+            primera.save(
+                update_fields=["status", "fulfilled_at"]
+            )
+
+            self.assertTrue(
+                has_active_subscription(
+                    self.artist.pk, self.plan.pk
+                )
+            )
+
+        vencimiento = calculate_subscription_expiry(
+            inicio, 1, "meses"
+        )
+
+        self.assertEqual(
+            vencimiento,
+            datetime(
+                2026, 12, 23, 12, 0,
+                tzinfo=dt_timezone.utc,
+            ),
+        )
+
+        # La membresia sigue activa justo antes del vencimiento.
+        with patch(
+            "django.utils.timezone.now",
+            return_value=vencimiento - timedelta(microseconds=1),
+        ):
+            self.assertTrue(
+                has_active_subscription(
+                    self.artist.pk, self.plan.pk
+                )
+            )
+
+        # Llegada la fecha de vencimiento.
+        with patch(
+            "django.utils.timezone.now",
+            return_value=vencimiento,
+        ):
+            self.assertFalse(
+                has_active_subscription(
+                    self.artist.pk, self.plan.pk
+                )
+            )
+
+            periodo = subscription_periods(self.artist.pk)[
+                self.plan.pk
+            ]
+
+            self.assertFalse(periodo["active"])
+
+            # No hubo cobro ni renovacion automatica.
+            self.assertEqual(
+                WebpayTransaction.objects.filter(
+                    user=self.artist,
+                    suscripcion=self.plan,
+                ).count(),
+                1,
+            )
+
+            # El artista inicia manualmente otra contratacion.
+            segunda = create_pending_webpay_order(
+                user=self.artist,
+                amount=self.plan.precio,
+                suscripcion=self.plan,
+            )
+
+            self.assertNotEqual(
+                primera.pk,
+                segunda.pk,
+            )
+
+            self.assertIsNone(segunda.fulfilled_at)
+
+            # La orden pendiente todavia no reactiva el acceso.
+            self.assertFalse(
+                has_active_subscription(
+                    self.artist.pk, self.plan.pk
+                )
+            )
+
+            # Simular la autorizacion del segundo pago.
+            segunda.status = WebpayTransaction.ESTADO_AUTORIZADO
+            segunda.fulfilled_at = vencimiento
+            segunda.save(
+                update_fields=["status", "fulfilled_at"]
+            )
+
+            self.assertTrue(
+                has_active_subscription(
+                    self.artist.pk, self.plan.pk
+                )
+            )
+
+            renovada = subscription_periods(self.artist.pk)[
+                self.plan.pk
+            ]
+
+            self.assertEqual(
+                renovada["expires_at"],
+                datetime(
+                    2027, 1, 23, 12, 0,
+                    tzinfo=dt_timezone.utc,
+                ),
+            )
+
+            # Desactivar el plan no anula contratos pagados.
+            self.plan.activo = False
+            self.plan.save(update_fields=["activo"])
+
+            self.assertTrue(
+                has_active_subscription(
+                    self.artist.pk, self.plan.pk
+                )
+            )

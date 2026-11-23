@@ -3425,6 +3425,28 @@ Todas las respuestas entregaron contenido audio/mpeg.
 - Desactivación del plan duplicado: comprobada.
 - Membresía conservada después de desactivar el plan: comprobada.
 
+### Prueba automatizada de renovación
+
+Fecha: 23-11-2026.
+
+- Inicio de membresía: 23-11-2026.
+- Vencimiento calculado: 23-12-2026.
+- Membresía activa antes del vencimiento.
+- Membresía inactiva al alcanzar el vencimiento.
+- Sin renovaciones ni cobros automáticos.
+- Nueva contratación manual permitida tras vencer.
+- Una orden pendiente no reactiva la membresía.
+- Segundo pago simulado como autorizado.
+- Reactivación correcta hasta el 23-01-2027.
+- Desactivar el plan no cancela la renovación vigente.
+- Suite Django: 429 pruebas aprobadas.
+- Suite frontend: 33 pruebas aprobadas.
+- TypeScript y compilación Vite: correctos.
+
+La prueba de renovación utiliza autorizaciones simuladas
+en una base de datos temporal. No representa una segunda
+operación real en Webpay TEST.
+
 ### Pendiente de validación funcional
 
 - Renovación de una membresía después de su vencimiento real.
