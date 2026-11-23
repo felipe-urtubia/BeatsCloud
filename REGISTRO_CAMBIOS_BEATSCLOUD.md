@@ -3706,3 +3706,42 @@ manualmente, para utilizar facilmente mis perfiles.
 
 Interfaz de medios de pago validada en carrito
 y suscripciones dentro de la aplicacion publicada.
+
+---
+
+## 23-11-2026 - Diagnostico HTTP 409 Webpay Plus
+
+**Estado:** REVISION ESTATICA COMPLETADA.
+**Modificaciones de codigo:** Ninguna.
+
+### Backend
+
+- Se revisaron api_shim.py y webpay_checkout_guard.py.
+- HTTP 409 protege contra operaciones de pago conflictivas.
+- Se bloquean pagos pendientes sin resolver.
+- Se impiden membresias activas duplicadas.
+- Se protegen compras autorizadas sin entregar.
+- Se evita volver a comprar canciones adquiridas.
+- Las protecciones existentes deben conservarse.
+
+### Frontend
+
+- Django devuelve errores mediante el campo detail.
+- django.service.ts interpreta los mensajes HTTP.
+- webpayCheckout.mjs propaga errores de inicio.
+- CartPage.tsx muestra errores con role=alert.
+- ProducerProfilePage.tsx muestra errores con role=alert.
+
+### Conclusion
+
+La revision del codigo no identifico un defecto
+evidente en la propagacion de errores HTTP 409.
+
+No fue necesario modificar el backend ni el frontend.
+
+### Pendientes
+
+- Identificar el mensaje exacto del HTTP 409 anterior
+  mediante Network > Response si vuelve a ocurrir.
+- Verificar una transaccion completa para DDPB-53.
+- Implementar el cambio rapido entre cuentas.
