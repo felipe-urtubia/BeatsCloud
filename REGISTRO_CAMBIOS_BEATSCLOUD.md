@@ -3286,7 +3286,7 @@ Todas las respuestas entregaron contenido audio/mpeg.
 
 ### 11. Tareas pendientes
 
-- [ ] Modificar la posición de la notificación de subida exitosa.
+- [x] Modificar la posición de la notificación de subida exitosa.
   - Mensaje: Subida completada y confirmada por Django.
   - Ubicación actual: parte superior de la pantalla.
   - Ubicación requerida: parte inferior de la pantalla.
@@ -3295,5 +3295,22 @@ Todas las respuestas entregaron contenido audio/mpeg.
   - No modificar el flujo funcional de subida.
 
 - [ ] Validar el flujo completo de compra y descarga mediante Webpay TEST.
+
+---
+
+
+## 22-11-2026 - Mejora visual de notificación de subida
+
+**Estado:** IMPLEMENTADO Y VERIFICADO EN PRODUCCIÓN.
+
+- Componente: UploadTrackModal.tsx.
+- Notificación trasladada al final del formulario.
+- Mensaje y nombre del archivo conservados.
+- Lógica de subida a Django y R2 sin modificaciones.
+- Pruebas frontend: 26/26 aprobadas.
+- TypeScript: correcto.
+- Build Vite: correcto (2,99 segundos).
+- Commit: cef7140.
+- Publicación en GitHub y validación en Vercel: correctas.
 
 ---
