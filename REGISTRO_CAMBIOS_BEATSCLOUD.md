@@ -3630,3 +3630,79 @@ ni la base de datos de produccion.
 - Investigar el HTTP 409 de /api/pago/ en produccion
   si vuelve a presentarse.
 - Ejecutar verificaciones finales y publicar los cambios.
+
+
+---
+
+## PENDIENTE - Cambio rapido entre cuentas
+
+**Fecha:** 23-11-2026
+**Estado:** PENDIENTE DE DESARROLLO.
+**Tipo:** Mejora futura de experiencia de usuario.
+
+### Historia de usuario
+
+Como usuario de BeatsCloud, quiero poder agregar y
+alternar entre distintas cuentas sin cerrar sesion
+manualmente, para utilizar facilmente mis perfiles.
+
+### Requisitos pendientes
+
+- Permitir agregar varias cuentas.
+- Incorporar un selector de cuentas en el menu del perfil.
+- Cambiar entre cuentas de artista y productor.
+- Identificar visualmente la cuenta activa.
+- Mantener aislados los datos y permisos de cada cuenta.
+- Gestionar las sesiones de forma segura.
+- Solicitar autenticacion cuando corresponda.
+- No almacenar contrasenas de las cuentas.
+
+### Alcance
+
+- Funcionalidad aun no implementada.
+- No forma parte de DDPB-53.
+- Pendiente de priorizacion y desarrollo.
+
+
+---
+
+## 23-11-2026 - Validacion en produccion DDPB-53
+
+**Historia:** Como artista quiero tener distintos medios de pago.
+**Estado:** DESPLEGADO Y VALIDADO VISUALMENTE EN PRODUCCION.
+
+### Publicacion
+
+- Repositorio: felipe-urtubia/BeatsCloud.
+- Rama: main.
+- Commit publicado: d1eb6b6.
+- Vercel: despliegue Ready en Production.
+
+### Carrito en produccion
+
+- Componente de medios de pago visible.
+- Credito, Debito y Prepago informados correctamente.
+- Moneda CLP verificada.
+- Redireccion a Webpay TEST confirmada.
+- Monto de prueba mostrado: $21.420 CLP.
+
+### Suscripciones VIP en produccion
+
+- Se verificaron visualmente dos planes de productor.
+- Ambos muestran un precio de $1.000 CLP.
+- Ambos muestran Credito, Debito y Prepago.
+- El componente aparece antes del boton Contratar servicio.
+
+### Alcance y pendientes
+
+- Los tipos de tarjeta utilizan Webpay Plus.
+- No se implementaron otras pasarelas.
+- No se confirmo un pago aprobado en esta validacion.
+- Pendiente: verificar una transaccion completa.
+- Pendiente: investigar HTTP 409 anterior si persiste.
+- Pendiente independiente: cambio rapido entre cuentas.
+
+### Resultado
+
+Interfaz de medios de pago validada en carrito
+y suscripciones dentro de la aplicacion publicada.
