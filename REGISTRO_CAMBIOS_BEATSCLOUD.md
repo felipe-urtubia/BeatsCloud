@@ -3427,6 +3427,8 @@ Todas las respuestas entregaron contenido audio/mpeg.
 
 ### Prueba automatizada de renovación
 
+**Commit de validación:** `93757f8`.
+
 Fecha: 23-11-2026.
 
 - Inicio de membresía: 23-11-2026.
@@ -3451,3 +3453,180 @@ operación real en Webpay TEST.
 
 - Renovación de una membresía después de su vencimiento real.
 - Verificación del cambio automático a estado vencido cuando llegue la fecha.
+
+---
+
+## 23-11-2026 - Distintos medios de pago para artistas
+
+**Historia de usuario:** Como artista, quiero tener distintos medios de pago.
+
+**Estado:** IMPLEMENTADO Y VALIDADO TECNICAMENTE EN LOCAL. VERIFICACION MANUAL Y PUBLICACION PENDIENTES.
+
+### Objetivo
+
+Informar al artista sobre los medios de pago disponibles
+al comprar pistas musicales o contratar servicios de productores.
+
+### Medios de pago
+
+- Tarjetas de crédito.
+- Tarjetas de débito.
+- Tarjetas de prepago compatibles.
+- Procesamiento mediante Webpay Plus de Transbank.
+- Operaciones en pesos chilenos (CLP).
+
+La modalidad de tarjeta se selecciona en Webpay Plus.
+No se implementan procesadores independientes por tipo de tarjeta.
+
+### Archivos modificados
+
+1. frontend/client/src/components/PaymentMethodsNotice.tsx
+   - Nuevo componente reutilizable.
+   - Muestra crédito, débito y prepago.
+   - Informa sobre el procesamiento seguro mediante Transbank.
+
+2. frontend/client/src/components/CartPage.tsx
+   - Muestra los medios aceptados en la confirmación de compra.
+
+3. frontend/client/src/components/ProducerProfilePage.tsx
+   - Muestra los medios aceptados antes de contratar una membresía.
+
+### Alcance de la implementación
+
+- Se conserva la integración Webpay existente.
+- No se modificaron los endpoints del backend.
+- No se modificó la base de datos.
+- No se agregaron migraciones.
+- No se incorporó Stripe.
+- No se implementaron pagos en dólares.
+- Otros proveedores chilenos quedan para una segunda etapa.
+
+### Validaciones locales realizadas
+
+Fecha: 23-11-2026.
+
+- 37 de 37 pruebas frontend aprobadas.
+- Cuatro pruebas nuevas de PaymentMethodsNotice.
+- Renderizado de crédito, débito y prepago verificado.
+- Información de Webpay Plus, Transbank y CLP verificada.
+- Modos visuales normal y compacto comprobados.
+- Presencia del componente en carrito y suscripciones comprobada.
+- TypeScript sin errores.
+- Compilación Vite exitosa.
+- git diff --check sin errores.
+
+### Correcciones durante la implementación
+
+- Se corrigieron dos importaciones faltantes del componente.
+- Se corrigieron caracteres acentuados en los medios de pago.
+- Se ajustaron las pruebas para utilizar escapes Unicode.
+- Se mantuvo el flujo existente de Webpay sin cambios de backend.
+
+### Validaciones pendientes
+
+- Verificar las interfaces visualmente en el navegador.
+- Comprobar las modalidades de tarjeta en Webpay TEST.
+- Publicar en GitHub y verificar el despliegue.
+
+### Estado de publicación
+
+Cambios locales sin commit ni push al momento de este registro.
+
+---
+
+## 23-11-2026 - Correccion de PostgreSQL local y API de suscripciones
+
+**Estado:** CORREGIDO Y VERIFICADO EN ENTORNO LOCAL.
+
+### Problema detectado
+
+- Error HTTP 500 al consultar /api/suscripciones/.
+- PostgreSQL informaba que no existia app_suscripcion.descripcion.
+- El codigo Django estaba actualizado.
+- La base de datos local tenia tres migraciones pendientes.
+
+### Diagnostico
+
+- PostgreSQL local en puerto 5432.
+- Conexion por loopback IPv6 (::1/128).
+- Proceso PostgreSQL identificado en Windows.
+- No se modifico la base de datos de Render.
+
+### Respaldo realizado
+
+- Respaldo completo de PostgreSQL local con pg_dump 18.3.
+- Archivo: beatscloud-local-20261123-155831-922348.backup.
+- Tamano: 99359 bytes.
+- Verificacion de estructura mediante pg_restore --list.
+- Historial django_migrations incluido.
+- No se ejecuto una restauracion de prueba.
+
+### Migraciones aplicadas correctamente
+
+- 0029_subscription_plan_details.
+- 0030_subscription_contract_duration.
+- 0031_subscription_contract_snapshot.
+
+### Comprobaciones posteriores
+
+- Las tres migraciones aparecen aplicadas en Django.
+- Todas las columnas requeridas existen en PostgreSQL local.
+- python manage.py check no presenta problemas.
+- El usuario confirmo que desaparecio el error en el navegador.
+
+### Resultado
+
+El esquema de PostgreSQL local quedo actualizado
+para las suscripciones personalizadas.
+
+No se modificaron las transacciones Webpay
+ni la base de datos de produccion.
+
+### Seguimiento pendiente
+
+- Continuar la verificacion visual de medios de pago.
+- Investigar separadamente el HTTP 409 de /api/pago/
+  observado anteriormente en produccion, si persiste.
+- Publicar los cambios frontend una vez completada su validacion.
+
+---
+
+## 23-11-2026 - Validacion visual DDPB-53
+
+**Historia:** Como artista quiero tener distintos medios de pago.
+
+**Estado:** INTERFAZ VALIDADA EN LOCAL. PUBLICACION PENDIENTE.
+
+### Carrito de compras
+
+- Ventana de confirmacion verificada visualmente.
+- Se muestran Credito, Debito y Prepago.
+- Se informa el uso de Webpay Plus y pesos chilenos.
+- Compra de prueba mostrada por $21.420 CLP.
+- Redireccion al entorno de integracion de Transbank confirmada.
+- Transbank presenta los tres tipos de tarjeta.
+- Formulario de ingreso de tarjeta visible.
+
+### Suscripciones
+
+- Componente verificado en Membresias VIP.
+- Plan VIP BeatCloud - Prueba visible.
+- Precio mostrado: $1.000 CLP.
+- Duracion mostrada: 1 mes.
+- Se muestran Credito, Debito y Prepago.
+- Boton Contratar servicio visible.
+
+### Alcance confirmado
+
+- Los tres tipos de tarjeta se procesan mediante Webpay Plus.
+- No se implementaron pasarelas de pago adicionales.
+- No se incorporaron Stripe ni pagos en dolares.
+- No se ingreso ninguna tarjeta durante esta validacion.
+- No se confirmo un pago exitoso en esta prueba.
+
+### Pendientes
+
+- Validar una transaccion completa cuando corresponda.
+- Investigar el HTTP 409 de /api/pago/ en produccion
+  si vuelve a presentarse.
+- Ejecutar verificaciones finales y publicar los cambios.

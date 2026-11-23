@@ -1,4 +1,5 @@
 import { DjangoApi } from '../api/django.service';
+import { PaymentMethodsNotice } from './PaymentMethodsNotice';
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
@@ -442,6 +443,8 @@ export const CartPage: React.FC<CartPageProps> = ({
                 </span>
               </div>
             </div>
+
+            <PaymentMethodsNotice />
 
             <p className="text-xs text-zinc-400">
               El monto definitivo se verifica al iniciar la orden.

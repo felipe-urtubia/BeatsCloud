@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, Track, ProducerSubscription } from '../types';
+import { PaymentMethodsNotice } from './PaymentMethodsNotice';
 import { ProfileEditForm } from './ProfileEditForm';
 import {
   Play,
@@ -753,6 +754,10 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                           {planActive ? 'Desactivar' : 'Reactivar'}
                         </button>
                       </div>
+                    )}
+
+                    {!isOwner && planActive && !isSubscribed && (
+                      <PaymentMethodsNotice compact />
                     )}
 
                     {!isOwner && (
