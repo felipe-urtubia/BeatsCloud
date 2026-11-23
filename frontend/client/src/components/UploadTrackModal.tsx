@@ -361,29 +361,6 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
               {uploadError}
             </div>
           )}
-          {!trackToEdit && (audioFile || fileNameInput || isSubmitting || isUploadComplete || uploadError) && (
-            <div
-              role="status"
-              aria-live="polite"
-              className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-xs ${
-                uploadError
-                  ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
-                  : isSubmitting
-                    ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
-                    : isUploadComplete
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                      : 'border-zinc-700 bg-zinc-900 text-zinc-300'
-              }`}
-            >
-              <FileAudio className="mt-0.5 h-4 w-4 shrink-0" />
-              <span className="min-w-0 break-words">
-                <strong>
-                  {getUploadStatusLabel(uploadStatus, configuredMode)}
-                </strong>
-                <span className="block opacity-80">{audioFile?.name ?? fileNameInput}</span>
-              </span>
-            </div>
-          )}
           {/* 1. Resource Type Selection (Instrumental, Acapella, Loop, Drumkit) */}
           <div>
             <label className="text-xs font-bold text-zinc-300 block mb-2">
@@ -804,6 +781,29 @@ export const UploadTrackModal: React.FC<UploadTrackModalProps> = ({
               {isSubmitting ? 'Guardando…' : isUploadComplete && !trackToEdit ? 'Cerrar' : trackToEdit ? 'Guardar Cambios' : 'Publicar en Catálogo'}
             </button>
           </div>
+          {!trackToEdit && (audioFile || fileNameInput || isSubmitting || isUploadComplete || uploadError) && (
+            <div
+              role="status"
+              aria-live="polite"
+              className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-xs ${
+                uploadError
+                  ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                  : isSubmitting
+                    ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
+                    : isUploadComplete
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                      : 'border-zinc-700 bg-zinc-900 text-zinc-300'
+              }`}
+            >
+              <FileAudio className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="min-w-0 break-words">
+                <strong>
+                  {getUploadStatusLabel(uploadStatus, configuredMode)}
+                </strong>
+                <span className="block opacity-80">{audioFile?.name ?? fileNameInput}</span>
+              </span>
+            </div>
+          )}
         </form>
       </div>
     </div>
