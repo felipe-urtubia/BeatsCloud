@@ -23,7 +23,7 @@ Solo navegador sobre `https://beats-cloud.vercel.app/`. No iniciar sesión ni ej
 | WEB-07 | Abrir perfiles públicos de artista y recorrer información visible. | Presentación pública y navegación cumplen los AC vigentes. | DDPB-14, DDPB-33, DDPB-34, DDPB-35 | Sin autenticación; lectura; depende de datos publicados. | Pendiente |
 | WEB-08 | Abrir perfiles públicos de productor y recorrer información visible. | Presentación pública, pistas y enlaces cumplen los AC vigentes. | DDPB-17, DDPB-37, DDPB-38, DDPB-39 | Sin autenticación; lectura; depende de datos publicados. | Pendiente |
 | WEB-09 | Visitar secciones de contacto y equipo; probar enlaces sin enviar formularios. | Información y enlaces cumplen los AC vigentes; no enviar información. | DDPB-57, DDPB-58 | Sin autenticación; lectura; no enviar formularios ni contactar servicios. | Pendiente |
-| WEB-10 | Revisar los mismos recorridos en ventana amplia y estrecha. | Controles y contenido siguen siendo accesibles conforme a los AC aplicables. | Transversal; relacionar los defectos con las historias pertinentes | Sin autenticación; lectura. | Pendiente |
+| WEB-10 | Revisar inicio, catálogo, búsquedas, detalle, perfiles y contacto en ventana amplia y estrecha. | Controles y contenido de cada área siguen siendo accesibles conforme a los AC aplicables. | DDPB-14, DDPB-17, DDPB-20, DDPB-21, DDPB-22, DDPB-23, DDPB-24, DDPB-25, DDPB-26, DDPB-27, DDPB-28, DDPB-29, DDPB-30, DDPB-31, DDPB-33, DDPB-34, DDPB-35, DDPB-37, DDPB-38, DDPB-39, DDPB-42, DDPB-43, DDPB-57, DDPB-58, DDPB-70 | Sin autenticación; lectura. | Pendiente |
 
 ## Casos de segunda ronda: requieren entorno identificado
 
