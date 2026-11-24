@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+umask 077
 qa_load_env
 qa_select_compose
 

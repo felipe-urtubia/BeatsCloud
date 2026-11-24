@@ -22,7 +22,7 @@ for _ in $(seq 1 60); do
 done
 [[ "$ready" == 1 ]] || qa_error "QA PostgreSQL is not ready."
 
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" flush --noinput
+qa_python "$QA_ROOT/manage.py" flush --noinput
 expected="$QA_ROOT/media/qa"
 actual="$(realpath -m "$MEDIA_ROOT")"
 [[ "$actual" == "$expected" && -f "$actual/.beatscloud-qa-media" ]] \
@@ -32,8 +32,8 @@ mkdir -p "$actual"
 touch "$actual/.beatscloud-qa-media"
 chmod 600 "$actual/.beatscloud-qa-media"
 
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" migrate --noinput
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" prepare_demo_catalog
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" prepare_qa_users --rotate-passwords
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" generate_qa_catalog --count 120 --seed 20261118
+qa_python "$QA_ROOT/manage.py" migrate --noinput
+qa_python "$QA_ROOT/manage.py" prepare_demo_catalog
+qa_python "$QA_ROOT/manage.py" prepare_qa_users --rotate-passwords
+qa_python "$QA_ROOT/manage.py" generate_qa_catalog --count 120 --seed 20261118
 echo "QA reset and reseed complete. New temporary QA passwords were printed once above."

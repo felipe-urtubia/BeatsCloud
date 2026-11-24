@@ -4,6 +4,63 @@ set -euo pipefail
 QA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 QA_ENV_FILE="$QA_ROOT/.env.qa"
 
+qa_is_windows() {
+  case "$(uname -s 2>/dev/null || true)" in
+    MINGW*|MSYS*|CYGWIN*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+qa_system_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+  elif command -v python >/dev/null 2>&1; then
+    command -v python
+  else
+    return 1
+  fi
+}
+
+qa_venv_python_path() {
+  if qa_is_windows; then
+    printf '%s\n' "$QA_ROOT/.venv/Scripts/python.exe"
+  else
+    printf '%s\n' "$QA_ROOT/.venv/bin/python"
+  fi
+}
+
+qa_python() {
+  local python_path
+  python_path="$(qa_venv_python_path)"
+  [[ -x "$python_path" ]] || qa_error "No encuentro Python del entorno QA. Ejecuta INICIAR_QA otra vez."
+  "$python_path" "$@"
+}
+
+qa_private_dir() {
+  local path="$1"
+  mkdir -p "$path"
+  chmod 700 "$path"
+  if qa_is_windows; then
+    local windows_user="${USERNAME:-}"
+    [[ -n "$windows_user" ]] || qa_error "No pude identificar tu usuario de Windows para proteger los archivos QA."
+    command -v icacls.exe >/dev/null 2>&1 || qa_error "Falta icacls de Windows; no puedo proteger los archivos QA."
+    icacls.exe "$(cygpath -aw "$path")" /inheritance:r /grant:r "${windows_user}:(OI)(CI)F" >/dev/null \
+      || qa_error "Windows no pudo restringir los permisos de la carpeta QA."
+  fi
+}
+
+qa_secure_file() {
+  local path="$1"
+  chmod 600 "$path"
+  if qa_is_windows; then
+    local windows_user="${USERNAME:-}"
+    [[ -n "$windows_user" ]] || qa_error "No pude identificar tu usuario de Windows para proteger .env.qa."
+    command -v icacls.exe >/dev/null 2>&1 || qa_error "Falta icacls de Windows; no puedo proteger .env.qa."
+    icacls.exe "$(cygpath -aw "$path")" /inheritance:r /grant:r "${windows_user}:F" >/dev/null \
+      || qa_error "Windows no pudo restringir los permisos de .env.qa."
+  fi
+}
+
 qa_error() {
   printf 'QA setup error: %s\n' "$*" >&2
   exit 1
@@ -12,9 +69,11 @@ qa_error() {
 qa_load_env() {
   [[ -f "$QA_ENV_FILE" ]] || qa_error "No existe .env.qa. Ejecuta scripts/qa/setup.sh."
   [[ ! -L "$QA_ENV_FILE" ]] || qa_error ".env.qa no puede ser un enlace simbólico."
-  local env_mode
-  env_mode="$(stat -c '%a' "$QA_ENV_FILE")"
-  [[ "$env_mode" == "600" ]] || qa_error ".env.qa debe tener permisos 0600 (actual: $env_mode)."
+  if ! qa_is_windows; then
+    local env_mode
+    env_mode="$(stat -c '%a' "$QA_ENV_FILE")"
+    [[ "$env_mode" == "600" ]] || qa_error ".env.qa debe tener permisos 0600 (actual: $env_mode)."
+  fi
   set -a
   # shellcheck disable=SC1090
   source "$QA_ENV_FILE"
@@ -46,9 +105,12 @@ qa_load_env() {
   expected_media="$QA_ROOT/media/qa"
   actual_media="$(realpath -m "${MEDIA_ROOT:-}")"
   [[ "$actual_media" == "$expected_media" ]] || qa_error "MEDIA_ROOT debe ser exactamente $expected_media."
-  QA_RUNTIME_DIR="${TMPDIR:-/tmp}/${QA_PROJECT_NAME}-runtime"
-  mkdir -p "$QA_RUNTIME_DIR"
-  chmod 700 "$QA_RUNTIME_DIR"
+  if [[ -n "${QA_PRIVATE_LOG_DIR:-}" ]]; then
+    QA_RUNTIME_DIR="$QA_PRIVATE_LOG_DIR/runtime"
+  else
+    QA_RUNTIME_DIR="$QA_ROOT/.qa-private/runtime"
+  fi
+  qa_private_dir "$QA_RUNTIME_DIR"
 }
 
 qa_select_compose() {
@@ -77,15 +139,24 @@ qa_assert_media_sentinel() {
 }
 
 qa_pid_matches() {
-  local pid_file="$1" pattern="$2" pid cwd args
+  local pid_file="$1" pattern="$2" pid cwd args root_for_args
   [[ -f "$pid_file" ]] || return 1
   pid="$(cat "$pid_file")"
   [[ "$pid" =~ ^[0-9]+$ ]] || qa_error "Invalid PID file: $pid_file"
   kill -0 "$pid" 2>/dev/null || return 1
-  cwd="$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"
-  args="$(ps -p "$pid" -o args= 2>/dev/null || true)"
-  [[ "$args" == *"$pattern"* ]] && [[ "$cwd" == "$QA_ROOT" || "$cwd" == "$QA_ROOT/frontend/client" ]] \
-    || qa_error "PID $pid is active but does not match this BeatsCloud QA process."
+  if qa_is_windows; then
+    args="$(ps -W -p "$pid" -o args= 2>/dev/null || true)"
+    root_for_args="$(cygpath -aw "$QA_ROOT" 2>/dev/null || printf '%s' "$QA_ROOT")"
+    args="$(printf '%s' "$args" | tr '\\' '/')"
+    root_for_args="$(printf '%s' "$root_for_args" | tr '\\' '/')"
+    [[ "$args" == *"$pattern"* && "$args" == *"$root_for_args"* ]] \
+      || qa_error "El proceso $pid sigue activo pero no coincide con BeatsCloud QA. No lo detuve."
+  else
+    cwd="$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"
+    args="$(ps -p "$pid" -o args= 2>/dev/null || true)"
+    [[ "$args" == *"$pattern"* ]] && [[ "$cwd" == "$QA_ROOT" || "$cwd" == "$QA_ROOT/frontend/client" ]] \
+      || qa_error "El proceso $pid sigue activo pero no coincide con BeatsCloud QA. No lo detuve."
+  fi
   return 0
 }
 
@@ -102,7 +173,7 @@ qa_assert_stopped() {
 }
 
 qa_port_free() {
-  python3 - "$1" <<'PY'
+  "$(qa_system_python)" - "$1" <<'PY'
 import socket, sys
 sock = socket.socket()
 try:

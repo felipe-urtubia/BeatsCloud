@@ -34,6 +34,9 @@ import {
 } from '../api/mappers';
 import { startWebpayCheckout, submitWebpayForm } from '../api/webpayCheckout.mjs';
 import type { WebpayCheckoutResult } from '../api/webpayCheckout.mjs';
+import { dismissNotification, enqueueNotification } from '../utils/notificationQueue.mjs';
+
+export type AppNotification = { id: number; kind: 'success' | 'error'; message: string };
 
 /**
  * MODO DE INTEGRACIÓN — "punto medio" para el Sprint 1 (ver docs/INTEGRACION_BACKEND.md):
@@ -152,6 +155,8 @@ interface AppContextType {
   isSyncing: boolean;          // hay una petición al backend en curso
   purchasesLoading: boolean;
   purchasesError: string | null;
+  notifications: AppNotification[];
+  dismissNotification: (id: number) => void;
   paymentNotice: string | null;
   paymentReturnReady: boolean;
   authNotice: string | null;
@@ -227,6 +232,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [purchasesLoading, setPurchasesLoading] = useState(isHybrid);
   const [purchasesError, setPurchasesError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const notificationId = useRef(0);
+  const notify = (kind: AppNotification['kind'], message: string) => {
+    const item: AppNotification = { id: ++notificationId.current, kind, message };
+    setNotifications((queue) => enqueueNotification(queue, item));
+    window.setTimeout(() => setNotifications((queue) => dismissNotification(queue, item.id)), 5000);
+  };
+  const dismissAppNotification = (id: number) => {
+    setNotifications((queue) => dismissNotification(queue, id));
+  };
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     if (CONFIGURED_MODE === 'hybrid') return '';
@@ -712,9 +727,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (res.liked !== !isLiked) {
             // El servidor dice lo contrario: revertir UI
             toggleLikeServerRollback(trackId, isLiked);
+            notify('error', 'No se pudo guardar el like. Se restableció el estado anterior.');
           }
         })
-        .catch(() => toggleLikeServerRollback(trackId, isLiked));
+        .catch(() => {
+          toggleLikeServerRollback(trackId, isLiked);
+          notify('error', 'No se pudo guardar el like. Se restableció el estado anterior.');
+        });
     }
   };
 
@@ -757,11 +776,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCart((prev) =>
             prev.some((i) => i.track.id === track.id) ? prev : [...prev, { track, addedAt: venta.fecha }]
           );
+          notify('success', `“${track.title}” se agregó al carrito.`);
           return venta.id;
         })
         .catch((e) => {
           // 409 duplicado/recompra, 401 sin sesión: no agregamos nada.
           console.warn('[BeatsCloud] No se pudo agregar al carrito:', e);
+          notify('error', 'No se pudo agregar la pista al carrito. Revisa tu sesión e inténtalo de nuevo.');
           return null;
         }).finally(() => {
           if (pendingCartAdds.current.get(track.id) === addPromise) pendingCartAdds.current.delete(track.id);
@@ -788,6 +809,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const confirmedVentaId = ventaId ?? await pendingAdd;
         if (confirmedVentaId == null || identityGeneration !== cartIdentityGeneration.current || cartOperationGeneration.current[trackId] !== operationGeneration) return;
         await withSync(() => DjangoApi.removeFromCart(confirmedVentaId));
+        notify('success', 'La pista se quitó del carrito.');
       };
       remove().catch((e) => {
         if (identityGeneration === cartIdentityGeneration.current && cartOperationGeneration.current[trackId] === operationGeneration) {
@@ -798,7 +820,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
         console.warn('[BeatsCloud] No se pudo quitar del carrito (server):', e);
+        notify('error', 'No se pudo quitar la pista del carrito. Se restauró el carrito anterior.');
       });
+    } else {
+      notify('success', 'La pista se quitó del carrito.');
     }
   };
 
@@ -1903,6 +1928,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSyncing,
         purchasesLoading,
         purchasesError,
+        notifications,
+        dismissNotification: dismissAppNotification,
         paymentNotice,
         paymentReturnReady,
         authNotice,
