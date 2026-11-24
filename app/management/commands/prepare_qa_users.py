@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -22,7 +23,7 @@ QA_USERS = (
 
 
 class Command(BaseCommand):
-    help = "Create local demo/QA accounts; passwords are shown only when created or rotated."
+    help = "Create local demo/QA accounts; temporary passwords are stored in a private file."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -70,12 +71,24 @@ class Command(BaseCommand):
                 if password:
                     passwords[username] = password
 
+        credentials_file = Path(settings.BASE_DIR) / ".qa-private" / "credenciales-qa.txt"
         if passwords:
-            self.stdout.write(self.style.WARNING(
-                "Guarda estas contraseñas temporales en un gestor privado; no se escribieron a archivos."
-            ))
-            for username, password in passwords.items():
-                self.stdout.write(f"{username}: {password}")
+            existing = {}
+            if credentials_file.is_file():
+                for line in credentials_file.read_text(encoding="utf-8").splitlines():
+                    if ": " in line and not line.lstrip().startswith("#"):
+                        username, password = line.split(": ", 1)
+                        existing[username] = password
+            existing.update(passwords)
+            credentials_file.parent.mkdir(parents=True, exist_ok=True)
+            credentials_file.parent.chmod(0o700)
+            credentials_file.write_text(
+                "# Local QA only. Never commit or share this file.\n"
+                + "".join(f"{username}: {password}\n" for username, password in sorted(existing.items())),
+                encoding="utf-8",
+            )
+            credentials_file.chmod(0o600)
+            self.stdout.write("Las credenciales QA nuevas se guardaron en un archivo local privado; no se muestran en pantalla.")
         else:
             self.stdout.write("QA accounts already exist; passwords were not changed.")
         self.stdout.write("Anonymous QA uses the site without signing in.")

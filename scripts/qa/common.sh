@@ -33,7 +33,11 @@ qa_python() {
   local python_path
   python_path="$(qa_venv_python_path)"
   [[ -x "$python_path" ]] || qa_error "No encuentro Python del entorno QA. Ejecuta INICIAR_QA otra vez."
-  "$python_path" "$@"
+  if qa_is_windows; then
+    MEDIA_ROOT="$(cygpath -aw "$MEDIA_ROOT")" "$python_path" "$@"
+  else
+    "$python_path" "$@"
+  fi
 }
 
 qa_private_dir() {
@@ -101,10 +105,10 @@ qa_load_env() {
     [[ -z "${!external_var:-}" ]] || qa_error "$external_var debe estar vacío en .env.qa."
   done
 
-  local expected_media actual_media
+  local expected_media
   expected_media="$QA_ROOT/media/qa"
-  actual_media="$(realpath -m "${MEDIA_ROOT:-}")"
-  [[ "$actual_media" == "$expected_media" ]] || qa_error "MEDIA_ROOT debe ser exactamente $expected_media."
+  [[ "${MEDIA_ROOT:-}" == "media/qa" ]] || qa_error "MEDIA_ROOT debe contener únicamente la ruta relativa media/qa."
+  MEDIA_ROOT="$expected_media"
   if [[ -n "${QA_PRIVATE_LOG_DIR:-}" ]]; then
     QA_RUNTIME_DIR="$QA_PRIVATE_LOG_DIR/runtime"
   else
@@ -114,6 +118,14 @@ qa_load_env() {
 }
 
 qa_select_compose() {
+  if qa_is_windows; then
+    command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 \
+      || qa_error "En Windows se requiere Docker Desktop con Docker Compose v2; Podman no está validado para este asistente."
+    docker info >/dev/null 2>&1 \
+      || qa_error "Abre Docker Desktop y espera a que indique que está iniciado. Luego vuelve a ejecutar INICIAR_QA.bat."
+    QA_COMPOSE=(docker compose)
+    return
+  fi
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     QA_COMPOSE=(docker compose)
   elif command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1; then
@@ -139,7 +151,7 @@ qa_assert_media_sentinel() {
 }
 
 qa_pid_matches() {
-  local pid_file="$1" pattern="$2" pid cwd args root_for_args
+  local pid_file="$1" pattern="$2" pid cwd args root_for_args posix_root
   [[ -f "$pid_file" ]] || return 1
   pid="$(cat "$pid_file")"
   [[ "$pid" =~ ^[0-9]+$ ]] || qa_error "Invalid PID file: $pid_file"
@@ -147,9 +159,11 @@ qa_pid_matches() {
   if qa_is_windows; then
     args="$(ps -W -p "$pid" -o args= 2>/dev/null || true)"
     root_for_args="$(cygpath -aw "$QA_ROOT" 2>/dev/null || printf '%s' "$QA_ROOT")"
+    posix_root="$(cygpath -au "$QA_ROOT" 2>/dev/null || printf '%s' "$QA_ROOT")"
     args="$(printf '%s' "$args" | tr '\\' '/')"
     root_for_args="$(printf '%s' "$root_for_args" | tr '\\' '/')"
-    [[ "$args" == *"$pattern"* && "$args" == *"$root_for_args"* ]] \
+    posix_root="$(printf '%s' "$posix_root" | tr '\\' '/')"
+    [[ "$args" == *"$pattern"* && ( "$args" == *"$root_for_args"* || "$args" == *"$posix_root"* ) ]] \
       || qa_error "El proceso $pid sigue activo pero no coincide con BeatsCloud QA. No lo detuve."
   else
     cwd="$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"

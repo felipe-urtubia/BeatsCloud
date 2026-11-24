@@ -1,28 +1,30 @@
-# Traspaso de entorno QA a Vicente
+# Entrega QA para Vicente
 
-## Versión que se valida
+## Base de esta integración
 
-- Repositorio: `felipe-urtubia/BeatsCloud`, rama `main`.
-- Corte base anterior: `8c35a74f899b284edb521d3da5cd2d5b79357bcf`.
-- La infraestructura QA, notificaciones y pruebas de este paquete quedan integradas en el árbol final de `main`; no se requiere aplicar un parche manual.
-- El checkout local de trabajo puede estar atrasado. Comprueba siempre el SHA indicado por el mensaje de entrega y por `git rev-parse HEAD`.
+- Repositorio: `felipe-urtubia/BeatsCloud`.
+- Rama definitiva: `main`.
+- SHA de partida de esta mejora: `17ca427de31c57277b4174772fca62651c828ec4`.
+- La rama de mejora Windows se entrega por PR para revisión; no se integró automáticamente.
 
-## Inicio recomendado
+Para usar el procedimiento integrado, clona el repositorio y cambia a `main` según el SHA indicado en el mensaje de entrega. No hay que aplicar `QA_REVIEW.patch`.
 
-Sigue `docs/qa/GUIA_VICENTE.md`. En Linux abre una terminal en el clon y ejecuta `./INICIAR_QA.sh`; en Windows abre `INICIAR_QA.bat`. Los lanzadores llaman a `scripts/qa/run-all.sh` dentro de una sola sesión persistente.
+## Un paso de inicio
 
-## Requisitos y aislamiento
+En Windows 11, abre la carpeta del repositorio y haz doble clic en `INICIAR_QA.bat`. En Linux, ejecuta `./INICIAR_QA.sh` en una terminal. La guía corta está en `docs/qa/GUIA_VICENTE.md` y los requisitos/casos manuales en `docs/qa/GUIA_PRUEBAS.md`.
 
-Se requieren Git/Bash, Python 3.12+, Node.js 20+/npm, Docker Compose v2 (o Podman Compose rootless) y FFmpeg. La base corre en PostgreSQL local y aislado. El script crea `.env.qa` con credenciales aleatorias, restringe permisos, deshabilita R2 y SMTP externo, y conserva base y medios para la siguiente sesión. No usa archivos `.env` productivos.
+El asistente comprueba Git/Bash, Python, Node/npm, Docker Compose y FFmpeg, crea su entorno aislado, prepara cuentas de prueba, inicia servicios, ejecuta pruebas y smoke local, detiene sus servicios e informa el resultado. En Windows necesita Git for Windows, Docker Desktop iniciado y Windows 11. No instala programas automáticamente ni solicita permisos administrativos.
 
-## Evidencia anterior sobre el corte base
+## Datos y privacidad
 
-En la validación anterior ejecutada directamente sobre `8c35a74f899b284edb521d3da5cd2d5b79357bcf`, se registraron 499 pruebas Django y 40 de frontend aprobadas, checks y migraciones, TypeScript, lint, build y smoke local. Esos resultados no se atribuyen a otro SHA. La integración de los scripts, lanzadores y documentos requiere una validación final sobre su propio SHA.
+- PostgreSQL QA usa un proyecto/volumen Docker propio, puertos locales y credenciales aleatorias; no se conecta a la base de desarrollo.
+- `media/qa/` y el volumen de PostgreSQL se conservan para corridas posteriores.
+- `.env.qa`, credenciales temporales, logs privados y archivos de ejecución viven en `.qa-private/` y no deben compartirse.
+- Los informes HTML/Markdown que se pueden revisar se guardan en `evidencias/qa/runs/<fecha>/`.
+- No se hace push automático ni se publica directamente en `main`. Publica evidencias mediante PR según `docs/qa/PUBLICAR_EVIDENCIAS.md`.
 
-La validación anterior comprobó Vite y proxy HTTP 200, catálogo y preview HTTP 200, y descarga anónima HTTP 403. No constituye evidencia de Webpay E2E real, credenciales productivas, R2 real con expiración de enlaces, SMTP real, usabilidad externa ni carga de producción.
+## Alcance y límites
 
-## Seguridad y soporte
+El runner ejecuta checks/migraciones Django, suite Django, pruebas frontend, TypeScript, lint, build y smoke local Vite/proxy/catálogo/preview/denegación de descarga anónima. No presenta como validados Webpay E2E real, credenciales productivas, R2 externo y expiración real de enlaces, SMTP real, usabilidad externa ni carga productiva.
 
-Los logs privados están en `.qa-private/runs/<fecha>/`. Envía `INFORME_VALIDACION.md` y, solo si falla, `qa-run.log`. Nunca envíes `.env.qa`, contraseñas, tokens o URLs firmadas. `scripts/qa/reset.sh` es una operación separada, pide confirmación explícita y no forma parte del asistente.
-
-Consulta `docs/qa/DETALLE_TECNICO.md` y `QA_TEST_MATRIX.md` para detalles y casos manuales.
+Windows 11 no estuvo disponible para ejecución real al preparar esta integración. El `.bat`, Bash y rutas se revisaron estáticamente; Vicente debe completar la lista Windows 11 de `docs/qa/GUIA_PRUEBAS.md`. Linux se valida de forma independiente.

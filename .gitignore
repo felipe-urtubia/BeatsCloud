@@ -5,10 +5,13 @@ __pycache__/
 .env.*
 !.env.example
 db.sqlite3
+*.sqlite3
+*.db
 media/
 staticfiles/
 .vscode/
 .qa-private/
+evidencias/qa/runs/*/qa-run.log
 
 # Local tooling
 .qodo/

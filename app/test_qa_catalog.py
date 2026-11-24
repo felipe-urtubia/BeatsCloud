@@ -192,13 +192,22 @@ class QADatabaseSafetyTests(TestCase):
 class QAUserCommandTests(TestCase):
     def test_accounts_are_active_role_scoped_and_passwords_rotate_only_on_request(self):
         from io import StringIO
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
 
         with patch("app.management.commands.prepare_qa_users.validate_local_database"):
-            first_output = StringIO()
-            call_command("prepare_qa_users", stdout=first_output)
-            self.assertIn("qa-comprador:", first_output.getvalue())
-            self.assertIn("qa-productor:", first_output.getvalue())
-            self.assertIn("qa-admin:", first_output.getvalue())
+            with TemporaryDirectory() as tmp:
+                credentials_file = Path(tmp) / ".qa-private" / "credenciales-qa.txt"
+                with patch("django.conf.settings.BASE_DIR", Path(tmp)):
+                    first_output = StringIO()
+                    call_command("prepare_qa_users", stdout=first_output)
+                    self.assertNotIn("qa-comprador:", first_output.getvalue())
+                    self.assertTrue(credentials_file.exists())
+                    self.assertEqual(credentials_file.stat().st_mode & 0o777, 0o600)
+                    saved_credentials = credentials_file.read_text(encoding="utf-8")
+                    self.assertIn("qa-comprador:", saved_credentials)
+                    self.assertIn("qa-productor:", saved_credentials)
+                    self.assertIn("qa-admin:", saved_credentials)
             initial_passwords = {
                 name: User.objects.get(username=name).password
                 for name, *_ in (
@@ -214,11 +223,13 @@ class QAUserCommandTests(TestCase):
             self.assertTrue(admin.is_superuser and admin.is_staff and admin.is_active)
 
             repeat_output = StringIO()
-            call_command("prepare_qa_users", stdout=repeat_output)
+            with patch("django.conf.settings.BASE_DIR", credentials_file.parent.parent):
+                call_command("prepare_qa_users", stdout=repeat_output)
             self.assertIn("passwords were not changed", repeat_output.getvalue())
             for username, previous_hash in initial_passwords.items():
                 self.assertEqual(User.objects.get(username=username).password, previous_hash)
 
-            call_command("prepare_qa_users", "--rotate-passwords", stdout=StringIO())
+            with patch("django.conf.settings.BASE_DIR", credentials_file.parent.parent):
+                call_command("prepare_qa_users", "--rotate-passwords", stdout=StringIO())
             for username, previous_hash in initial_passwords.items():
                 self.assertNotEqual(User.objects.get(username=username).password, previous_hash)

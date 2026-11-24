@@ -2,6 +2,8 @@
 
 **Base anterior validada:** SHA `8c35a74f899b284edb521d3da5cd2d5b79357bcf`. Para una corrida nueva, registrar el SHA final mostrado por `git rev-parse HEAD` y el informe generado por `scripts/qa/run-all.sh`.
 
+**Para esta entrega:** cada corrida nueva genera informe HTML y Markdown en `evidencias/qa/runs/<fecha>/`; los logs técnicos quedan en `.qa-private/runs/<fecha>/`. Completa el sistema operativo, el SHA completo y el tipo de evidencia en cada nota. En Windows 11 no marques casos como ejecutados hasta completar la verificación manual de `docs/qa/GUIA_PRUEBAS.md`.
+
 Tipos: **A-mock** automatizada con dobles; **F-local** funcional local; **I-ext** integración de servicio externo; **M-usuario** manual con usuarios; **NE** no ejecutada en este plan. Los resultados anteriores de otro SHA se identifican aparte.
 
 | ID / Área | Tipo | Escenario y criterio | Resultado esperado | Estado de partida | Evidencia a guardar |

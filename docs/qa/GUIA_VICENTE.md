@@ -1,36 +1,35 @@
-# Guía rápida para Vicente
+# Guía rápida de QA para Vicente
 
-## Lo esencial
+## En una página
 
-1. **Qué descargar:** el proyecto BeatsCloud desde su repositorio y la rama `main` indicada en el mensaje de entrega. No necesitas descargar ni aplicar un parche aparte.
-2. **Qué abrir:** en Windows, `INICIAR_QA.bat`; en Linux, abre una terminal en la carpeta del proyecto y ejecuta `./INICIAR_QA.sh`.
-3. **Qué esperar:** el asistente revisará los programas necesarios, preparará datos de prueba, ejecutará la validación y detendrá los servicios. Puede tardar mientras instala dependencias la primera vez. No cierres la ventana.
-4. **Qué enviar:** al final, envía `INFORME_VALIDACION.md`. Si el resultado dice FALLIDO, envía también `qa-run.log` desde la ruta privada que muestra el asistente.
-5. **Si aparece un error:** deja la ventana abierta, lee el mensaje y sigue la instrucción indicada. Si no se resuelve, envía el informe y `qa-run.log`. **Nunca envíes `.env.qa`**.
+1. **Qué descargar:** BeatsCloud desde [GitHub](https://github.com/felipe-urtubia/BeatsCloud), usando la rama `main` que indique el mensaje de entrega. Puedes usar GitHub Desktop: elige **File → Clone repository** y busca `felipe-urtubia/BeatsCloud`.
+2. **Qué archivo abrir:** dentro de la carpeta BeatsCloud, haz doble clic en `INICIAR_QA.bat`.
+3. **Qué esperar:** se revisarán los programas necesarios, se preparará una base de prueba separada, se ejecutarán verificaciones y aparecerá un resultado. La primera vez puede tardar varios minutos. No cierres la ventana.
+4. **Qué enviar cuando termine:** revisa `evidencias/qa/runs/` y envía el `INFORME_VALIDACION.html` o `.md` más reciente. Agrega capturas o notas si hiciste pruebas manuales. La guía está en `docs/qa/GUIA_PRUEBAS.md`.
+5. **Qué hacer si aparece un error:** sigue la instrucción que aparece en pantalla. Si no se resuelve, comparte el informe; el `qa-run.log` privado se envía solo a soporte por un canal privado, nunca por GitHub. **No envíes `.env.qa`, `.qa-private` completa ni contraseñas.**
 
-## Windows 10/11
+## Windows 11
 
-Necesitas Git for Windows (incluye Git Bash), Python 3.12 o superior, Node.js LTS, FFmpeg y Docker Desktop con Compose. Instálalos desde sus sitios oficiales y abre Docker Desktop antes de comenzar. El asistente no instala programas ni pide permisos de administrador.
-
-1. Descarga o clona el repositorio y cambia a la versión indicada en la entrega.
-2. Abre la carpeta del proyecto y haz doble clic en `INICIAR_QA.bat`.
-3. Si Windows pregunta si permites ejecutar el archivo, comprueba que provenga del paquete oficial que recibiste. No desactives antivirus ni controles de seguridad.
-4. La ventana permanece abierta al final. Sigue el mensaje final para localizar el informe.
-
-**Estado de compatibilidad:** el lanzador y las rutas Windows se revisaron estáticamente. Esta versión no se ejecutó en Windows, por lo que Windows 10/11 aún requiere una corrida real antes de declarar compatibilidad comprobada.
+- Instala Git for Windows, Python 3.12 o superior, Node.js 20 o superior, FFmpeg y Docker Desktop. Los enlaces y motivos están en `docs/qa/GUIA_PRUEBAS.md`.
+- Abre Docker Desktop y espera a que indique que está iniciado.
+- Desde el Explorador de archivos, entra a la carpeta BeatsCloud y abre `INICIAR_QA.bat` con doble clic.
+- Mantén la ventana abierta hasta el mensaje final. No hace falta abrir Docker ni una terminal para los pasos normales.
+- Si Windows indica que no es Windows 11 o falta un requisito, instala/abre lo indicado y vuelve a hacer doble clic. El asistente no instala programas ni cambia la seguridad del equipo.
 
 ## Linux
 
-Necesitas Git, Bash, Python 3.12 o superior, Node.js 20 o superior con npm, Docker Compose v2 (o Podman Compose rootless) y FFmpeg. Docker/Podman debe estar iniciado y tu usuario debe tener acceso sin elevar privilegios desde el asistente.
+- Necesitas Git, Bash, Python 3.12+, Node.js 20+/npm, Docker Compose v2 o Podman Compose rootless, FFmpeg y `curl`.
+- Abre la carpeta del repositorio en una terminal y ejecuta `./INICIAR_QA.sh`.
+- Conserva abierta esa misma terminal. El asistente prepara, inicia, prueba y detiene todo en esa sesión.
 
-1. Abre una terminal dentro de la carpeta del proyecto.
-2. Ejecuta `./INICIAR_QA.sh`.
-3. Mantén esa terminal abierta hasta que aparezca el resultado final.
+## Evidencias y publicación
 
-`setup.sh`, `start.sh`, `verify.sh` y `stop.sh` se ejecutan secuencialmente desde una misma sesión persistente. No abras otra terminal para continuar el flujo.
+Las salidas legibles para compartir quedan en `evidencias/qa/runs/<fecha>/`. Añade capturas, videos y observaciones siguiendo `evidencias/qa/README.md`. Publica los resultados mediante un Pull Request, nunca directamente en `main`; sigue `docs/qa/PUBLICAR_EVIDENCIAS.md`.
 
-## Datos y privacidad
+## Qué significa el resultado
 
-El asistente crea credenciales locales nuevas cuando prepara por primera vez las cuentas QA. Los archivos privados y los logs se guardan en `.qa-private/`; no compartas `.env.qa`. La base y los medios de QA se conservan después de la ejecución para que no se pierdan los datos. El asistente no borra datos automáticamente.
+El informe distingue checks automatizados de verificaciones manuales y servicios externos. Una corrida local no demuestra una compra Webpay real completa, R2 externo con expiración real de enlaces, SMTP real, usabilidad con personas externas ni rendimiento productivo. Si esos casos no se ejecutaron, permanecen como no demostrados.
 
-No se incluyen capturas de pantalla: no se realizó una sesión gráfica reproducible para capturarlas.
+## Compatibilidad
+
+El flujo Linux puede validarse en Linux. No se dispone de Windows 11 en esta ejecución: la compatibilidad de Windows está revisada estáticamente y requiere completar la lista manual de `docs/qa/GUIA_PRUEBAS.md`. No se declara validación real de Windows hasta que alguien la ejecute allí.

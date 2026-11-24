@@ -10,6 +10,13 @@ stamp="$(date +%Y%m%d-%H%M%S)"
 run_dir="$QA_ROOT/.qa-private/runs/$stamp"
 mkdir -p "$run_dir"
 chmod 700 "$QA_ROOT/.qa-private" "$QA_ROOT/.qa-private/runs" "$run_dir"
+run_lock="$QA_ROOT/.qa-private/run.lock"
+if ! mkdir "$run_lock" 2>/dev/null; then
+  say_lock="Ya hay otra validación en curso o quedó un bloqueo sin cerrar. No abras otra ventana; reinicia el asistente cuando la ejecución anterior haya terminado."
+  printf '%s\n' "$say_lock" >&2
+  exit 1
+fi
+printf '%s\n' "$$" > "$run_lock/pid"
 run_log="$run_dir/qa-run.log"
 : > "$run_log"
 chmod 600 "$run_log"
@@ -26,6 +33,8 @@ stop_status="PENDIENTE"
 report_status="PENDIENTE"
 stop_attempted=0
 finished=0
+
+release_run_lock() { rm -f "$run_lock/pid"; rmdir "$run_lock" 2>/dev/null || true; }
 
 say() { printf '%s\n' "$*"; }
 log_command() {
@@ -52,8 +61,10 @@ write_report() {
   [[ "$tests_status" == "OK" ]] && phases+="Pruebas y checks: correctos, " || phases+="Pruebas y checks: $tests_status, "
   [[ "$smoke_status" == "OK" ]] && phases+="Smoke local: correcto, " || phases+="Smoke local: $smoke_status, "
   [[ "$stop_status" == "OK" ]] && phases+="Detención: correcta" || phases+="Detención: $stop_status"
-  if command -v python3 >/dev/null 2>&1; then
-    python3 "$QA_ROOT/scripts/qa/write-report.py" --out "$run_dir/INFORME_VALIDACION.md" --log "$run_log" --status "$final_status" --phases "$phases" >/dev/null 2>&1 || return 1
+  local report_python
+  report_python="$(qa_system_python 2>/dev/null || true)"
+  if [[ -n "$report_python" ]]; then
+    "$report_python" "$QA_ROOT/scripts/qa/write-report.py" --out "$run_dir/INFORME_VALIDACION.md" --html "$run_dir/INFORME_VALIDACION.html" --share-dir "$QA_ROOT/evidencias/qa/runs/$stamp" --log "$run_log" --status "$final_status" --phases "$phases" >/dev/null 2>&1 || return 1
   else
     cat > "$run_dir/INFORME_VALIDACION.md" <<EOF
 # Resultado de validación QA
@@ -63,10 +74,16 @@ write_report() {
 - Estado general: **$final_status**
 - Logs técnicos privados: `.qa-private/runs/$stamp`
 
-El informe automático completo no pudo consultar Python del sistema. Comparte qa-run.log si hubo un error.
+El informe completo no pudo consultar Python del sistema. Comparte qa-run.log si hubo un error.
 EOF
+    mkdir -p "$QA_ROOT/evidencias/qa/runs/$stamp"
+    cp "$run_dir/INFORME_VALIDACION.md" "$QA_ROOT/evidencias/qa/runs/$stamp/INFORME_VALIDACION.md"
+    cat > "$run_dir/INFORME_VALIDACION.html" <<EOF
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Informe QA BeatsCloud</title><h1>Resultado QA: $final_status</h1><p>Revisa el informe Markdown. No compartas credenciales ni .env.qa.</p></html>
+EOF
+    cp "$run_dir/INFORME_VALIDACION.html" "$QA_ROOT/evidencias/qa/runs/$stamp/INFORME_VALIDACION.html"
   fi
-  chmod 600 "$run_dir/INFORME_VALIDACION.md"
+  chmod 600 "$run_dir/INFORME_VALIDACION.md" "$run_dir/INFORME_VALIDACION.html"
 }
 emergency_stop() {
   if (( stop_attempted == 0 )) && [[ -f "$QA_ENV_FILE" ]]; then
@@ -85,8 +102,10 @@ on_exit() {
     emergency_stop
     write_report "FALLIDO" || true
     say "Informe: $run_dir/INFORME_VALIDACION.md"
+    say "Informe para compartir: evidencias/qa/runs/$stamp/INFORME_VALIDACION.html o .md"
     say "Log técnico privado: $run_log"
   fi
+  release_run_lock
   exit "$original"
 }
 trap on_exit EXIT
@@ -101,6 +120,16 @@ say "[1/7] Revisando requisitos..."
 missing=()
 command -v git >/dev/null 2>&1 || missing+=("Git: necesario para descargar y comprobar el proyecto. Instala Git desde https://git-scm.com/downloads y vuelve a ejecutar el asistente.")
 command -v bash >/dev/null 2>&1 || missing+=("Bash: necesario para ejecutar el asistente. Instala Git for Windows (Windows) o Bash desde tu distribución Linux y vuelve a ejecutar el asistente.")
+if qa_is_windows; then
+  windows_build="$(powershell.exe -NoProfile -Command '[Environment]::OSVersion.Version.Build' 2>/dev/null | tr -d '\r' || true)"
+  [[ "$windows_build" =~ ^[0-9]+$ ]] && printf '[REQ] Windows 11 build %s: detectado.\n' "$windows_build" >> "$run_log" || true
+  [[ "$windows_build" =~ ^[0-9]+$ ]] && (( windows_build >= 22000 )) || missing+=("Windows 11: esta entrada requiere Windows 11 (compilación 22000 o posterior). Consulta Configuración > Sistema > Acerca de y usa un equipo Windows 11.")
+  command -v cygpath >/dev/null 2>&1 || missing+=("Git Bash completo: falta cygpath. Reinstala Git for Windows y vuelve a abrir el asistente.")
+  command -v icacls.exe >/dev/null 2>&1 || missing+=("Permisos privados de Windows: no encuentro icacls.exe. Repara la instalación de Windows y vuelve a ejecutar el asistente.")
+  command -v curl >/dev/null 2>&1 || missing+=("curl: se necesita para comprobar que los servicios QA respondan. Instala Git for Windows actualizado y vuelve a abrir el asistente.")
+else
+  command -v curl >/dev/null 2>&1 || missing+=("curl: se necesita para comprobar los servicios. Instala curl con el gestor de tu distribución y vuelve a ejecutar el asistente.")
+fi
 python_cmd="$(qa_system_python 2>/dev/null || true)"
 if [[ -z "$python_cmd" ]]; then
   missing+=("Python 3.12 o superior: necesario para preparar el entorno. Instálalo desde https://www.python.org/downloads/ y marca la opción para añadirlo al PATH; luego vuelve a ejecutar el asistente.")
@@ -111,7 +140,13 @@ if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0
   missing+=("Node.js 20 o superior: necesario para instalar y compilar el frontend. Instala la versión LTS desde https://nodejs.org/ y vuelve a ejecutar el asistente.")
 fi
 npm --version >/dev/null 2>&1 || missing+=("npm: se instala junto con Node.js. Reinstala Node.js LTS y vuelve a ejecutar el asistente.")
-if command -v docker >/dev/null 2>&1; then
+if qa_is_windows; then
+  command -v docker >/dev/null 2>&1 || missing+=("Docker Desktop: se necesita para crear la base PostgreSQL aislada. Instala Docker Desktop desde https://www.docker.com/products/docker-desktop/ y vuelve a ejecutar el asistente.")
+  if command -v docker >/dev/null 2>&1; then
+    docker compose version >/dev/null 2>&1 || missing+=("Docker Compose v2: viene con Docker Desktop actual. Actualiza Docker Desktop y vuelve a ejecutar el asistente.")
+    docker info >/dev/null 2>&1 || missing+=("Docker Desktop no está iniciado. Ábrelo, espera a que indique que está listo y vuelve a ejecutar INICIAR_QA.bat.")
+  fi
+elif command -v docker >/dev/null 2>&1; then
   docker compose version >/dev/null 2>&1 || missing+=("Docker Compose v2: necesario para la base PostgreSQL QA. Instala Docker Desktop (Windows) o Docker Engine con Compose (Linux), inicia Docker y vuelve a ejecutar el asistente.")
   docker info >/dev/null 2>&1 || missing+=("Docker no está iniciado o no tienes acceso. Inicia Docker Desktop / el servicio Docker y vuelve a ejecutar el asistente.")
 elif command -v podman >/dev/null 2>&1; then
@@ -121,9 +156,35 @@ else
   missing+=("Docker Compose v2 o Podman Compose: necesario para la base PostgreSQL. Instala Docker Desktop (Windows) o Docker/Podman en Linux y vuelve a ejecutar el asistente.")
 fi
 command -v ffmpeg >/dev/null 2>&1 || missing+=("FFmpeg: necesario para preparar previews de audio. Instálalo desde https://ffmpeg.org/download.html (o con el gestor de paquetes de Linux) y vuelve a ejecutar el asistente.")
-if qa_is_windows; then
-  command -v cygpath >/dev/null 2>&1 || missing+=("Git Bash completo: falta cygpath. Reinstala Git for Windows y vuelve a abrir el asistente.")
-  command -v icacls.exe >/dev/null 2>&1 || missing+=("icacls de Windows: necesario para restringir permisos de archivos privados. Revisa tu instalación de Windows y vuelve a ejecutar el asistente.")
+if ! git diff --quiet HEAD; then
+  missing+=("El código del clon tiene cambios sin guardar en un commit. Para poder identificar exactamente lo que se probó, usa un clon limpio de main y vuelve a ejecutar INICIAR_QA.")
+fi
+for req in Git Bash Python Node.js npm Docker Docker-Compose FFmpeg; do
+  case "$req" in
+    Git) command -v git >/dev/null 2>&1 && result=detectado || result=falta ;;
+    Bash) command -v bash >/dev/null 2>&1 && result=detectado || result=falta ;;
+    Python) [[ -n "$python_cmd" ]] && result=detectado || result=falta ;;
+    Node.js) command -v node >/dev/null 2>&1 && result=detectado || result=falta ;;
+    npm) command -v npm >/dev/null 2>&1 && result=detectado || result=falta ;;
+    Docker) command -v docker >/dev/null 2>&1 && result=detectado || result=falta ;;
+    Docker-Compose) if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then result=detectado; else result=falta; fi ;;
+    FFmpeg) command -v ffmpeg >/dev/null 2>&1 && result=detectado || result=falta ;;
+  esac
+  printf '[REQ] %s: %s.\n' "$req" "$result" >> "$run_log"
+done
+if git diff --quiet HEAD; then
+  printf '[REQ] Código rastreado del clon: limpio.\n' >> "$run_log"
+else
+  printf '[REQ] Código rastreado del clon: modificado.\n' >> "$run_log"
+fi
+if [[ -n "$python_cmd" ]]; then printf '[REQ] Python version: %s.\n' "$("$python_cmd" --version 2>&1)" >> "$run_log"; fi
+command -v node >/dev/null 2>&1 && printf '[REQ] Node.js version: %s.\n' "$(node --version 2>/dev/null)" >> "$run_log" || true
+command -v npm >/dev/null 2>&1 && printf '[REQ] npm version: %s.\n' "$(npm --version 2>/dev/null)" >> "$run_log" || true
+command -v ffmpeg >/dev/null 2>&1 && printf '[REQ] FFmpeg: %s.\n' "$(ffmpeg -version 2>/dev/null | head -n 1)" >> "$run_log" || true
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  printf '[REQ] Docker Desktop / daemon: iniciado.\n' >> "$run_log"
+else
+  printf '[REQ] Docker Desktop / daemon: no iniciado o no disponible.\n' >> "$run_log"
 fi
 if [[ -n "$python_cmd" ]]; then
   for port in 8010 3010; do
@@ -139,12 +200,13 @@ PY
 fi
 if (( ${#missing[@]} )); then
   requirements_status="FALLIDO"
-  for item in "${missing[@]}"; do say "- $item"; done
+  for item in "${missing[@]}"; do say "- $item"; printf '[REQ] FALTA: %s\n' "$item" >> "$run_log"; done
   step_fail "requisitos" "Faltan componentes necesarios. Instálalos y vuelve a abrir INICIAR_QA." || true
   write_report "FALLIDO" || true
   finished=1
   say "RESULTADO: FALLIDO"
   say "Informe: $run_dir/INFORME_VALIDACION.md"
+  say "Informe para compartir: evidencias/qa/runs/$stamp/INFORME_VALIDACION.html o .md"
   say "Comparte ese informe y qa-run.log si necesitas ayuda."
   exit 1
 fi
@@ -177,6 +239,7 @@ else
   say "RESULTADO: FALLIDO — no se pudo escribir el informe automático."
 fi
 say "Informe: $run_dir/INFORME_VALIDACION.md"
+say "Informe para compartir: evidencias/qa/runs/$stamp/INFORME_VALIDACION.html o .md"
 say "Log técnico privado: $run_log"
 say "Conserva esos archivos; el informe indica cuál enviar si necesitas ayuda."
 [[ "$status" == "APROBADO" ]]
