@@ -2,11 +2,18 @@
 
 ## Fuente, alcance y estado
 
-Proyecto Jira: [DDPB](https://beatscloud.atlassian.net/jira/software/projects/DDPB). No hay una conexión autenticada a Jira disponible en esta sesión; la API anónima no permitió leer las historias. Se conserva como referencia el snapshot incluido en `BACKLOG_ISMAEL_CIERRE.md` (consulta del 24-11-2026, `main` en `0c4d316e0e2ac7fdc9fd9ef1fc9c4907f86f0c4b`) y los estados registrados en la matriz anterior del mismo corte. No se afirma que esos estados sigan vigentes. Antes de aceptar una historia, contrastar título, descripción, criterios de aceptación y estado con Jira actual.
+Proyecto Jira: [DDPB](https://beatscloud.atlassian.net/jira/software/projects/DDPB). **Fuente actualizada:** consulta autenticada del proyecto completo el 24-11-2026 con JQL `project = DDPB ORDER BY Rank ASC`. Se recuperaron las 91 incidencias del proyecto; el detalle de estados, responsables y hallazgos está en la [auditoría actual del backlog](auditorias/ESTADO_BACKLOG_2026-11-24_e652600.md). La auditoría histórica anterior se conserva separada y no se usa como estado vigente.
 
-Los resúmenes de comprobación de esta matriz indican el objeto de prueba a observar; no sustituyen los criterios de aceptación. Para historias cuyo AC no está transcrito en el snapshot disponible, el resultado esperado es **cumplir el AC vigente en Jira**, que debe consultarse antes de marcar aprobación. La presencia de una pantalla, componente o endpoint no demuestra aceptación. Cada resultado de ejecución empieza en **Pendiente**.
+| Estado Jira al 24-11-2026 | Incidencias |
+|---|---:|
+| Finalizada | 58 |
+| En curso | 13 |
+| Tareas por hacer | 20 |
+| **Total** | **91** |
 
-Estados históricos que sí aparecen en el snapshot: **Finalizada** (DDPB-31, 73, 78, 79), **En curso** (DDPB-53, 55, 67, 72, 83, 85, 87) y **Tareas por hacer** (DDPB-23, 28, 29, 32, 36, 46, 52, 59–63, 70, 71, 82, 84, 86). Para las demás claves el estado es **No verificable en el snapshot**. La matriz no actualiza Jira. Una historia pendiente o en curso no se reporta como regresión de una prestación aceptada; se registra como alcance pendiente o comportamiento observado.
+El proyecto contiene 15 épicas, 55 historias y 21 tareas. Permanecen abiertas 33 incidencias. Esto describe el estado del backlog, **no** el resultado de una ejecución QA. En esta matriz, cada caso conserva su propio estado de ejecución y empieza en **Pendiente** hasta registrar evidencia nueva. Una historia pendiente o en curso no se reporta como regresión de una prestación aceptada; se registra como alcance abierto o comportamiento observado.
+
+Los criterios de aceptación deben consultarse en Jira antes de aprobar un caso. La presencia de una pantalla, componente, endpoint o prueba automatizada no demuestra por sí sola que todos los criterios estén aceptados. No se actualizó ningún estado de Jira en esta revisión.
 
 ## Casos de primera ronda: navegación y lectura
 
@@ -18,7 +25,7 @@ Solo navegador sobre `https://beats-cloud.vercel.app/`. No iniciar sesión ni ej
 | WEB-02 | Abrir catálogo y revisar géneros y datos visibles de pistas. | Catálogo, géneros y datos cumplen los AC vigentes; anotar estados vacíos o errores. | DDPB-21, DDPB-24, DDPB-25 | Sin autenticación; lectura HTTP; datos dependen del backend público. | Pendiente |
 | WEB-03 | Buscar pistas y productores con términos disponibles. | Coincidencias y estado sin resultados cumplen los AC vigentes. | DDPB-22, DDPB-26 | Sin autenticación; lectura HTTP; depende de datos publicados. | Pendiente |
 | WEB-04 | Abrir tarjetas y detalle de pistas; leer su información. | Datos presentados cumplen los AC vigentes, sin inferir aceptación a partir de campos presentes. | DDPB-27, DDPB-42, DDPB-43 | Sin autenticación; lectura HTTP; depende de datos publicados. | Pendiente |
-| WEB-05 | Probar filtros y opciones de orden visibles sin alterar datos. | Para DDPB-70, el snapshot histórico describe: API acepta filtros/orden; SPA envía esos parámetros sin filtrar en cliente; resultados paginados. Validar el contrato vigente en Jira antes de aprobar. DDPB-31 figura como duplicada/finalizada, no como capacidad independiente. | DDPB-23, DDPB-28, DDPB-29, DDPB-31, DDPB-70 | Sin autenticación; lectura HTTP; paginación/datos dependen del backend. | Pendiente |
+| WEB-05 | Probar filtros y opciones de orden visibles sin alterar datos. | Para DDPB-70, los AC vigentes exigen que el endpoint acepte filtros/orden, que la SPA envíe esos parámetros sin filtrar en cliente y que los resultados estén paginados. La historia sigue en Tareas por hacer; no asumir que el contrato está implementado. DDPB-31 figura como duplicada/finalizada, no como capacidad independiente. | DDPB-23, DDPB-28, DDPB-29, DDPB-31, DDPB-70 | Sin autenticación; lectura HTTP; paginación/datos dependen del backend. | Pendiente |
 | WEB-06 | Reproducir, pausar y reanudar previews; cambiar de pista si está disponible. | Audio y controles cumplen los AC; anotar errores de carga/reproducción. | DDPB-30 | Sin autenticación; lectura de preview; servicio de medios externo no confirmado. | Pendiente |
 | WEB-07 | Abrir perfiles públicos de artista y recorrer información visible. | Presentación pública y navegación cumplen los AC vigentes. | DDPB-14, DDPB-33, DDPB-34, DDPB-35 | Sin autenticación; lectura; depende de datos publicados. | Pendiente |
 | WEB-08 | Abrir perfiles públicos de productor y recorrer información visible. | Presentación pública, pistas y enlaces cumplen los AC vigentes. | DDPB-17, DDPB-37, DDPB-38, DDPB-39 | Sin autenticación; lectura; depende de datos publicados. | Pendiente |
