@@ -1,28 +1,31 @@
-# Traspaso de entorno QA a Vicente
+# Traspaso QA web — Vicente
 
-## Versión que se valida
+La validación manual de BeatsCloud se realizará en la aplicación web publicada, desde un navegador. No se requiere clonar el repositorio, instalar herramientas ni ejecutar asistentes locales.
 
-- Repositorio: `felipe-urtubia/BeatsCloud`, rama `main`.
-- Corte base anterior: `8c35a74f899b284edb521d3da5cd2d5b79357bcf`.
-- La infraestructura QA, notificaciones y pruebas de este paquete quedan integradas en el árbol final de `main`; no se requiere aplicar un parche manual.
-- El checkout local de trabajo puede estar atrasado. Comprueba siempre el SHA indicado por el mensaje de entrega y por `git rev-parse HEAD`.
+## Aplicación
 
-## Inicio recomendado
+https://beats-cloud.vercel.app/
 
-Sigue `docs/qa/GUIA_VICENTE.md`. En Linux abre una terminal en el clon y ejecuta `./INICIAR_QA.sh`; en Windows abre `INICIAR_QA.bat`. Los lanzadores llaman a `scripts/qa/run-all.sh` dentro de una sola sesión persistente.
+## Instrucciones
 
-## Requisitos y aislamiento
+1. Abrir la URL anterior desde Firefox, Chrome o Edge.
+2. Seguir [la guía de primera revisión web](docs/qa/GUIA_VICENTE.md).
+3. Ejecutar únicamente los casos de lectura y navegación WEB-01 a WEB-10.
+4. Registrar cada resultado y adjuntar capturas cuando exista un problema.
+5. Enviar el registro a Ismael para consolidarlo en Jira.
 
-Se requieren Git/Bash, Python 3.12+, Node.js 20+/npm, Docker Compose v2 (o Podman Compose rootless) y FFmpeg. La base corre en PostgreSQL local y aislado. El script crea `.env.qa` con credenciales aleatorias, restringe permisos, deshabilita R2 y SMTP externo, y conserva base y medios para la siguiente sesión. No usa archivos `.env` productivos.
+## Restricciones de esta primera ronda
 
-## Evidencia anterior sobre el corte base
+La configuración de Vercel reenvía API, medios, CSRF y sesión al backend `https://beatscloud.onrender.com`. Aún no se ha vinculado el despliegue público a un SHA concreto ni confirmado que la base de datos asociada esté aislada para QA. Por tanto, no registrar cuentas, editar perfiles, cambiar likes/favoritos/carrito, subir/eliminar pistas, comprar, iniciar Webpay ni descargar archivos originales.
 
-En la validación anterior ejecutada directamente sobre `8c35a74f899b284edb521d3da5cd2d5b79357bcf`, se registraron 499 pruebas Django y 40 de frontend aprobadas, checks y migraciones, TypeScript, lint, build y smoke local. Esos resultados no se atribuyen a otro SHA. La integración de los scripts, lanzadores y documentos requiere una validación final sobre su propio SHA.
+Las funciones que requieren autenticación, persistencia o integración externa quedan para una segunda ronda, cuando Felipe confirme backend, base de datos y credenciales de prueba.
 
-La validación anterior comprobó Vite y proxy HTTP 200, catálogo y preview HTTP 200, y descarga anónima HTTP 403. No constituye evidencia de Webpay E2E real, credenciales productivas, R2 real con expiración de enlaces, SMTP real, usabilidad externa ni carga de producción.
+## Documentos
 
-## Seguridad y soporte
+- [Guía de Vicente](docs/qa/GUIA_VICENTE.md)
+- [Matriz de pruebas basada en Jira](QA_TEST_MATRIX.md)
+- [Detalle técnico de las pruebas automatizadas locales](docs/qa/DETALLE_TECNICO.md) — referencia interna; no es el procedimiento que debe ejecutar Vicente.
 
-Los logs privados están en `.qa-private/runs/<fecha>/`. Envía `INFORME_VALIDACION.md` y, solo si falla, `qa-run.log`. Nunca envíes `.env.qa`, contraseñas, tokens o URLs firmadas. `scripts/qa/reset.sh` es una operación separada, pide confirmación explícita y no forma parte del asistente.
+## Estado
 
-Consulta `docs/qa/DETALLE_TECNICO.md` y `QA_TEST_MATRIX.md` para detalles y casos manuales.
+La primera ronda web está preparada, pero todavía no ejecutada. La versión de Vercel debe contrastarse con el SHA de `main` antes de tratar sus resultados como evidencia del corte final.
