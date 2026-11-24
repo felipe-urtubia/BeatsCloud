@@ -28,7 +28,7 @@ import { X } from 'lucide-react';
 import { AccountDeletionModal } from './components/AccountDeletionModal';
 
 export const App: React.FC = () => {
-  const { currentUser, users, paymentNotice, paymentReturnReady, clearPaymentNotice, authNotice, clearAuthNotice, setActiveResourceFilter } = useApp();
+  const { currentUser, users, paymentNotice, paymentReturnReady, clearPaymentNotice, authNotice, clearAuthNotice, setActiveResourceFilter, notifications, dismissNotification } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>(
     () => readNavigation(window.location.search).profileUsername
@@ -225,6 +225,20 @@ export const App: React.FC = () => {
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
         <BackendStatusBanner />
+      <div aria-label="Notificaciones" className="fixed right-4 top-20 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2" aria-live="polite" aria-relevant="additions">
+        {notifications.map((notification) => (
+          <div
+            key={notification.id}
+            role={notification.kind === 'error' ? 'alert' : 'status'}
+            className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm shadow-xl ${notification.kind === 'error' ? 'border-rose-400/40 bg-[#211116] text-rose-100' : 'border-emerald-400/40 bg-[#101e19] text-emerald-100'}`}
+          >
+            <span>{notification.message}</span>
+            <button type="button" onClick={() => dismissNotification(notification.id)} aria-label="Cerrar notificación" className="shrink-0 rounded p-1 hover:bg-white/10">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ))}
+      </div>
 
         {/* Dynamic Main Views Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28">

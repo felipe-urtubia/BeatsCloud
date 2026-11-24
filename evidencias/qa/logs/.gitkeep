@@ -1,0 +1,1 @@
+Raw local logs stay outside Git when they contain credentials. Add only sanitized evidence.

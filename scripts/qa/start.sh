@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+umask 077
 qa_load_env
 qa_select_compose
 
-[[ -x "$QA_ROOT/.venv/bin/python" ]] || qa_error "Run scripts/qa/setup.sh first."
-[[ -x "$QA_ROOT/frontend/client/node_modules/.bin/vite" ]] || qa_error "Run scripts/qa/setup.sh first."
+python_path="$(qa_venv_python_path)"
+[[ -x "$python_path" ]] || qa_error "Falta el entorno Python. Ejecuta scripts/qa/setup.sh."
+[[ -f "$QA_ROOT/frontend/client/node_modules/vite/bin/vite.js" ]] || qa_error "Falta Vite. Ejecuta scripts/qa/setup.sh."
 qa_assert_media_sentinel
+qa_private_dir "$QA_RUNTIME_DIR"
 qa_compose up -d db
 
 ready=0
@@ -19,10 +22,10 @@ for _ in $(seq 1 60); do
 done
 [[ "$ready" == 1 ]] || qa_error "QA PostgreSQL is not ready."
 
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" migrate --noinput
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" prepare_demo_catalog
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" prepare_qa_users
-"$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" generate_qa_catalog --count 120 --seed 20261118
+qa_python "$QA_ROOT/manage.py" migrate --noinput
+qa_python "$QA_ROOT/manage.py" prepare_demo_catalog
+qa_python "$QA_ROOT/manage.py" prepare_qa_users
+qa_python "$QA_ROOT/manage.py" generate_qa_catalog --count 120 --seed 20261118
 
 for port in "$QA_BACKEND_PORT" "$QA_FRONTEND_PORT"; do
   if ! qa_port_free "$port"; then
@@ -31,14 +34,14 @@ for port in "$QA_BACKEND_PORT" "$QA_FRONTEND_PORT"; do
 done
 
 cd "$QA_ROOT"
-nohup "$QA_ROOT/.venv/bin/python" "$QA_ROOT/manage.py" runserver "127.0.0.1:$QA_BACKEND_PORT" \
-  > "$QA_RUNTIME_DIR/django.log" 2>&1 &
+nohup "$python_path" "$QA_ROOT/manage.py" runserver "127.0.0.1:$QA_BACKEND_PORT" \
+  > >("$(qa_system_python)" "$QA_ROOT/scripts/qa/private-log.py" "$QA_RUNTIME_DIR/django.log" --quiet >/dev/null 2>&1) 2>&1 &
 echo "$!" > "$QA_RUNTIME_DIR/django.pid"
 
 cd "$QA_ROOT/frontend/client"
 nohup env VITE_API_MODE=hybrid VITE_DJANGO_URL= VITE_DJANGO_PROXY_TARGET="http://127.0.0.1:$QA_BACKEND_PORT" \
-  "$QA_ROOT/frontend/client/node_modules/.bin/vite" --host 127.0.0.1 --port "$QA_FRONTEND_PORT" \
-  > "$QA_RUNTIME_DIR/vite.log" 2>&1 &
+  node "$QA_ROOT/frontend/client/node_modules/vite/bin/vite.js" --host 127.0.0.1 --port "$QA_FRONTEND_PORT" \
+  > >("$(qa_system_python)" "$QA_ROOT/scripts/qa/private-log.py" "$QA_RUNTIME_DIR/vite.log" --quiet >/dev/null 2>&1) 2>&1 &
 echo "$!" > "$QA_RUNTIME_DIR/vite.pid"
 
 for url in "http://127.0.0.1:$QA_BACKEND_PORT/api/session/" "http://127.0.0.1:$QA_FRONTEND_PORT/"; do
