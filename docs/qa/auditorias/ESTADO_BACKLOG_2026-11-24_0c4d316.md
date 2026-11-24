@@ -1,4 +1,4 @@
-# Auditoría de cierre del backlog de Ismael
+# Estado histórico del backlog DDPB — consulta 24-11-2026
 
 **Fecha de auditoría:** 24 de noviembre de 2026  
 **Repositorio:** `felipe-urtubia/BeatsCloud`  
@@ -78,7 +78,7 @@ Resultados registrados para el commit de código:
 
 ## 5. Validación manual pendiente
 
-Antes de pedirle a Vicente que pruebe la aplicación, debe identificarse la versión exacta desplegada y confirmar que el backend y la base de datos sean seguros para QA.
+Antes de una revisión manual debe identificarse la versión exacta desplegada y confirmar que el backend y la base de datos sean seguros para QA.
 
 ### Precondiciones
 
@@ -102,20 +102,20 @@ Antes de pedirle a Vicente que pruebe la aplicación, debe identificarse la vers
 
 Los casos de DDPB-46 requieren datos de QA preparados de manera segura; no se debe crear una transacción real para producir evidencia académica.
 
-## 6. Decisiones que requieren coordinación con Felipe
+## 6. Decisiones pendientes del equipo
 
-1. **DDPB-70:** ¿se implementa el filtrado server-side completo o se formaliza su postergación? Resolver el conflicto entre prioridad Must y el comentario de aplazamiento.
+1. **DDPB-70:** decidir si se implementa el filtrado server-side completo o se formaliza su postergación, considerando la prioridad Must y el comentario de aplazamiento.
 2. **DDPB-23/28/29:** según esa decisión, definir qué parte queda aceptada, qué parte permanece pendiente y si las historias se mantienen separadas o se agrupan con DDPB-70.
 3. **DDPB-46:** confirmar que el flujo postpago y la descarga están integrados en el entorno de QA para permitir una validación E2E segura.
 4. **Cierre de épicas:** DDPB-4 depende de DDPB-70; DDPB-5 depende de validar y cerrar DDPB-36; DDPB-10 incluye trabajo adicional que no pertenece a Ismael.
 
-## 7. Acciones que Ismael puede completar sin Felipe
+## 7. Acciones de seguimiento registradas en la auditoría
 
-- Mantener este informe actualizado contra el SHA de `main`.
-- Preparar la lista y los resultados esperados de pruebas manuales, sin ejecutarlas contra un despliegue no identificado.
-- Coordinar con Vicente una revisión de navegador después de confirmar versión y entorno de QA.
-- Tras obtener evidencia de pruebas, actualizar comentarios/estados de DDPB-32, DDPB-36 y DDPB-46.
-- No modificar DDPB-70 ni cerrar DDPB-23/28/29 o la épica DDPB-4 hasta la decisión de Felipe.
+- Actualizar el informe solo contra un SHA de `main` identificado.
+- Definir casos manuales sin ejecutarlos contra un despliegue no identificado.
+- Coordinar una revisión de navegador después de confirmar versión y entorno de QA.
+- Vincular evidencia antes de proponer cambios de estado en DDPB-32, DDPB-36 y DDPB-46.
+- Resolver el alcance de DDPB-70 y DDPB-23/28/29 con la persona responsable del backlog antes de proponer cierres.
 
 ## 8. Registro de cambios y límites
 

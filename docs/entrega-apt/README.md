@@ -12,6 +12,9 @@ La guía de instalación y ejecución está en el [README principal](../../READM
 - [Validación HTTP local del 18-11](validacion_tecnica_corte_2026-11-18.md)
 - [Riesgos técnicos](plan_riesgos.md)
 - [Visión y alcance observable](vision_producto.md)
+- [Plan de primera revisión web](../qa/PLAN_REVISION_WEB.md)
+- [Matriz de pruebas trazable al backlog DDPB](../qa/MATRIZ_PRUEBAS_BACKLOG.md)
+- [Verificación del despliegue público, 24-11-2026](../qa/VERIFICACION_DESPLIEGUE_2026-11-24.md)
 
 ## Estado técnico
 
