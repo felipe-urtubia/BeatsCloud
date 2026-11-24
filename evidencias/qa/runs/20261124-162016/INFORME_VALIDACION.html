@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Informe QA BeatsCloud</title><style>
+body{font:16px/1.55 system-ui,sans-serif;max-width:850px;margin:2rem auto;padding:0 1rem;background:#10131d;color:#eee}
+h1,h2{color:#ffd166}.status{padding:.8rem 1rem;border-radius:.6rem;font-weight:800;background:#153d2a;color:#84f1b3}
+code{overflow-wrap:anywhere}table{border-collapse:collapse;width:100%}td,th{border:1px solid #394052;padding:.5rem;text-align:left}.note{color:#c6cad3}
+</style></head><body><h1>BEATSCLOUD — Informe de validación QA</h1>
+<p class="status">RESULTADO: APROBADO</p>
+<p><b>Fecha:</b> 2026-11-24 16:24 -03<br><b>SHA:</b> <code>5a8ccbeaefef09a061d1b22e85ebcd4c6eb6e9b0</code><br><b>Sistema operativo:</b> Linux 7.3.4-200.fc44.x86_64<br><b>Logs:</b> carpeta local privada <code>.qa-private/runs</code></p>
+<h2>Requisitos detectados</h2><table><tr><td>Git: detectado.</td></tr><tr><td>Bash: detectado.</td></tr><tr><td>Python: detectado.</td></tr><tr><td>Node.js: detectado.</td></tr><tr><td>npm: detectado.</td></tr><tr><td>Docker: detectado.</td></tr><tr><td>Docker-Compose: detectado.</td></tr><tr><td>FFmpeg: detectado.</td></tr><tr><td>Código rastreado del clon: limpio.</td></tr><tr><td>Python version: Python 3.14.10.</td></tr><tr><td>Node.js version: v22.23.1.</td></tr><tr><td>npm version: 10.9.8.</td></tr><tr><td>FFmpeg: ffmpeg version 8.1.3 Copyright (c) 2000-2026 the FFmpeg developers.</td></tr><tr><td>Docker Desktop / daemon: iniciado.</td></tr></table>
+<h2>Pruebas automatizadas</h2><table><thead><tr><th>Grupo</th><th>Ejecutadas</th><th>Aprobadas</th><th>Fallidas</th><th>Omitidas</th></tr></thead><tbody>
+<tr><td>Django</td><td>507</td><td>507</td><td>0</td><td>0</td></tr>
+<tr><td>Frontend</td><td>44</td><td>44</td><td>0</td><td>0</td></tr></tbody></table>
+<h2>Fases</h2><table><tr><td>Requisitos: correctos</td></tr><tr><td>Preparación: correcta</td></tr><tr><td>Inicio de servicios: correcto</td></tr><tr><td>Pruebas y checks: correctos</td></tr><tr><td>Smoke local: correcto</td></tr><tr><td>Detención: correcta</td></tr></table>
+<h2>Errores explicados</h2><ul><li>No se registró un mensaje de error de fase. Revisa el siguiente paso indicado en pantalla.</li></ul>
+<h2>Requisitos faltantes</h2><ul><li>No faltaron requisitos detectados.</li></ul><h2>Smoke funcional local</h2><p>Vite HTTP 200; Vite-to-Django session/catalog proxy HTTP 200; catalog 6/125 tracks; preview HTTP 200 (125); anonymous download HTTP 403.</p>
+<h2>Compatibilidad del launcher en GitHub Actions</h2><p>El workflow <a href="https://github.com/felipe-urtubia/BeatsCloud/actions/runs/45469137981">Windows QA launcher compatibility</a> pasó en Windows Server 2025 (build 26100, ProductType 3): Bash en ruta con espacios, sintaxis y rechazo claro de Windows Server por el .bat. Detectó Git, Git Bash, Python 3.12.10, Node.js, npm y Docker Compose v2.40.3; faltaba FFmpeg. No inició ni simuló Docker. No es una ejecución de Windows 11 ni del flujo QA completo.</p>
+<h2>No demostrado en esta ejecución</h2><p class="note">Webpay E2E real completo, R2 externo y expiración real de enlaces, SMTP real, usabilidad externa y rendimiento/carga productivos. Los mocks no validan esos servicios.</p>
+<h2>Siguiente paso</h2><p>Revisa el informe y guarda la corrida junto a las evidencias manuales que agregues.</p>
+<p class="note">Si falla, enlaza el informe en el PR. Comparte qa-run.log solo por un canal privado con soporte, nunca en GitHub. No compartas .env.qa, contraseñas, tokens, cookies ni URLs firmadas.</p></body></html>
