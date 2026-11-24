@@ -1409,6 +1409,91 @@ def mis_compras_api(request):
     )
 
 
+def mis_compras_confirmadas_api(request):
+    """Devuelve solo líneas de carrito autorizadas y entregadas al usuario propio."""
+    if request.method != "GET":
+        return _method_not_allowed(["GET"])
+    if not request.user.is_authenticated:
+        return _err("Autenticación requerida.", 401)
+
+    perfil = Usuario.objects.filter(user=request.user).first()
+    if perfil is None or perfil.tipo_usu != Usuario.ARTISTA:
+        return JsonResponse([], safe=False)
+
+    ordenes = WebpayTransaction.objects.filter(
+        user=request.user,
+        status=WebpayTransaction.ESTADO_AUTORIZADO,
+        fulfilled_at__isnull=False,
+        suscripcion__isnull=True,
+    ).order_by("-fulfilled_at", "-pk")
+
+    lineas_por_orden = []
+    ids_track = set()
+    for orden in ordenes:
+        snapshot = orden.cart_snapshot
+        if not isinstance(snapshot, list) or not snapshot:
+            continue
+        lineas = []
+        ids_orden = set()
+        for item in snapshot:
+            if not isinstance(item, dict):
+                lineas = []
+                break
+            venta_id, track_id, precio, iva = (
+                item.get("venta_id"),
+                item.get("track_id"),
+                item.get("precio"),
+                item.get("iva"),
+            )
+            if any(type(value) is not int for value in (venta_id, track_id, precio, iva)):
+                lineas = []
+                break
+            if venta_id <= 0 or track_id <= 0 or precio < 0 or iva < 0 or track_id in ids_orden:
+                lineas = []
+                break
+            ids_orden.add(track_id)
+            lineas.append({"track_id": track_id, "precio": precio, "iva": iva})
+        if not lineas or sum(row["precio"] + row["iva"] for row in lineas) != int(orden.amount):
+            continue
+        lineas_por_orden.append((orden, lineas))
+        ids_track.update(row["track_id"] for row in lineas)
+
+    tracks = Track.objects.select_related("usuario__user", "genero").in_bulk(ids_track)
+    historial_ids = set(
+        HistorialCompra.objects.filter(
+            usuario=perfil,
+            track_id__in=ids_track,
+        ).values_list("track_id", flat=True)
+    )
+    from .r2_visibility import is_media_ready
+
+    resultado = []
+    for orden, lineas in lineas_por_orden:
+        for linea in lineas:
+            track = tracks.get(linea["track_id"])
+            if track is None or linea["track_id"] not in historial_ids:
+                continue
+            resultado.append(
+                {
+                    "id": f"{orden.pk}:{track.pk}",
+                    "transaction_id": orden.pk,
+                    "buy_order": orden.buy_order,
+                    "order_amount": int(orden.amount),
+                    "line_amount": linea["precio"] + linea["iva"],
+                    "fecha_compra": orden.fulfilled_at.isoformat(),
+                    "status": orden.status,
+                    "download_available": is_media_ready(track)
+                    and (
+                        bool(track.r2_object_key)
+                        if track.storage_backend == "r2"
+                        else bool(track.track)
+                    ),
+                    "track": ser_track(track, request.user),
+                }
+            )
+    return JsonResponse(resultado, safe=False)
+
+
 def like_toggle_api(request, track_id):
     if request.method != "POST":
         return _err("Método no permitido.", 405)
@@ -1418,6 +1503,20 @@ def like_toggle_api(request, track_id):
     perfil = Usuario.objects.filter(user=request.user).first()
     if track is None or perfil is None:
         return _err("No encontrado.", 404)
+    if perfil.tipo_usu != Usuario.ARTISTA:
+        return _err("Solo un artista puede guardar pistas como favoritas.", 403)
+    body = _json_body(request)
+    if not isinstance(body, dict):
+        return _err("El cuerpo de la solicitud debe ser un objeto JSON.", 400)
+    desired_state = body.get("liked")
+    if "liked" in body and type(desired_state) is not bool:
+        return _err("El campo liked debe ser verdadero o falso.", 400)
+    if type(desired_state) is bool:
+        if desired_state:
+            perfil.tracks_gustados.add(track)
+        else:
+            perfil.tracks_gustados.remove(track)
+        return JsonResponse({"liked": desired_state})
     if perfil.tracks_gustados.filter(pk=track.pk).exists():
         perfil.tracks_gustados.remove(track)
         return JsonResponse({"liked": False})
@@ -1784,6 +1883,7 @@ urlpatterns = [
     path("api/upload/", upload_api, name="api_upload"),
     path("api/mis-ventas/", mis_ventas_api, name="api_sales"),
     path("api/mis-compras/", mis_compras_api, name="api_purchases"),
+    path("api/mis-compras/confirmadas/", mis_compras_confirmadas_api, name="api_confirmed_purchases"),
     path("api/like/<int:track_id>/", like_toggle_api, name="api_like"),
     path("api/perfil/<str:username>/", perfil_publico_api, name="api_profile"),
     path("api/suscripciones/", suscripciones_api, name="api_suscripciones"),

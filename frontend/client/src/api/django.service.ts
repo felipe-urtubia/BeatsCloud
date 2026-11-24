@@ -34,6 +34,7 @@ import type {
   DVenta,
   DComentario,
   DHistorialCompra,
+  DCompraConfirmada,
   DHistorialVenta,
   DPagoInit,
   DSuscripcion,
@@ -434,6 +435,10 @@ export const DjangoApi = {
       request<{ ok: boolean }>(`/api/track/${trackId}/comentarios/?id=${commentId}`, { method: 'DELETE' }),
     ),
   toggleLike: (id: number) => ensureCsrf().then(() => request<{ liked: boolean }>(`/api/like/${id}/`, { method: 'POST' })),
+  setLike: (id: number, liked: boolean) => ensureCsrf().then(() => request<{ liked: boolean }>(`/api/like/${id}/`, {
+    method: 'POST',
+    body: JSON.stringify({ liked }),
+  })),
 
   // Carrito (precios/IVA SIEMPRE del servidor)
   // El contexto solo consulta carrito tras confirmar una sesión autenticada.
@@ -479,6 +484,7 @@ export const DjangoApi = {
   // Productor / artista
   misVentas: () => request<DHistorialVenta[]>('/api/mis-ventas/'),
   misCompras: () => request<DHistorialCompra[]>('/api/mis-compras/'),
+  misComprasConfirmadas: () => request<DCompraConfirmada[]>('/api/mis-compras/confirmadas/'),
   perfil: (username: string) =>
     request<DUser & { tracks: DTrack[] }>(`/api/perfil/${encodeURIComponent(username)}/`),
   suscripciones: (userId?: string | number) =>

@@ -19,6 +19,7 @@ import type {
   DVenta,
   DHistorialVenta,
   DHistorialCompra,
+  DCompraConfirmada,
   DComentario,
   DSuscripcion,
   DLicense,
@@ -156,6 +157,24 @@ export function mapHistorialCompra(d: DHistorialCompra, buyerUserId: string): Pu
     downloadUrl: apiDownloadUrl(d.track.id_track),
     licenseType: 'comercial_wav_stems',
   } as unknown as PurchaseRecord;
+}
+
+export function mapCompraConfirmada(d: DCompraConfirmada, buyerUserId: string): PurchaseRecord {
+  return {
+    id: `webpay-${d.transaction_id}-${d.track.id_track}`,
+    userId: buyerUserId,
+    trackId: slug(d.track.id_track),
+    trackTitle: d.track.nombre_track,
+    producerName: d.track.usuario.nombre_artistico || d.track.usuario.username,
+    amount: d.line_amount,
+    webpayAmount: d.order_amount,
+    buyOrder: d.buy_order,
+    date: d.fecha_compra,
+    status: d.status,
+    downloadAvailable: d.download_available,
+    downloadUrl: d.download_available ? apiDownloadUrl(d.track.id_track) : undefined,
+    licenseType: 'comercial_wav_stems',
+  };
 }
 
 export function mapSubscription(d: DSuscripcion): ProducerSubscription {
