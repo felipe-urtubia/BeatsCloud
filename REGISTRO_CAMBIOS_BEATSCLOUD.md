@@ -3745,3 +3745,327 @@ No fue necesario modificar el backend ni el frontend.
   mediante Network > Response si vuelve a ocurrir.
 - Verificar una transaccion completa para DDPB-53.
 - Implementar el cambio rapido entre cuentas.
+
+---
+
+## 23-11-2026 - Inicio de desarrollo de cambio rapido entre cuentas
+
+**Estado:** DESARROLLO INICIADO. FUNCIONALIDAD NO IMPLEMENTADA.
+
+### Analisis realizado
+
+- Django utiliza autenticacion por sesiones.
+- La sesion activa corresponde a un usuario.
+- El selector de cuentas existente funciona en modo mock.
+- El modo hybrid no permite cambiar identidades desde React.
+
+### Pruebas iniciales
+
+- Se agrego app/test_account_switch_baseline.py.
+- Se comprobo el login de una segunda cuenta sin logout manual.
+- Se comprobo que una clave incorrecta conserva la identidad activa.
+- Las pruebas se ejecutaron sobre la base temporal de Django.
+
+### Requisitos de seguridad para la implementacion
+
+- Autorizar cada cuenta adicional con sus credenciales.
+- No almacenar contrasenas ni tokens de sesion en localStorage.
+- Verificar la autorizacion de cambios de identidad en Django.
+- Mantener aislados carrito, compras y datos privados.
+- Invalidar cuentas autorizadas al finalizar la sesion.
+- Conservar la proteccion CSRF.
+- Probar expiracion de sesion y cambios de contrasena.
+
+### Pendiente
+
+- Implementar autorizacion temporal de cuentas adicionales.
+- Implementar cambio seguro de identidad en Django.
+- Conectar el selector de cuentas de TopBar.
+- Agregar pruebas de aislamiento entre cuentas.
+- Validar visualmente y publicar.
+
+### Paso 438 - Pruebas de aceptacion del cambio de cuentas
+
+**Estado:** ETAPA RED / DESARROLLO GUIADO POR PRUEBAS.
+
+Se agrego `app/test_account_switch.py` con siete pruebas
+para definir el comportamiento esperado del selector real.
+
+Cobertura prevista:
+
+- Acceso autenticado a la lista de cuentas.
+- Autorizacion de otra cuenta mediante credenciales.
+- Cambio bidireccional sin repetir contrasenas.
+- Rechazo de credenciales incorrectas.
+- Prohibicion de cambiar a cuentas no autorizadas.
+- Revocacion de autorizaciones al cerrar sesion.
+- Proteccion CSRF.
+- Invalidacion tras cambios de contrasena.
+
+Los endpoints aun deben implementarse en Django.
+Estas pruebas no representan una funcionalidad terminada.
+
+### Paso 439 - Endpoints iniciales de cambio de cuentas
+
+**Estado:** BACKEND INICIAL IMPLEMENTADO; PENDIENTE DE VALIDACION COMPLETA.
+
+- Se agrego app/account_switch_api.py.
+- Se registraron tres endpoints en app/api_shim.py:
+  - GET /api/auth/accounts/
+  - POST /api/auth/accounts/add/
+  - POST /api/auth/accounts/switch/
+- La segunda cuenta requiere autenticacion con Django.
+- Las autorizaciones se almacenan en la sesion del servidor.
+- No se almacenan contrasenas en el navegador.
+- Se comprueba que las cuentas sigan activas.
+- Se comprueba el hash de autenticacion ante cambios de clave.
+- Se conservan las autorizaciones validadas al cambiar de usuario.
+- El logout normal de Django elimina las autorizaciones de la sesion.
+- Se mantiene el control CSRF de Django.
+
+### Pendiente antes de publicar
+
+- Ampliar pruebas de aislamiento y seguridad.
+- Revisar limitacion de intentos de autenticacion.
+- Integrar el selector de cuentas en React.
+- Renovar el token CSRF del cliente tras cambiar de identidad.
+- Limpiar y recargar todos los datos privados.
+- Validar funcionamiento local y visualmente en produccion.
+
+### Paso 440 - Pruebas adicionales de seguridad
+
+**Estado:** PRUEBAS DEL BACKEND.
+
+Se agrego `app/test_account_switch_security.py`.
+
+Se comprueban:
+- Separacion de autorizaciones entre navegadores.
+- Proteccion CSRF del cambio de cuentas.
+- Rechazo de cuentas desactivadas.
+- Revocacion ante cambios de contrasena.
+- Revocacion tras un nuevo login normal.
+- Validacion de identificadores.
+- Ausencia de credenciales en la lista publica.
+- Renovacion del token CSRF al cambiar de cuenta.
+
+**Pendiente:**
+- Proteccion frente a intentos repetidos de login.
+- Pruebas de aislamiento real de compras y carritos.
+- Integracion completa con React.
+- Validacion local antes de publicar.
+
+### Paso 441 - Cliente React para cambio de cuentas
+
+**Estado:** INTEGRACION API FRONTEND INICIADA.
+
+Se modifico `frontend/client/src/api/django.service.ts`.
+
+Se agregaron:
+- Tipos DAuthorizedAccount y DAuthorizedAccountsResponse.
+- getAuthorizedAccounts para consultar cuentas autorizadas.
+- addAuthorizedAccount para agregar otra cuenta autenticada.
+- switchAuthorizedAccount para cambiar de identidad.
+- Invalidacion del token CSRF del cliente tras un cambio exitoso.
+
+Las contrasenas se envian solamente a Django para autenticacion.
+No se guardan contrasenas ni tokens de sesion en localStorage.
+
+### Pendiente
+
+- Implementar el estado de cuentas en AppContext.
+- Limpiar y recargar datos privados al cambiar de cuenta.
+- Incorporar selector y formulario en TopBar.
+- Agregar pruebas de aislamiento de datos.
+- Incorporar proteccion frente a intentos repetidos de login.
+- Completar validacion local antes de publicar.
+
+### Paso 443 - Integracion de cuentas en AppContext
+
+**Estado:** INTEGRACION DE ESTADO IMPLEMENTADA.
+**Publicacion:** PENDIENTE.
+
+Se modifico `frontend/client/src/context/AppContext.tsx`.
+
+Cambios realizados:
+
+- Estado de cuentas autorizadas procedente de Django.
+- Consulta de cuentas al confirmar la identidad activa.
+- Funcion para agregar cuentas mediante autenticacion.
+- Funcion para seleccionar una cuenta autorizada.
+- Verificacion del usuario activo en la respuesta del backend.
+- Prevencion de solicitudes simultaneas de cambio de cuenta.
+- Recarga completa tras un cambio autorizado por Django.
+- Limpieza de cuentas visibles en login y logout.
+
+La recarga completa evita reutilizar estados privados,
+carritos, compras, ventas y recursos de audio de otra cuenta.
+
+No se almacenan contrasenas ni cookies en localStorage.
+
+### Pendiente
+
+- Incorporar la interfaz de cuentas en TopBar.
+- Agregar pruebas frontend especificas.
+- Probar separacion real de compras y carrito.
+- Incorporar limitacion de intentos de autenticacion.
+- Realizar validacion integral antes de publicar.
+
+### Paso 444 - Selector visual de cuentas en TopBar
+
+**Estado:** INTERFAZ INICIAL IMPLEMENTADA.
+**Publicacion:** PENDIENTE.
+
+Se modifico `frontend/client/src/components/TopBar.tsx`.
+
+Cambios:
+
+- Se agrego una seccion Cambiar de cuenta en modo hybrid.
+- Se muestran las cuentas autorizadas por Django.
+- Se identifica visualmente la cuenta activa.
+- Se permite agregar otra cuenta mediante usuario y contrasena.
+- Se permite seleccionar una cuenta previamente autorizada.
+- Se muestran errores de autenticacion y cambio de cuenta.
+- Se bloquean acciones simultaneas de cambio y cierre de sesion.
+- Se limpia la contrasena del formulario al terminar el intento.
+- El selector de cuentas demo permanece disponible en modo mock.
+
+El cambio efectivo de identidad requiere confirmacion de Django.
+AppContext realiza una recarga completa tras el cambio exitoso.
+
+### Pendiente antes de publicar
+
+- Pruebas frontend especificas del selector.
+- Pruebas de aislamiento de compras, ventas y carritos.
+- Proteccion contra intentos repetidos de autenticacion.
+- Revision integral del backend y las sesiones.
+- Validacion manual local y publicacion controlada.
+
+### Paso 446 - Correcciones de seguridad de sesiones
+
+**Estado:** CORRECCIONES IMPLEMENTADAS Y PRUEBAS EJECUTADAS.
+**Publicacion:** PENDIENTE.
+
+Archivos modificados:
+- app/api_shim.py
+- app/account_switch_api.py
+- app/test_account_switch_security.py
+
+Cambios:
+- Un inicio de sesion normal elimina las cuentas adicionales
+  autorizadas previamente, incluso con el mismo usuario.
+- La respuesta del cambio de cuenta identifica correctamente
+  la nueva identidad autenticada.
+- Se agregaron pruebas para ambos comportamientos.
+- Se mantiene la autenticacion mediante Django y CSRF.
+
+Pendiente:
+- Comprobar aislamiento de compras, carritos y ventas.
+- Implementar proteccion contra intentos repetidos.
+- Agregar pruebas especificas del frontend.
+- Completar validaciones antes de publicar.
+
+### Paso 447 - Aislamiento de datos entre cuentas
+
+**Estado:** PRUEBAS DE AISLAMIENTO COMPLETADAS.
+**Publicacion:** PENDIENTE.
+
+Se agrego `app/test_account_switch_isolation.py`.
+
+Se verifica mediante la base temporal de Django:
+
+- El carrito del artista no aparece en la cuenta del productor.
+- Las compras del artista no aparecen en la cuenta del productor.
+- Las ventas del productor no aparecen en la cuenta del artista.
+- Cambiar de cuenta no elimina los datos originales.
+- Una cuenta no puede eliminar el carrito de otra.
+- El logout bloquea los endpoints privados.
+
+Pendiente antes de publicar:
+- Proteccion contra intentos repetidos de autenticacion.
+- Pruebas frontend especificas del selector.
+- Validacion local completa y revision de seguridad.
+
+### Paso 448 - Pruebas RED de limitacion de autenticacion
+
+**Estado:** PRUEBAS CREADAS; IMPLEMENTACION PENDIENTE.
+**Publicacion:** NO AUTORIZADA AUN.
+
+Se agrego `app/test_account_switch_throttle.py`.
+
+Se definieron pruebas para:
+- Bloquear intentos reiterados contra login normal.
+- Bloquear intentos reiterados al agregar otra cuenta.
+- Responder con HTTP 429 y Retry-After.
+- Preservar la identidad actual ante errores.
+- Evitar que el limite de una IP afecte a otra IP.
+
+Objetivo inicial:
+- Cinco intentos fallidos por combinacion IP y usuario.
+- Ventana de quince minutos.
+- Almacenamiento compartido entre procesos de produccion.
+
+Pendiente:
+- Seleccionar almacenamiento compatible con Render.
+- Implementar limitacion y verificar las pruebas.
+- Agregar pruebas frontend del selector.
+- Validar la funcionalidad antes de publicar.
+
+### Paso 449 - Limitacion de intentos con PostgreSQL
+
+**Estado:** IMPLEMENTACION INICIAL Y PRUEBAS APROBADAS.
+**Publicacion:** PENDIENTE.
+
+- Se incorporo AuthAttemptThrottle.
+- Se genero una migracion para su nueva tabla.
+- Se agrego app/auth_throttle.py.
+- Los intentos se controlan atomicamente en PostgreSQL.
+- Se permiten cinco intentos por ventana de quince minutos.
+- A partir del sexto intento se responde HTTP 429 y Retry-After.
+- Un inicio de sesion exitoso elimina el contador.
+- La proteccion cubre login normal y agregar otra cuenta.
+- Las claves almacenadas son HMAC de IP y nombre de usuario.
+- No se confia directamente en X-Forwarded-For.
+
+Pendiente:
+- Verificar la IP real recibida detras del proxy de Render.
+- Agregar pruebas de concurrencia y expiracion temporal.
+- Definir limpieza periodica de registros antiguos.
+- Agregar pruebas frontend especificas del selector.
+- Revisar el despliegue de la migracion antes de publicar.
+
+### Paso 453 - Revision de seguridad previa a publicacion
+
+**Estado:** VALIDACION EN PROGRESO.
+**Publicacion:** PENDIENTE.
+
+- 34 pruebas de autenticacion aprobadas.
+- 3 pruebas de limpieza aprobadas por separado.
+- 37 pruebas del frontend aprobadas.
+- TypeScript y Vite validados.
+- Persistencia de localStorage revisada en modo hybrid.
+- Comando cleanup_auth_throttle implementado con dry-run.
+- Recarga de React ante cambio de identidad detectado.
+- Limpieza de cuentas autorizadas al invalidar la sesion.
+
+Pendiente:
+- Ejecutar pruebas del backend en conjunto.
+- Validar dos pesta?as manualmente.
+- Revisar cookies HTTPS y proxy de Render.
+- Programar la limpieza periodica.
+- Auditar cambios finales antes del commit.
+
+## PASO 453.9.20 - Selector de cuentas y seguridad
+
+- Selector de cuentas autenticadas y sincronizacion de sesiones.
+- Aislamiento de informacion privada entre cuentas.
+- Limitacion de intentos de autenticacion en PostgreSQL.
+- Separacion de limites por IP y cuenta autenticada.
+- Preparacion de identificacion de IP tras proxy de Render.
+- Integracion de Cloudflare Turnstile en React y Django.
+- Validacion de tokens en el servidor.
+- Registro de cuentas inactivas hasta confirmar el correo.
+- Migracion 0032_auth_throttle.
+- Regresion final: 75 pruebas Django y 37 pruebas React aprobadas.
+- Turnstile de produccion preparado en Render y Vercel.
+- AUTH_TRUST_RENDER_CF_IP permanece desactivado hasta validar el proxy.
+- Despliegue de produccion pendiente de validacion.

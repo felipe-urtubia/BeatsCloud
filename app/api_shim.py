@@ -291,6 +291,10 @@ def csrf_token(request):
     return JsonResponse({"detail": get_token(request)})
 
 
+from . import account_switch_api
+from .auth_throttle import reserve_attempt, clear_attempts
+
+
 @never_cache
 def session_view(request):
     if request.method != "GET":
@@ -310,6 +314,10 @@ def login_api(request):
     if request.method != "POST":
         return _method_not_allowed(["POST"])
     body = _json_body(request)
+    username_for_limit = body.get("username", "")
+    limit_response = reserve_attempt(request, username_for_limit)
+    if limit_response is not None:
+        return limit_response
     from django.contrib.auth import authenticate
 
     user = authenticate(
@@ -323,7 +331,11 @@ def login_api(request):
                 403,
             )
         return _err("Credenciales incorrectas.", 401)
+    # Un login normal inicia un nuevo conjunto de cuentas autorizadas.
+    # Incluso si se autentica nuevamente el mismo usuario.
+    request.session.pop(account_switch_api.SESSION_KEY, None)
     auth_login(request, user)
+    clear_attempts(request, username_for_limit)
     return JsonResponse(ser_user_private(user))
 
 
@@ -476,6 +488,21 @@ def registro_api(request):
     transacción atómica, cuenta inactiva, perfil Usuario y correo de activación."""
     if request.method != "POST":
         return _method_not_allowed(["POST"])
+
+    from .turnstile_verification import (
+        registration_turnstile_required,
+        verify_registration_turnstile,
+    )
+
+    if registration_turnstile_required():
+        token = request.POST.get("cf-turnstile-response", "")
+
+        if not verify_registration_turnstile(token):
+            return _err(
+                "No pudimos completar la verificacion de seguridad. "
+                "Intenta nuevamente.",
+                403,
+            )
 
     form = RegistroUsuarioForm(request.POST, request.FILES)
     if not form.is_valid():
@@ -1723,6 +1750,9 @@ from app.r2_presign import r2_presign_upload_api, r2_confirm_upload_api
 
 urlpatterns = [
     path("api/csrf/", csrf_token, name="api_csrf"),
+    path("api/auth/accounts/", account_switch_api.account_list_api, name="api_account_list"),
+    path("api/auth/accounts/add/", account_switch_api.account_add_api, name="api_account_add"),
+    path("api/auth/accounts/switch/", account_switch_api.account_switch_api, name="api_account_switch"),
     path("api/session/", session_view, name="api_session"),
     path("api/auth/login/", login_api, name="api_login"),
     path("api/auth/logout/", logout_api, name="api_logout"),

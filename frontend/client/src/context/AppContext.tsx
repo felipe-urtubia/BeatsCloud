@@ -22,6 +22,7 @@ import {
 } from '../data/mockData';
 import { audioEngine } from '../utils/audioEngine';
 import DjangoApi, { subscribeToSessionInvalidation } from '../api/django.service';
+import type { DAuthorizedAccount } from '../api/django.service';
 import {
   mapComentario,
   mapHistorialCompra,
@@ -115,6 +116,15 @@ interface AppContextType {
   addComment: (trackId: string, content: string) => void;
   deleteComment: (trackId: string, commentId: string) => void;
   switchUser: (userId: string) => void;
+  authorizedAccounts: DAuthorizedAccount[];
+  isSwitchingAccount: boolean;
+  addAuthorizedAccount: (
+    username: string,
+    password: string,
+  ) => Promise<{ success: true } | { success: false; error: string }>;
+  changeAuthorizedAccount: (
+    userId: number,
+  ) => Promise<{ success: true } | { success: false; error: string }>;
   login: (username: string, password?: string) => Promise<{ success: true } | { success: false; error: string }>;
   logout: () => Promise<{ success: true } | { success: false; error: string }>;
   registerUser: (username: string, email: string, artistName: string, role: UserType) => User;
@@ -245,6 +255,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [paymentReturnReady, setPaymentReturnReady] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+
+  const [authorizedAccounts, setAuthorizedAccounts] =
+    useState<DAuthorizedAccount[]>([]);
+
+  const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
+  const switchingAccountRef = useRef(false);
   const authenticatedId = useRef<string | null>(null);
   const syncCount = useRef(0);
   const refreshSequence = useRef(0);
@@ -281,6 +297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cartOperationGeneration.current = {};
     pendingCartAdds.current.clear();
     authenticatedId.current = null;
+    setAuthorizedAccounts([]);
     setCurrentUserId('');
     setUsers((prev) => prev.map((user) => ({
       ...user, email: '', likedTrackIds: [], purchasedTrackIds: [], subscriptions: [],
@@ -446,7 +463,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const session = await DjangoApi.getSession();
         if (authenticatedId.current === expectedId &&
             (!session || String(session.id) !== expectedId)) {
-          discardPrivateState(true);
+          if (session && String(session.id) !== expectedId) {
+            // La cookie compartida ahora corresponde a otra cuenta.
+            // Recargar elimina los datos privados de la identidad anterior.
+            window.location.reload();
+          } else {
+            discardPrivateState(true);
+          }
         }
       } catch {
         // Fallo de red no equivale a expiracion: no cerrar sesion sin confirmacion.
@@ -1324,6 +1347,143 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+
+  // La lista de cuentas autorizadas siempre viene de Django.
+  // Nunca se reconstruye desde localStorage.
+  useEffect(() => {
+    if (CONFIGURED_MODE !== 'hybrid') return;
+
+    if (!currentUserId) {
+      setAuthorizedAccounts([]);
+      return;
+    }
+
+    let cancelled = false;
+    const expectedId = authenticatedId.current;
+
+    void DjangoApi.getAuthorizedAccounts()
+      .then((result) => {
+        if (
+          !cancelled &&
+          expectedId !== null &&
+          authenticatedId.current === expectedId &&
+          String(result.active_user_id) === expectedId
+        ) {
+          setAuthorizedAccounts(result.accounts);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAuthorizedAccounts([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId]);
+
+  const addAuthorizedAccount: AppContextType['addAuthorizedAccount'] =
+    async (username, password) => {
+      if (CONFIGURED_MODE !== 'hybrid' || !authenticatedId.current) {
+        return {
+          success: false,
+          error: 'Debes iniciar sesi?n para agregar otra cuenta.',
+        };
+      }
+
+      const expectedId = authenticatedId.current;
+
+      try {
+        const result = await withSync(() =>
+          DjangoApi.addAuthorizedAccount(username, password)
+        );
+
+        if (
+          authenticatedId.current !== expectedId ||
+          String(result.active_user_id) !== expectedId
+        ) {
+          setAuthorizedAccounts([]);
+          return {
+            success: false,
+            error: 'La sesi?n cambi?. Recarga la p?gina para continuar.',
+          };
+        }
+
+        setAuthorizedAccounts(result.accounts);
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error
+            ? error.message
+            : 'No fue posible agregar esta cuenta.',
+        };
+      }
+    };
+
+  const changeAuthorizedAccount: AppContextType['changeAuthorizedAccount'] =
+    async (userId) => {
+      if (CONFIGURED_MODE !== 'hybrid' || !authenticatedId.current) {
+        return {
+          success: false,
+          error: 'Debes iniciar sesi?n para cambiar de cuenta.',
+        };
+      }
+
+      if (!Number.isSafeInteger(userId) || userId <= 0) {
+        return {
+          success: false,
+          error: 'Selecciona una cuenta v?lida.',
+        };
+      }
+
+      if (switchingAccountRef.current) {
+        return {
+          success: false,
+          error: 'Ya hay un cambio de cuenta en proceso.',
+        };
+      }
+
+      if (String(userId) === authenticatedId.current) {
+        return { success: true };
+      }
+
+      switchingAccountRef.current = true;
+      setIsSwitchingAccount(true);
+
+      try {
+        const result = await DjangoApi.switchAuthorizedAccount(userId);
+
+        // Django ya cambi? la identidad. Aunque una respuesta inesperada
+        // indique otra cuenta, recargar es lo m?s seguro para eliminar
+        // completamente los estados privados de la sesi?n anterior.
+        if (result.active_user_id !== userId) {
+          window.location.reload();
+          return {
+            success: false,
+            error: 'La sesi?n cambi? y necesita recargarse.',
+          };
+        }
+
+        // Descarta toda la memoria React, peticiones pendientes, carrito,
+        // compras, ventas, reproductor y cualquier dato de la cuenta anterior.
+        // Django volver? a confirmar la sesi?n al iniciar la aplicaci?n.
+        window.location.reload();
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error
+            ? error.message
+            : 'No fue posible cambiar de cuenta.',
+        };
+      } finally {
+        switchingAccountRef.current = false;
+        setIsSwitchingAccount(false);
+      }
+    };
+
   const switchUser = (userId: string) => {
     // En modo real la sesión la manda Django: no se puede "saltar" de usuario.
     if (CONFIGURED_MODE === 'hybrid') return;
@@ -1347,6 +1507,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cartVentaIds.current = {};
         cartOperationGeneration.current = {};
         pendingCartAdds.current.clear();
+        setAuthorizedAccounts([]);
         setUsers([uiUser]);
         setTracks([]);
         setCart([]);
@@ -1390,6 +1551,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cartOperationGeneration.current = {};
       pendingCartAdds.current.clear();
       setCart([]);
+      setAuthorizedAccounts([]);
       localStorage.removeItem('bc_cart');
       setPurchases([]);
       setPurchasesLoading(false);
@@ -1721,6 +1883,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addComment,
         deleteComment,
         switchUser,
+        authorizedAccounts,
+        isSwitchingAccount,
+        addAuthorizedAccount,
+        changeAuthorizedAccount,
         login,
         logout,
         registerUser,

@@ -290,3 +290,14 @@ class HistorialVenta(models.Model):
         comprador = self.comprador.username if self.comprador_id else 'Usuario eliminado'
         return f"Venta de '{self.track.nombre_track}' a {comprador}"
 from .r2_claim import R2UploadClaim
+
+
+class AuthAttemptThrottle(models.Model):
+    """Contador compartido para intentos de autenticacion."""
+
+    key = models.CharField(max_length=64, primary_key=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    reset_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "app_auth_attempt_throttle"

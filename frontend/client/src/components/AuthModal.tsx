@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserType } from '../types';
 import { X, LogIn, UserPlus, Sliders, Mic2, Sparkles, Check, KeyRound, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import DjangoApi from '../api/django.service';
+import { TurnstileWidget } from './TurnstileWidget';
+
+const TURNSTILE_SITE_KEY = (
+  import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
+).trim();
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -30,10 +35,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [role, setRole] = useState<UserType>('artista');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || mode !== 'register') {
+      setTurnstileToken('');
+    }
+  }, [isOpen, mode]);
 
   if (!isOpen) return null;
 
@@ -71,6 +84,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
+      if (TURNSTILE_SITE_KEY && !turnstileToken) {
+        setError('Completa la verificaci?n de seguridad.');
+        return;
+      }
+
       const form = new FormData();
       form.set('username', username.trim());
       form.set('email', email.trim());
@@ -80,6 +98,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       form.set('password1', password);
       form.set('password2', confirmPassword);
       form.set('tipo_usu', role === 'productor' ? '2' : '1');
+
+      if (TURNSTILE_SITE_KEY) {
+        form.set('cf-turnstile-response', turnstileToken);
+      }
 
       setIsSubmitting(true);
       try {
@@ -104,6 +126,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setConfirmPassword('');
       } finally {
         setIsSubmitting(false);
+
+        if (TURNSTILE_SITE_KEY) {
+          setTurnstileToken('');
+          setTurnstileResetKey((value) => value + 1);
+        }
       }
       return;
     }
@@ -416,6 +443,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               />
             </div>
           )}
+
+          {mode === 'register' &&
+            configuredMode === 'hybrid' &&
+            TURNSTILE_SITE_KEY && (
+              <TurnstileWidget
+                siteKey={TURNSTILE_SITE_KEY}
+                onTokenChange={setTurnstileToken}
+                resetKey={turnstileResetKey}
+              />
+            )}
 
           <button
             type="submit"

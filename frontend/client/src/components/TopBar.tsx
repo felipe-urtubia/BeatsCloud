@@ -37,6 +37,10 @@ export const TopBar: React.FC<TopBarProps> = ({
     currentUser,
     users,
     switchUser,
+    authorizedAccounts,
+    isSwitchingAccount,
+    addAuthorizedAccount,
+    changeAuthorizedAccount,
     configuredMode,
     logout,
     cart,
@@ -45,11 +49,62 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [accountUsername, setAccountUsername] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
+
+  const handleAddAccount = async () => {
+    if (isAddingAccount || isSwitchingAccount || isLoggingOut) return;
+
+    setAccountError(null);
+    setIsAddingAccount(true);
+
+    try {
+      const result = await addAuthorizedAccount(
+        accountUsername.trim(),
+        accountPassword,
+      );
+
+      // No conservar la contrase?a despu?s del intento.
+      setAccountPassword('');
+
+      if (!result.success) {
+        setAccountError(result.error);
+        return;
+      }
+
+      setAccountUsername('');
+      setShowAddAccount(false);
+    } catch {
+      setAccountPassword('');
+      setAccountError('No fue posible agregar la cuenta.');
+    } finally {
+      setIsAddingAccount(false);
+    }
+  };
+
+  const handleChangeAccount = async (userId: number) => {
+    if (isSwitchingAccount || isAddingAccount || isLoggingOut) return;
+
+    setAccountError(null);
+
+    try {
+      const result = await changeAuthorizedAccount(userId);
+      if (!result.success) {
+        setAccountError(result.error);
+      }
+      // Si Django confirma el cambio, AppContext recarga la pagina.
+    } catch {
+      setAccountError('No fue posible cambiar de cuenta.');
+    }
+  };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.track.price, 0);
 
   const handleLogout = async () => {
-    if (isLoggingOut) return;
+    if (isLoggingOut || isAddingAccount || isSwitchingAccount) return;
     setLogoutError(null);
     setIsLoggingOut(true);
 
@@ -166,6 +221,126 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </button>
                 </div>
 
+                {configuredMode === 'hybrid' && (
+                  <div className="border-t border-[#23283a] px-4 py-3">
+                    <p className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                      Cambiar de cuenta
+                    </p>
+
+                    <div className="space-y-1 mb-2">
+                      {authorizedAccounts.map((account) => (
+                        <button
+                          key={account.id}
+                          type="button"
+                          disabled={
+                            account.is_current ||
+                            isSwitchingAccount ||
+                            isAddingAccount ||
+                            isLoggingOut
+                          }
+                          onClick={() => void handleChangeAccount(account.id)}
+                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-xs transition-colors disabled:cursor-default ${
+                            account.is_current
+                              ? 'bg-amber-400/15 text-amber-300 font-bold'
+                              : 'text-zinc-200 hover:bg-zinc-800 disabled:opacity-50'
+                          }`}
+                        >
+                          <span className="truncate">@{account.username}</span>
+                          <span className="shrink-0 text-[10px]">
+                            {account.is_current ? 'Activa' : 'Cambiar'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {showAddAccount ? (
+                      <form
+                        className="space-y-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void handleAddAccount();
+                        }}
+                      >
+                        <label className="block text-[11px] text-zinc-300">
+                          Usuario de la otra cuenta
+                          <input
+                            type="text"
+                            required
+                            maxLength={150}
+                            autoComplete="username"
+                            value={accountUsername}
+                            onChange={(event) => setAccountUsername(event.target.value)}
+                            disabled={isAddingAccount || isSwitchingAccount}
+                            className="mt-1 w-full rounded-lg border border-[#323748] bg-[#0a0c10] text-white px-3 py-2 text-xs outline-none focus:border-amber-400"
+                          />
+                        </label>
+
+                        <label className="block text-[11px] text-zinc-300">
+                          Contrase?a
+                          <input
+                            type="password"
+                            required
+                            autoComplete="current-password"
+                            value={accountPassword}
+                            onChange={(event) => setAccountPassword(event.target.value)}
+                            disabled={isAddingAccount || isSwitchingAccount}
+                            className="mt-1 w-full rounded-lg border border-[#323748] bg-[#0a0c10] text-white px-3 py-2 text-xs outline-none focus:border-amber-400"
+                          />
+                        </label>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={isAddingAccount || isSwitchingAccount || isLoggingOut}
+                            className="flex-1 rounded-lg bg-amber-400 px-2 py-2 text-xs font-bold text-zinc-950 disabled:opacity-50"
+                          >
+                            {isAddingAccount ? 'Agregando...' : 'Agregar cuenta'}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isAddingAccount}
+                            onClick={() => {
+                              setAccountPassword('');
+                              setAccountUsername('');
+                              setAccountError(null);
+                              setShowAddAccount(false);
+                            }}
+                            className="rounded-lg px-2 py-2 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSwitchingAccount || isLoggingOut}
+                        onClick={() => {
+                          setAccountError(null);
+                          setShowAddAccount(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold text-amber-400 hover:bg-zinc-800 rounded-lg disabled:opacity-50"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Agregar otra cuenta
+                      </button>
+                    )}
+
+                    {isSwitchingAccount && (
+                      <p role="status" className="text-xs text-zinc-400 mt-2">
+                        Cambiando de cuenta...
+                      </p>
+                    )}
+
+                    {accountError && (
+                      <p role="alert" className="text-xs text-rose-400 mt-2">
+                        {accountError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Switch between demo accounts */}
                 {configuredMode === 'mock' && <>
                 <div className="border-t border-[#23283a] px-4 py-2">
@@ -234,7 +409,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="border-t border-[#23283a] pt-1">
                   <button
                     type="button"
-                    disabled={isLoggingOut}
+                    disabled={isLoggingOut || isAddingAccount || isSwitchingAccount}
                     onClick={() => void handleLogout()}
                     className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-zinc-800 flex items-center gap-2 font-semibold disabled:opacity-50"
                   >

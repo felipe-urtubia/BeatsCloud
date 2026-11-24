@@ -156,9 +156,54 @@ export interface CatalogoParams {
   page?: number;
 }
 
+export interface DAuthorizedAccount {
+  id: number;
+  username: string;
+  is_current: boolean;
+}
+
+export interface DAuthorizedAccountsResponse {
+  accounts: DAuthorizedAccount[];
+  active_user_id: number;
+}
+
 export const DjangoApi = {
   // Sesión / auth
   getSession: () => ensureCsrf().then(() => request<DUser | null>('/api/session/')),
+
+  // Cuentas adicionales autorizadas por la sesion Django.
+  getAuthorizedAccounts: () =>
+    request<DAuthorizedAccountsResponse>('/api/auth/accounts/'),
+
+  addAuthorizedAccount: async (username: string, password: string) => {
+    await ensureCsrf();
+
+    return request<DAuthorizedAccountsResponse>(
+      '/api/auth/accounts/add/',
+      {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      },
+    );
+  },
+
+  switchAuthorizedAccount: async (userId: number) => {
+    await ensureCsrf();
+
+    const response = await request<DAuthorizedAccountsResponse>(
+      '/api/auth/accounts/switch/',
+      {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId }),
+      },
+    );
+
+    // Django rota CSRF cuando cambia la identidad autenticada.
+    // El siguiente POST debe solicitar un token nuevo.
+    csrfToken = null;
+
+    return response;
+  },
   usuarios: () => request<DUser[]>('/api/usuarios/'),
   login: async (username: string, password: string) => {
     const submit = () =>

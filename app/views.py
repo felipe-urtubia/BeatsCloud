@@ -582,7 +582,40 @@ def login_view(request):
 
 
 def registro(request):
+    from os import environ
+    from .turnstile_verification import registration_turnstile_required
+
+    turnstile_site_key = (
+        environ.get("TURNSTILE_SITE_KEY", "").strip()
+        if registration_turnstile_required()
+        else ""
+    )
+
     if request.method == 'POST':
+        from .turnstile_verification import (
+            registration_turnstile_required,
+            verify_registration_turnstile,
+        )
+
+        if registration_turnstile_required():
+            token = request.POST.get("cf-turnstile-response", "")
+
+            if not verify_registration_turnstile(token):
+                form = RegistroUsuarioForm(
+                    request.POST, request.FILES
+                )
+                form.add_error(
+                    None,
+                    "No pudimos verificar que eres una persona. "
+                    "Intenta nuevamente.",
+                )
+                return render(
+                    request,
+                    'registration/registro.html',
+                    {'form': form, 'turnstile_site_key': turnstile_site_key},
+                    status=403,
+                )
+
         form = RegistroUsuarioForm(request.POST, request.FILES)
         if form.is_valid():
             try:
@@ -646,7 +679,7 @@ def registro(request):
                 )
     else:
         form = RegistroUsuarioForm()
-    return render(request, 'registration/registro.html', {'form': form})
+    return render(request, 'registration/registro.html', {'form': form, 'turnstile_site_key': turnstile_site_key})
 
 
 def activar_cuenta(request, uidb64, token):
