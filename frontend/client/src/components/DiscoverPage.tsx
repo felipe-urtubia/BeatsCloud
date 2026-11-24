@@ -28,7 +28,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
   onOpenTrackDetail,
   onOpenProducerProfile,
 }) => {
-  const { tracks, users, playTrack, activeTrack, isPlaying, addToCart, toggleLike, currentUser, setActiveResourceFilter } = useApp();
+  const { tracks, users, playTrack, activeTrack, isPlaying, addToCart, toggleLike, pendingLikeTrackIds, currentUser, setActiveResourceFilter } = useApp();
 
   const trendingTracks = tracks.slice(0, 5);
   const producers = users.filter((u) => u.role === 'productor');
@@ -217,12 +217,14 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
                   </span>
 
                   <button
-                    onClick={() => toggleLike(track.id)}
+                    disabled={pendingLikeTrackIds.includes(track.id)}
+                    onClick={() => void toggleLike(track.id)}
                     className={`p-1.5 rounded-lg border transition-colors hidden sm:block ${
                       isLiked
                         ? 'border-rose-500/40 text-rose-400 bg-rose-500/10'
                         : 'border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
+                    title={pendingLikeTrackIds.includes(track.id) ? 'Guardando favorito…' : 'Favorito'}
                   >
                     <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
                   </button>

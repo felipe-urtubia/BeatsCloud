@@ -51,6 +51,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
     duration,
     seekAudio,
     toggleLike,
+    pendingLikeTrackIds,
     addToCart,
     claimFreeTrack,
     downloadAuditionDemo,
@@ -319,12 +320,14 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                 {downloadError && <p role="alert" className="mt-3 text-xs text-rose-400">{downloadError}</p>}
 
                 <button
-                  onClick={() => toggleLike(track.id)}
+                  disabled={pendingLikeTrackIds.includes(track.id)}
+                  onClick={() => void toggleLike(track.id)}
                   className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-colors ${
                     isLiked
                       ? 'border-rose-500/50 bg-rose-500/10 text-rose-400'
                       : 'border-zinc-800 bg-[#151926] text-zinc-300 hover:text-white'
                   }`}
+                  title={pendingLikeTrackIds.includes(track.id) ? 'Guardando favorito…' : 'Me gusta'}
                 >
                   <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
                   <span>{track.likesCount} Likes</span>
