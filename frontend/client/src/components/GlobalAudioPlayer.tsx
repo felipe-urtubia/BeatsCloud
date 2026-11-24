@@ -19,6 +19,7 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({ onOpenTrac
     setAudioVolume,
     closeAudioPlayer,
     toggleLike,
+    pendingLikeTrackIds,
     addToCart,
     currentUser,
   } = useApp();
@@ -76,11 +77,12 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({ onOpenTrac
             </p>
           </div>
           <button
-            onClick={() => toggleLike(activeTrack.id)}
+            disabled={pendingLikeTrackIds.includes(activeTrack.id)}
+            onClick={() => void toggleLike(activeTrack.id)}
             className={`p-1.5 rounded-lg transition-colors ${
               isLiked ? 'text-rose-500 hover:text-rose-400' : 'text-zinc-400 hover:text-white'
             }`}
-            title="Me gusta"
+            title={pendingLikeTrackIds.includes(activeTrack.id) ? 'Guardando favorito…' : 'Me gusta'}
           >
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
           </button>

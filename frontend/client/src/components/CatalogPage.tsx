@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { MusicGenre, ResourceType, MoodType, Track } from '../types';
 import { getResourceBadgeInfo, RESOURCE_TYPES } from '../utils/resourceHelpers';
+import { sortCatalogTracks } from '../utils/catalogSort.mjs';
+import type { CatalogSortKey } from '../utils/catalogSort.mjs';
 import DjangoApi from '../api/django.service';
 import {
   Search,
@@ -60,6 +62,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     isPlaying,
     addToCart,
     toggleLike,
+    pendingLikeTrackIds,
     claimFreeTrack,
     downloadAuditionDemo,
     currentUser,
@@ -81,10 +84,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     '10001_20000' | '20001_plus'
   >('all');
   const [sortBy, setSortBy] = useState<
-    'recientes' | 'antiguos' |
-    'bpm_asc' | 'bpm_desc' |
-    'likes' | 'precio_menor' | 'precio_mayor' |
-    'nombre_asc' | 'nombre_desc'
+    CatalogSortKey
   >('recientes');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [currentPage, setCurrentPage] = useState(1);
@@ -126,7 +126,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const filteredTracks = useMemo(() => {
-    return tracks
+    return sortCatalogTracks(tracks
       .filter((track) => {
         // Resource Type
         if (activeResourceFilter !== 'all' && track.resourceType !== activeResourceFilter) {
@@ -189,35 +189,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         if (priceFilter === '20001_plus' && (!Number.isFinite(price) || price <= 20000)) return false;
 
         return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'bpm_asc') return a.bpm - b.bpm;
-        if (sortBy === 'bpm_desc') return b.bpm - a.bpm;
-        if (sortBy === 'likes') return b.likesCount - a.likesCount;
-        if (sortBy === 'precio_menor') return a.price - b.price;
-        if (sortBy === 'precio_mayor') return b.price - a.price;
-
-        if (sortBy === 'nombre_asc') {
-          return a.title.localeCompare(b.title, 'es', {
-            sensitivity: 'base',
-            numeric: true,
-          });
-        }
-
-        if (sortBy === 'nombre_desc') {
-          return b.title.localeCompare(a.title, 'es', {
-            sensitivity: 'base',
-            numeric: true,
-          });
-        }
-
-        if (sortBy === 'antiguos') {
-          return new Date(a.createdAt).getTime() -
-            new Date(b.createdAt).getTime();
-        }
-
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      }), sortBy);
   }, [
     tracks,
     activeResourceFilter,
@@ -483,6 +455,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                <option value="precio_mayor">Precio mayor</option>
                <option value="nombre_asc">Nombre A-Z</option>
                <option value="nombre_desc">Nombre Z-A</option>
+              <option value="genero_asc">Género A-Z</option>
+              <option value="genero_desc">Género Z-A</option>
             </select>
           </div>
         </div>
@@ -668,13 +642,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => toggleLike(track.id)}
+                            disabled={pendingLikeTrackIds.includes(track.id)}
+                            onClick={() => void toggleLike(track.id)}
                             className={`p-1.5 rounded-lg border transition-colors ${
                               isLiked
                                 ? 'border-rose-500/40 text-rose-400 bg-rose-500/10'
                                 : 'border-zinc-800 text-zinc-400 hover:text-white'
                             }`}
-                            title="Favorito"
+                            title={pendingLikeTrackIds.includes(track.id) ? 'Guardando favorito…' : 'Favorito'}
                           >
                             <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
                           </button>
@@ -810,12 +785,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => toggleLike(track.id)}
+                      disabled={pendingLikeTrackIds.includes(track.id)}
+                      onClick={() => void toggleLike(track.id)}
                       className={`p-2 rounded-lg border transition-colors ${
                         isLiked
                           ? 'border-rose-500/40 text-rose-400 bg-rose-500/10'
                           : 'border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
+                      title={pendingLikeTrackIds.includes(track.id) ? 'Guardando favorito…' : 'Favorito'}
                     >
                       <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
                     </button>
