@@ -14,7 +14,7 @@
 - Abre Docker Desktop y espera a que indique que está iniciado.
 - Desde el Explorador de archivos, entra a la carpeta BeatsCloud y abre `INICIAR_QA.bat` con doble clic.
 - Mantén la ventana abierta hasta el mensaje final. No hace falta abrir Docker ni una terminal para los pasos normales.
-- Si Windows indica que no es Windows 11 o falta un requisito, instala/abre lo indicado y vuelve a hacer doble clic. El asistente no instala programas ni cambia la seguridad del equipo.
+- Si Windows indica que no es Windows 11 o falta un requisito, instala/abre lo indicado y vuelve a hacer doble clic. Windows Server no es compatible. El asistente no instala programas ni cambia la seguridad del equipo.
 
 ## Linux
 

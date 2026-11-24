@@ -37,7 +37,7 @@ Los automatismos no sustituyen la revisión del sitio. Anota cada intento en `ev
 
 ## Lista breve de validación Windows real
 
-El equipo que prepara esta guía no dispone de Windows 11. Vicente debe confirmar en el equipo Windows:
+El equipo que prepara esta guía no dispone de Windows 11. GitHub Actions ejecuta una comprobación de compatibilidad del launcher en Windows Server, pero no simula Docker ni representa una validación de Windows 11. Vicente debe confirmar en el equipo Windows:
 
 - [ ] Windows 11 detectado y `INICIAR_QA.bat` mantiene la ventana abierta.
 - [ ] Ruta de carpeta con espacios en el nombre, por ejemplo `BeatsCloud Pruebas`, funciona.

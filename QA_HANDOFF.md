@@ -27,4 +27,4 @@ El asistente comprueba Git/Bash, Python, Node/npm, Docker Compose y FFmpeg, crea
 
 El runner ejecuta checks/migraciones Django, suite Django, pruebas frontend, TypeScript, lint, build y smoke local Vite/proxy/catálogo/preview/denegación de descarga anónima. No presenta como validados Webpay E2E real, credenciales productivas, R2 externo y expiración real de enlaces, SMTP real, usabilidad externa ni carga productiva.
 
-Windows 11 no estuvo disponible para ejecución real al preparar esta integración. El `.bat`, Bash y rutas se revisaron estáticamente; Vicente debe completar la lista Windows 11 de `docs/qa/GUIA_PRUEBAS.md`. Linux se valida de forma independiente.
+Windows 11 no estuvo disponible para ejecución real al preparar esta integración. El workflow `.github/workflows/qa-windows-runner.yml` comprueba la sintaxis de Bash desde una ruta con espacios y que el launcher rechace claramente Windows Server; no inicia ni simula Docker y no equivale a validar el flujo en Windows 11. Vicente debe completar la lista Windows 11 de `docs/qa/GUIA_PRUEBAS.md`. Linux se valida de forma independiente.

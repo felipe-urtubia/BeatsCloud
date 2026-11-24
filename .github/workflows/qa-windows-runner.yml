@@ -1,0 +1,70 @@
+name: Windows QA launcher compatibility
+
+on:
+  pull_request:
+    paths:
+      - 'INICIAR_QA.bat'
+      - 'INICIAR_QA.sh'
+      - 'scripts/qa/**'
+      - '.github/workflows/qa-windows-runner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'INICIAR_QA.bat'
+      - 'INICIAR_QA.sh'
+      - 'scripts/qa/**'
+      - '.github/workflows/qa-windows-runner.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-launcher-compatibility:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: 'Beats Cloud [QA]'
+
+      - name: Record runner OS and dependency availability
+        shell: pwsh
+        run: |
+          $os = Get-CimInstance Win32_OperatingSystem
+          "OS: $($os.Caption); build $($os.BuildNumber); ProductType $($os.ProductType)"
+          foreach ($name in @('git', 'bash', 'python', 'py', 'node', 'npm', 'ffmpeg', 'docker')) {
+            $command = Get-Command $name -ErrorAction SilentlyContinue
+            if ($command) { "$name`: $($command.Source)" } else { "$name`: missing" }
+          }
+          if (Get-Command docker -ErrorAction SilentlyContinue) {
+            docker compose version 2>&1
+            "Docker daemon is intentionally not started or simulated in this compatibility job."
+          }
+          "Repo path: $env:GITHUB_WORKSPACE\Beats Cloud [QA]"
+
+      - name: Check Bash syntax in a path containing spaces
+        shell: pwsh
+        run: |
+          $repo = Join-Path $env:GITHUB_WORKSPACE 'Beats Cloud [QA]'
+          $bash = Join-Path $env:ProgramFiles 'Git\bin\bash.exe'
+          if (-not (Test-Path $bash)) { throw 'Git for Windows Bash was not found on this hosted runner.' }
+          $scripts = @('INICIAR_QA.sh') + (Get-ChildItem (Join-Path $repo 'scripts\qa') -Filter '*.sh' | ForEach-Object { "scripts/qa/$($_.Name)" })
+          foreach ($script in $scripts) {
+            & $bash -n (Join-Path $repo ($script -replace '/', '\'))
+            if ($LASTEXITCODE -ne 0) { throw "Bash syntax failed: $script" }
+          }
+
+      - name: Confirm launcher refuses Windows Server clearly
+        shell: cmd
+        run: |
+          set "QA_REPO=%GITHUB_WORKSPACE%\Beats Cloud [QA]"
+          set "QA_OUTPUT=%RUNNER_TEMP%\launcher-output.txt"
+          powershell.exe -NoProfile -Command "if ((Get-CimInstance Win32_OperatingSystem).ProductType -eq 1) { exit 1 }"
+          if errorlevel 1 exit /b 1
+          call "%QA_REPO%\INICIAR_QA.bat" <NUL >"%QA_OUTPUT%" 2>&1
+          set "QA_EXIT=%ERRORLEVEL%"
+          type "%QA_OUTPUT%"
+          if not "%QA_EXIT%"=="2" exit /b 1
+          findstr /C:"Windows Server no es compatible" "%QA_OUTPUT%" >NUL
+          if errorlevel 1 exit /b 1
+          echo The Windows Server refusal path passed. This is not a Windows 11 or full QA run.

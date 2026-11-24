@@ -121,9 +121,16 @@ missing=()
 command -v git >/dev/null 2>&1 || missing+=("Git: necesario para descargar y comprobar el proyecto. Instala Git desde https://git-scm.com/downloads y vuelve a ejecutar el asistente.")
 command -v bash >/dev/null 2>&1 || missing+=("Bash: necesario para ejecutar el asistente. Instala Git for Windows (Windows) o Bash desde tu distribución Linux y vuelve a ejecutar el asistente.")
 if qa_is_windows; then
-  windows_build="$(powershell.exe -NoProfile -Command '[Environment]::OSVersion.Version.Build' 2>/dev/null | tr -d '\r' || true)"
-  [[ "$windows_build" =~ ^[0-9]+$ ]] && printf '[REQ] Windows 11 build %s: detectado.\n' "$windows_build" >> "$run_log" || true
-  [[ "$windows_build" =~ ^[0-9]+$ ]] && (( windows_build >= 22000 )) || missing+=("Windows 11: esta entrada requiere Windows 11 (compilación 22000 o posterior). Consulta Configuración > Sistema > Acerca de y usa un equipo Windows 11.")
+  windows_info="$(powershell.exe -NoProfile -Command '$os=Get-CimInstance Win32_OperatingSystem; "{0}:{1}" -f $os.BuildNumber,$os.ProductType' 2>/dev/null | tr -d '\r' || true)"
+  windows_build="${windows_info%%:*}"
+  windows_product_type="${windows_info#*:}"
+  [[ "$windows_build" =~ ^[0-9]+$ && "$windows_product_type" == "1" ]] && (( windows_build >= 22000 )) \
+    || missing+=("Windows 11: esta entrada requiere Windows 11 de escritorio (compilación 22000 o posterior). Windows Server no es compatible. Consulta Configuración > Sistema > Acerca de y usa un equipo Windows 11.")
+  if [[ "$windows_build" =~ ^[0-9]+$ && "$windows_product_type" == "1" ]]; then
+    printf '[REQ] Windows 11 client build %s: detectado.\n' "$windows_build" >> "$run_log"
+  else
+    printf '[REQ] Windows client OS: no detectado (ProductType=%s, build=%s).\n' "$windows_product_type" "$windows_build" >> "$run_log"
+  fi
   command -v cygpath >/dev/null 2>&1 || missing+=("Git Bash completo: falta cygpath. Reinstala Git for Windows y vuelve a abrir el asistente.")
   command -v icacls.exe >/dev/null 2>&1 || missing+=("Permisos privados de Windows: no encuentro icacls.exe. Repara la instalación de Windows y vuelve a ejecutar el asistente.")
   command -v curl >/dev/null 2>&1 || missing+=("curl: se necesita para comprobar que los servicios QA respondan. Instala Git for Windows actualizado y vuelve a abrir el asistente.")
