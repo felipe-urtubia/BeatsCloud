@@ -1,77 +1,124 @@
-# Cierre técnico del backlog de Ismael
+# Auditoría de cierre del backlog de Ismael
 
-**Auditoría:** 24 de noviembre de 2026, 15:53 (-03)
+**Fecha de auditoría:** 24 de noviembre de 2026  
+**Repositorio:** `felipe-urtubia/BeatsCloud`  
+**Proyecto Jira:** [DDPB — Desarrollo de plataforma BeatsCloud](https://beatscloud.atlassian.net/jira/software/projects/DDPB)  
+**Rama revisada:** `main`  
+**HEAD de main revisado:** `0c4d316e0e2ac7fdc9fd9ef1fc9c4907f86f0c4b`  
+**PR de implementación:** [#6 — Complete artist backlog features](https://github.com/felipe-urtubia/BeatsCloud/pull/6)  
+**Commit de código validado antes de integrar:** `153337726337f62725ddc53d8f97d7ccf3935073`
 
-**Repositorio:** `felipe-urtubia/BeatsCloud`
+> Esta auditoría contrasta el estado de Jira con el código disponible en `main`. No equivale a una certificación manual del despliegue ni autoriza cerrar historias cuya validación funcional siga pendiente.
 
-**Base revisada:** `origin/main` = `17ca427de31c57277b4174772fca62651c828ec4`
+## 1. Resultado ejecutivo
 
-**Rama de trabajo:** `feature/ismael-backlog-close-2026-11-24`
-**Commit de código validado:** `153337726337f62725ddc53d8f97d7ccf3935073`
+La consulta de Jira para todos los elementos asignados a Ismael en el proyecto DDPB encontró como elementos no finalizados:
 
-## Acceso a Jira
+- Épicas: **DDPB-4 (Catálogo)** y **DDPB-5 (Perfil de artista)**, ambas «En curso».
+- Historias/tareas: **DDPB-23, DDPB-28, DDPB-29, DDPB-32, DDPB-36 y DDPB-46**, todas en «Tareas por hacer».
 
-Se proporcionó `https://beatscloud.atlassian.net/jira/software/projects/DDPB`. La página no es accesible desde esta sesión; no hay una integración Jira disponible y la búsqueda web no devuelve los tickets privados. Por eso no pude cotejar las descripciones ni los criterios oficiales literales. Este cierre usa los criterios que Ismael incluyó en la solicitud. Jira no fue modificado y no se cerró ningún ticket.
+No se encontraron otras historias o tareas abiertas asignadas a Ismael fuera de esos seis tickets. Los demás elementos devueltos por la consulta están en «Finalizada».
 
-## Estado inicial y conservación
+El código de los seis tickets fue integrado a `main` mediante PR #6. Sin embargo, eso no significa que las seis historias puedan pasar directamente a «Finalizada»:
 
-- `origin/main` y el SHA base confirmado por el usuario eran `17ca427de31c57277b4174772fca62651c828ec4`.
-- El checkout principal `main` estaba atrasado y tenía cambios locales/no rastreados. No se cambió ni se limpió.
-- La implementación se hizo en un worktree nuevo, limpio, basado en el SHA anterior. El commit validado conserva ese ancestro.
-- No se tocaron el repositorio académico ni otros worktrees.
+- **DDPB-23/28/29:** cubiertas parcialmente en frontend; el alcance server-side depende de DDPB-70, asignado a Felipe.
+- **DDPB-32/36:** implementación persistente integrada; falta validación manual en navegador. Las etiquetas `postergado` reflejan que originalmente quedaron fuera del alcance comprometido para la APT del 19-11, aunque su implementación se incorporó después.
+- **DDPB-46:** historial de compras confirmadas implementado; falta validar el recorrido funcional postpago/descarga con una compra de QA autorizada y entorno aislado.
 
-## Historias
+## 2. Estado por ticket
 
-| Ticket | Estado inicial y criterios de la solicitud | Implementación y archivos | Estado técnico |
+| Ticket | Estado en Jira | Evidencia encontrada en `main` | Diagnóstico y siguiente paso |
 |---|---|---|---|
-| **DDPB-23 — Filtros de catálogo** | El catálogo ya consultaba pistas reales en modo híbrido. React descargaba sus páginas y filtraba en cliente por género, tipo, tonalidad/mood, BPM, stems y precio; combinaba filtros y reiniciaba la página al cambiar criterios. El endpoint actual expone búsqueda, género y precio, con paginación. | Se conserva el filtrado frontend que opera sobre datos backend reales y la paginación local sobre la colección completa ya cargada. No se añadió un segundo contrato backend. | Los criterios de UI descritos están cubiertos. Los filtros BPM/tipo/mood no son server-side; si el criterio oficial exige filtrado remoto, depende del contrato DDPB-70. |
-| **DDPB-28 — Orden ascendente/descendente** | Ya existían órdenes ascendentes/descendentes por BPM, precio y nombre, además de fechas recientes/antiguas. | Se extrajo la ordenación reutilizable a `frontend/client/src/utils/catalogSort.mjs`; se mantiene el comportamiento existente. | Cubierto en frontend con datos backend. El ordenamiento remoto sigue siendo parte de la dependencia DDPB-70. |
-| **DDPB-29 — Orden por género** | No había opción para ordenar por género. | Se añadieron `Género A-Z` y `Género Z-A`, con título como criterio secundario estable, en `CatalogPage.tsx` y `catalogSort.mjs`. | Implementado en frontend; orden remoto pendiente de DDPB-70 si lo requiere el criterio oficial. |
-| **DDPB-46 — Historial de compras** | La UI derivaba una orden `WEBPAY-<id de historial>` y mostraba el precio actual de la pista; esos datos no probaban el monto ni el estado real de la transacción. | Se añadió `GET /api/mis-compras/confirmadas/` en `app/api_shim.py`. Devuelve solo compras propias con transacción Webpay autorizada y entregada, snapshot válido cuyo monto coincide y registro `HistorialCompra` asociado. Incluye orden real, fecha, estado, productor, monto de línea y total; no serializa token Webpay. React consume esos datos y desactiva la descarga cuando no está configurada/disponible. Rutas frontend: `django.service.ts`, `types.ts`, `mappers.ts`, `AppContext.tsx`, `ArtistProfilePage.tsx`. | Implementado para compras de pistas confirmadas. Historial antiguo sin transacción/snapshot verificable no se simula ni se presenta como confirmado. |
-| **DDPB-32 — Likes de pistas** | La interacción anterior era optimista y llamaba un endpoint toggle, lo que no era idempotente frente a reintentos y no daba feedback consistente. | El endpoint acepta `liked: boolean` para agregar/quitar idempotentemente, exige artista autenticado y conserva compatibilidad con toggle legado. React envía el estado deseado, actualiza de inmediato, bloquea clics repetidos, muestra estado pendiente y notificación, y revierte si falla. | Persistencia backend y permisos implementados. |
-| **DDPB-36 — Lista de pistas interesadas** | Existía una pestaña de favoritos, pero no había acción para quitar y el listado podía mostrar favoritos del perfil consultado. | `ArtistProfilePage.tsx` limita la lista al dueño, muestra vacío y añade quitar favorito usando la API persistente de DDPB-32; mantiene título, productor, precio y acceso al detalle. En modo mock aclara que no hay persistencia real. | Implementado e integrado con DDPB-32; no se crea un segundo modelo/end-point. |
+| **DDPB-23 — Filtros del catálogo** | Tareas por hacer | `CatalogPage.tsx` aplica filtros por género, tonalidad, mood, BPM, stems y precio sobre pistas cargadas. `catalogo_api` ofrece búsqueda, género, precio, orden limitado y paginación. | Parcial frente al requisito server-side. Acordar DDPB-70 antes de cerrar. |
+| **DDPB-28 — Orden ascendente/descendente** | Tareas por hacer | `catalogSort.mjs` ordena en frontend por BPM, precio y nombre, además de fechas. | Implementado en frontend; ordenamiento remoto/paginación server-side queda ligado a DDPB-70 si ese alcance sigue vigente. Validar en navegador. |
+| **DDPB-29 — Orden por género** | Tareas por hacer | `CatalogPage.tsx` incorpora Género A-Z y Género Z-A. `catalogSort.test.mjs` prueba orden, desempate estable por título y no mutación del arreglo original. | Implementado en frontend; validar en navegador. La variante server-side depende de DDPB-70. |
+| **DDPB-32 — Like de una pista** | Tareas por hacer; etiqueta `postergado` | `like_toggle_api` acepta `liked: true/false`, restringe la operación a artistas autenticados y permite agregar/quitar de forma idempotente. React actualiza optimistamente, evita solicitudes duplicadas y muestra feedback/reversión. | Implementación integrada y pruebas de API presentes. Falta validar agregar/quitar, persistencia tras recarga y rechazo a cuentas no autorizadas en navegador. |
+| **DDPB-36 — Lista de pistas interesadas** | Tareas por hacer; etiqueta `postergado` | `ArtistProfilePage.tsx` muestra favoritos solo al propietario, permite quitarlos y reutiliza la API de DDPB-32. | Implementación integrada. Falta validar persistencia tras recarga y privacidad entre perfiles. |
+| **DDPB-46 — Historial de compras** | Tareas por hacer | `GET /api/mis-compras/confirmadas/` devuelve solo líneas de órdenes propias autorizadas y entregadas, con snapshot/montos coherentes e historial asociado. La respuesta incluye referencia, fecha, productor y montos, sin exponer el token Webpay. | Implementación integrada para compras verificables. Falta E2E manual postpago/descarga; el historial antiguo sin transacción verificable no se presenta como compra confirmada. |
 
-### Relación con DDPB-70
+### Detalles de DDPB-70 y el catálogo
 
-La API de catálogo actual entrega datos reales y admite búsqueda, género, precio y páginas. No admite server-side BPM, tipo, mood ni todo el conjunto de ordenamientos solicitado por DDPB-70. React carga todas las páginas y filtra/ordena esa colección en cliente, así que no se agregó otra implementación backend ni se afirma que DDPB-70 esté terminado. Si DDPB-23/28/29 exigen sincronización remota/server-side, quedan condicionados al contrato y trabajo de DDPB-70.
+La descripción oficial de DDPB-70 establece estos criterios:
 
-## Archivos modificados
+1. El endpoint de catálogo acepta parámetros de filtro y orden.
+2. La SPA usa esos parámetros, sin filtrar en el cliente.
+3. Los resultados están paginados.
 
-- Backend: `app/api_shim.py`; pruebas nuevas `app/test_backlog_assigned_features.py`.
-- Tipos/API/contexto: `frontend/client/src/api/django.service.ts`, `mappers.ts`, `types.ts`, `context/AppContext.tsx` y `frontend/client/src/types.ts`.
-- UI: `ArtistProfilePage.tsx`, `CatalogPage.tsx`, `DiscoverPage.tsx`, `GlobalAudioPlayer.tsx`, `TrackDetailModal.tsx`.
-- Ordenación y pruebas frontend: `frontend/client/src/utils/catalogSort.mjs`, `catalogSort.d.mts`, `catalogSort.test.mjs`; actualización del comando `test` en `frontend/client/package.json`.
+El código actual **no completa ese contrato**. El endpoint `catalogo_api` soporta `q`, `genero`, `precio`, órdenes limitados y `page`, pero no el conjunto server-side de BPM, tipo y mood que pide DDPB-70. La SPA continúa filtrando/ordenando la colección cargada en el cliente.
 
-No se añadieron migraciones.
+DDPB-70 está asignado a **Felipe**, permanece en «Tareas por hacer», tiene 3 puntos y pertenece al Sprint 4. Su prioridad en Jira es **Must**. Existe, además, un comentario del 19-11 que dice que puede quedar para una siguiente iteración y que no bloquea el cierre académico. Esta diferencia entre prioridad Must y postergación debe resolverse explícitamente con Felipe; no debe inferirse ni cambiarse unilateralmente.
 
-## Validación en el commit de código
+DDPB-31 está marcado como duplicado de DDPB-23 y aparece finalizado en Jira.
 
-En `153337726337f62725ddc53d8f97d7ccf3935073`:
+## 3. Estado de las épicas
 
-- Pruebas Django completas: **507/507 aprobadas**.
-- Pruebas frontend: **44/44 aprobadas**.
+| Épica | Estado | Historias relacionadas | Diagnóstico |
+|---|---|---|---|
+| **DDPB-4 — Catálogo** | En curso | DDPB-21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 y DDPB-70 | No cerrar hasta acordar el alcance server-side de DDPB-70 y el estado final de DDPB-23/28/29. |
+| **DDPB-5 — Perfil de artista** | En curso | DDPB-14, 33, 34, 35 y 36 | Las historias antiguas están finalizadas; DDPB-36 tiene implementación integrada, pero requiere validación manual y actualización de Jira antes de cerrar la épica. |
+| **DDPB-10 — Carrito de compra** | En curso | Incluye DDPB-46 y otras historias/tareas asignadas a Felipe | DDPB-46 es responsabilidad de Ismael; el cierre de la épica depende también del trabajo de Felipe y no corresponde cerrarla unilateralmente. |
+
+## 4. Evidencia técnica disponible
+
+El código de PR #6 fue validado en el commit `153337726337f62725ddc53d8f97d7ccf3935073`, que quedó integrado en `main` mediante el merge `0c4d316e0e2ac7fdc9fd9ef1fc9c4907f86f0c4b`.
+
+Resultados registrados para el commit de código:
+
+- Django: **507/507 pruebas aprobadas**.
+- Frontend: **44/44 pruebas aprobadas**.
 - Pruebas focalizadas nuevas de compras/likes: **8/8 aprobadas**.
 - `manage.py check`: correcto.
 - `makemigrations --check --dry-run`: sin cambios de migración.
 - TypeScript/lint (`npm run lint`): correcto.
-- Build (`npm run build`): correcto; queda el aviso existente del bundle principal de ~507.5 kB.
-- Smoke local: Vite y proxy/API HTTP 200; catálogo y preview HTTP 200; descarga anónima HTTP 403.
-- Servicios QA detenidos; la base QA y sus medios persistentes se conservaron.
+- Build (`npm run build`): correcto; permanece un aviso del bundle principal de aproximadamente 507,5 kB.
+- Smoke local: Vite, proxy/API, catálogo y preview respondieron HTTP 200; descarga anónima respondió HTTP 403.
 - `git diff --check`: correcto.
 
-El `run-all.sh` heredado de `origin/main` se detuvo en requisitos al considerar ocupado el puerto 8010 tras una corrida previa, aunque no había un listener. Para validar el commit no se ocultó ese resultado: se ejecutó `verify.sh --no-smoke` completo y luego `start.sh`, smoke y `stop.sh` secuencialmente. La rama PR #5 actualiza la detección de puertos para comprobar listeners y ya tiene su propia corrida completa aprobada; se debe mantener ese cambio al integrar ambas ramas.
+**Límite de esta evidencia:** las suites no contienen pruebas automatizadas de interacción React en navegador para estas pantallas. Las pruebas de API cubren compras/likes y las pruebas frontend incluyen utilidades como ordenamiento, pero no sustituyen la validación visual/funcional manual. No se ejecutó una compra Webpay E2E real.
 
-La suite no incluye pruebas automatizadas de interacción React en navegador para estas pantallas; los cambios frontend se cubrieron con pruebas de utilidades, API/contexto existente, TypeScript, lint, build y smoke local. Se recomienda revisión manual de likes, favoritos e historial antes de cerrar Jira.
+## 5. Validación manual pendiente
 
-## Pendientes, riesgos y estado de integración
+Antes de pedirle a Vicente que pruebe la aplicación, debe identificarse la versión exacta desplegada y confirmar que el backend y la base de datos sean seguros para QA.
 
-1. Consultar los criterios oficiales de Jira cuando el proyecto sea accesible. No cerrar historias basándose solo en esta descripción resumida.
-2. Coordinar DDPB-70 para decidir el contrato server-side de filtros, ordenamiento y paginación. No marcar esa parte como entregada por estos cambios frontend.
-3. Revisar manualmente los flujos de UI con una compra autorizada de QA y una cuenta artista; la ejecución local no hace una compra real.
-4. El historial no muestra filas antiguas sin prueba verificable de transacción autorizada y entrega.
-5. El aviso de bundle frontend de ~507.5 kB permanece.
-6. La rama está preparada para PR hacia `main`; este commit todavía no está integrado. No se actualizó `main`, no se hizo merge, no se modificó Jira y no se desplegó producción.
+### Precondiciones
 
-## SHA
+- Confirmar el SHA desplegado en Vercel y compararlo con el commit que se desea validar.
+- Confirmar qué backend Render utiliza ese frontend.
+- Verificar que la base de datos sea de QA o que exista autorización explícita para las operaciones previstas.
+- No realizar compras reales ni ingresar datos bancarios/personales.
+- No crear, publicar, eliminar ni modificar datos persistentes hasta confirmar el aislamiento del entorno.
 
-El commit que contiene el código y fue validado es `153337726337f62725ddc53d8f97d7ccf3935073`. El PR y cualquier commit de documentación posterior deben conservar esa referencia como SHA del código probado.
+### Casos por validar
+
+| Área | Caso | Resultado esperado |
+|---|---|---|
+| DDPB-28/29 | Cambiar orden por BPM, precio, nombre y género | Orden correcto, sin duplicados ni saltos inesperados. |
+| DDPB-32 | Agregar y quitar like como artista; recargar | Estado persiste y el feedback coincide con el servidor. |
+| DDPB-32 | Probar como productor o sin autenticación | La acción no queda permitida. |
+| DDPB-36 | Revisar favoritos del propio perfil, quitar uno y recargar | La lista se actualiza y conserva el cambio. |
+| DDPB-36 | Visitar el perfil público de otro artista | No se muestran sus favoritos privados. |
+| DDPB-46 | Con orden de QA previamente autorizada y entregada | Aparecen referencia, pista, productor, fecha y montos correctos. |
+| DDPB-46 | Revisar descarga de una compra válida | Descarga permitida solo si el archivo sigue disponible y la compra pertenece a la cuenta. |
+
+Los casos de DDPB-46 requieren datos de QA preparados de manera segura; no se debe crear una transacción real para producir evidencia académica.
+
+## 6. Decisiones que requieren coordinación con Felipe
+
+1. **DDPB-70:** ¿se implementa el filtrado server-side completo o se formaliza su postergación? Resolver el conflicto entre prioridad Must y el comentario de aplazamiento.
+2. **DDPB-23/28/29:** según esa decisión, definir qué parte queda aceptada, qué parte permanece pendiente y si las historias se mantienen separadas o se agrupan con DDPB-70.
+3. **DDPB-46:** confirmar que el flujo postpago y la descarga están integrados en el entorno de QA para permitir una validación E2E segura.
+4. **Cierre de épicas:** DDPB-4 depende de DDPB-70; DDPB-5 depende de validar y cerrar DDPB-36; DDPB-10 incluye trabajo adicional que no pertenece a Ismael.
+
+## 7. Acciones que Ismael puede completar sin Felipe
+
+- Mantener este informe actualizado contra el SHA de `main`.
+- Preparar la lista y los resultados esperados de pruebas manuales, sin ejecutarlas contra un despliegue no identificado.
+- Coordinar con Vicente una revisión de navegador después de confirmar versión y entorno de QA.
+- Tras obtener evidencia de pruebas, actualizar comentarios/estados de DDPB-32, DDPB-36 y DDPB-46.
+- No modificar DDPB-70 ni cerrar DDPB-23/28/29 o la épica DDPB-4 hasta la decisión de Felipe.
+
+## 8. Registro de cambios y límites
+
+Esta auditoría **no cambia estados de Jira**, no modifica datos de producción, no crea compras y no declara como realizada ninguna prueba manual. Jira conserva los estados actuales hasta que exista evidencia funcional y, en los tickets dependientes, una decisión de equipo.
+
+El despliegue actual de Vercel/Render no quedó vinculado en esta auditoría a un SHA concreto. Por tanto, no se afirma que `https://beats-cloud.vercel.app/` corresponda a `0c4d316` ni que sea la versión definitiva de entrega.
