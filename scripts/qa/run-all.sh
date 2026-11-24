@@ -207,7 +207,7 @@ if (( ${#missing[@]} )); then
   say "RESULTADO: FALLIDO"
   say "Informe: $run_dir/INFORME_VALIDACION.md"
   say "Informe para compartir: evidencias/qa/runs/$stamp/INFORME_VALIDACION.html o .md"
-  say "Comparte ese informe y qa-run.log si necesitas ayuda."
+  say "Comparte el informe por Pull Request; entrega qa-run.log solo a soporte por un canal privado. Nunca subas .qa-private a GitHub."
   exit 1
 fi
 requirements_status="OK"

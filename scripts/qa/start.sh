@@ -36,7 +36,7 @@ done
 cd "$QA_ROOT"
 python_media_root="$MEDIA_ROOT"
 if qa_is_windows; then python_media_root="$(cygpath -aw "$MEDIA_ROOT")"; fi
-nohup env MEDIA_ROOT="$python_media_root" "$python_path" "$QA_ROOT/manage.py" runserver "127.0.0.1:$QA_BACKEND_PORT" \
+nohup env MEDIA_ROOT="$python_media_root" "$python_path" "$QA_ROOT/manage.py" runserver --noreload "127.0.0.1:$QA_BACKEND_PORT" \
   > >("$(qa_system_python)" "$QA_ROOT/scripts/qa/private-log.py" "$QA_RUNTIME_DIR/django.log" --quiet >/dev/null 2>&1) 2>&1 &
 echo "$!" > "$QA_RUNTIME_DIR/django.pid"
 
