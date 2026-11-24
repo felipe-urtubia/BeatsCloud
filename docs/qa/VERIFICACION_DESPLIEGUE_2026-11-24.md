@@ -19,3 +19,8 @@ La configuración versionada en `frontend/client/vercel.json` dirige `/api/`, `/
 **Decisión de seguridad para QA:** solo navegación y lectura. No iniciar sesión ni modificar perfiles, likes, favoritos, carrito, publicaciones o archivos; no iniciar Webpay ni compras. No realizar acciones de escritura hasta que el responsable del entorno confirme por un canal autorizado el SHA de cada deployment, su ambiente y aislamiento de base de datos, almacenamiento e integraciones.
 
 **Evidencia de la consulta GitHub:** [referencia pública de `main`](https://api.github.com/repos/felipe-urtubia/BeatsCloud/commits/main). Las respuestas HTTP no se guardaron con cookies ni cabeceras de autenticación; no se imprimieron valores de sesión, claves o URLs firmadas.
+
+
+## Nota de seguimiento — acceso Jira autenticado (24-11-2026)
+
+La fila DEPLOY-05 conserva el resultado de la consulta anónima realizada durante esa verificación: Jira respondió HTTP 404 y no se obtuvo acceso desde ese método. Posteriormente, en esta misma fecha, se consultó el proyecto DDPB mediante una conexión autenticada y se recuperaron sus 91 incidencias. El snapshot y sus límites están documentados en [la auditoría actual del backlog](auditorias/ESTADO_BACKLOG_2026-11-24_e652600.md). Esta consulta no cambia el resultado de las verificaciones Vercel/Render: el SHA desplegado y el aislamiento del ambiente continúan sin confirmarse.
