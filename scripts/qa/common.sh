@@ -190,12 +190,12 @@ qa_port_free() {
   "$(qa_system_python)" - "$1" <<'PY'
 import socket, sys
 sock = socket.socket()
+sock.settimeout(0.5)
 try:
-    sock.bind(("127.0.0.1", int(sys.argv[1])))
-except OSError:
-    raise SystemExit(1)
+    listening = sock.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0
 finally:
     sock.close()
+raise SystemExit(1 if listening else 0)
 PY
 }
 
