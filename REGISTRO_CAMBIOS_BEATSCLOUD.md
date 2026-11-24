@@ -4069,3 +4069,288 @@ Pendiente:
 - Turnstile de produccion preparado en Render y Vercel.
 - AUTH_TRUST_RENDER_CF_IP permanece desactivado hasta validar el proxy.
 - Despliegue de produccion pendiente de validacion.
+
+## Cierre de implementación y validación en producción - 24-11-2026 (PASO 453.9.20)
+
+### 1. Resumen general
+
+Se completó la implementación, integración, publicación y validación en producción del selector de cuentas y las mejoras de seguridad de autenticación de BeatCloud.
+
+Tecnologías utilizadas:
+- Backend: Django y PostgreSQL.
+- Frontend: React, TypeScript y Vite.
+- Hosting backend: Render.
+- Hosting frontend: Vercel.
+- Control de versiones: GitHub.
+- Protección del registro: Cloudflare Turnstile.
+
+Repositorio: felipe-urtubia/BeatsCloud.
+Commit de implementación: 933a835.
+Rama publicada: main.
+
+### 2. Selector de cuentas
+
+Se implementaron y verificaron:
+- Incorporación de cuentas adicionales a una sesión.
+- Cambio entre cuentas autenticadas sin volver a ingresar la contraseña.
+- Identificación de la cuenta activa.
+- Conservación de las cuentas agregadas durante los cambios.
+- Actualización del perfil y de la interfaz al cambiar de cuenta.
+- Sincronización de la cuenta activa entre pestañas del navegador.
+- Cierre de sesión y persistencia del estado desconectado.
+
+Se realizaron pruebas con dos cuentas existentes en producción.
+
+Resultado: funcionamiento confirmado mediante pruebas manuales.
+
+### 3. Aislamiento de información privada
+
+Se implementaron controles para separar la información privada según la cuenta autenticada.
+
+Se verificó manualmente:
+- Cambio del contenido de Favoritos Guardados según la cuenta.
+- Cambio del contenido de Archivos Comprados según la cuenta.
+- Actualización de los datos visibles del perfil.
+- Conservación de las sesiones durante el cambio de cuenta.
+
+Resultado: separación de datos comprobada visualmente.
+
+Esta comprobación no sustituye una auditoría de seguridad independiente.
+
+### 4. Seguridad de autenticación
+
+Se incorporó un limitador de intentos basado en PostgreSQL.
+
+Características:
+- Máximo de cinco intentos de autenticación por ventana de 15 minutos.
+- Respuesta HTTP 429 al superar el límite.
+- Uso de Retry-After.
+- Reserva atómica de intentos en la base de datos.
+- Reinicio del contador después de una autenticación exitosa.
+- Identificación mediante HMAC.
+- Límites asociados a la cuenta autenticada cuando corresponde.
+- Comando de limpieza de registros de limitación antiguos.
+
+Se incorporó el archivo app/auth_throttle.py y el comando cleanup_auth_throttle.
+
+### 5. Revisión de IP y proxies de Render
+
+Se revisó la identificación de visitantes detrás de los proxies de Render.
+
+Se incorporó una opción para utilizar CF-Connecting-IP bajo configuración explícita:
+- Variable: AUTH_TRUST_RENDER_CF_IP.
+- Requisito adicional: RENDER_SERVICE_ID.
+- Validación del formato de la dirección IP.
+- Rechazo de direcciones no públicas para este uso.
+- Alternativa predeterminada: REMOTE_ADDR.
+- No se utiliza X-Forwarded-For directamente para construir la identidad del limitador.
+
+Se agregaron nueve pruebas de seguridad del proxy y todas fueron aprobadas.
+
+Decisión final:
+AUTH_TRUST_RENDER_CF_IP permanece desactivada.
+
+Motivo:
+No se confirmó suficientemente que el servicio pueda confiar en CF-Connecting-IP frente a posibles cabeceras falsificadas.
+
+Se decidió conservar el comportamiento actual y no realizar nuevas modificaciones.
+
+Limitación conocida:
+El uso de REMOTE_ADDR detrás de un proxy puede agrupar a diferentes visitantes bajo una misma dirección IP y afectar la precisión de los límites.
+
+Esta revisión queda registrada como mejora de seguridad pendiente, no como una protección completamente resuelta.
+
+### 6. Integración de Cloudflare Turnstile
+
+Se implementó Turnstile en el registro de usuarios.
+
+Frontend:
+- Componente TurnstileWidget.tsx.
+- Integración con AuthModal.tsx.
+- Inclusión del token cf-turnstile-response.
+- Manejo de expiración y reinicio del widget.
+- Configuración de la clave pública mediante VITE_TURNSTILE_SITE_KEY.
+
+Backend:
+- Módulo app/turnstile_verification.py.
+- Validación del token con Cloudflare Siteverify.
+- Integración en los endpoints de registro.
+- Rechazo de registros sin verificación válida.
+- Comprobación de nombres de host permitidos cuando están configurados.
+- Protección previa a la creación de cuentas.
+
+Variables de producción:
+- TURNSTILE_REGISTRATION_ENABLED=1
+- TURNSTILE_SITE_KEY
+- TURNSTILE_SECRET_KEY
+- TURNSTILE_ALLOWED_HOSTNAMES
+
+Hosts configurados:
+- beats-cloud.vercel.app
+- beatscloud.onrender.com
+
+Las claves reales se mantienen en los servicios de configuración y no se incluyen en este registro ni en Git.
+
+### 7. Base de datos y migraciones
+
+Se incorporó la migración:
+
+app/migrations/0032_auth_throttle.py
+
+La migración fue aplicada correctamente en el entorno local.
+
+El archivo build.sh de Render incluye:
+- Instalación de dependencias.
+- Recolección de archivos estáticos.
+- Ejecución de python manage.py migrate --noinput.
+
+El despliegue de Render finalizó correctamente.
+
+No se inspeccionó por separado una línea de log que confirmara individualmente la migración 0032 en producción.
+
+### 8. Pruebas automatizadas
+
+Regresión final aprobada:
+
+Backend Django:
+- 75 pruebas ejecutadas.
+- 75 pruebas aprobadas.
+- Sin errores.
+
+Frontend React:
+- 37 pruebas ejecutadas.
+- 37 pruebas aprobadas.
+- Sin errores.
+
+Total:
+112 pruebas automatizadas aprobadas.
+
+Verificaciones adicionales:
+- python manage.py check: correcto.
+- python manage.py makemigrations --check --dry-run: sin cambios pendientes.
+- TypeScript mediante npm run lint: correcto.
+- Vite mediante npm run build: compilación exitosa.
+- git diff --check: correcto.
+- git diff --cached --check: correcto.
+
+Advertencias no bloqueantes:
+- Directorio local staticfiles inexistente durante algunas pruebas.
+- Aviso de tamaño del paquete JavaScript de Vite.
+- Advertencias de conversión de saltos de línea LF/CRLF en Git.
+
+### 9. Auditoría y preparación del commit
+
+Se prepararon 27 archivos modificados o nuevos.
+
+Resumen del commit:
+- 3.581 líneas agregadas.
+- 5 líneas eliminadas.
+- Commit: 933a835.
+- Mensaje: feat: selector de cuentas y seguridad de autenticacion
+
+Se ejecutó una comprobación automática de posibles secretos en los archivos preparados.
+
+Resultado:
+- No se detectaron coincidencias con las reglas utilizadas.
+- La comprobación no constituye una garantía absoluta de ausencia de secretos.
+
+El commit se creó localmente y fue enviado correctamente a GitHub.
+La rama local main quedó sincronizada con origin/main.
+
+### 10. Publicación controlada en Render y Vercel
+
+Se configuró un procedimiento de despliegue controlado.
+
+Render:
+- Auto-Deploy configurado temporalmente en Off.
+- Variables de Turnstile guardadas.
+- Despliegue manual del commit 933a835.
+- Estado final: Deploy succeeded / Live.
+
+Vercel:
+- Desactivación de Auto-assign Custom Production Domains.
+- Nueva compilación del commit 933a835 en estado Ready.
+- Promoción manual de la compilación a Production.
+- Dominio de producción: beats-cloud.vercel.app.
+
+Orden utilizado:
+1. Configuración de las variables de producción.
+2. Preparación y publicación del commit en GitHub.
+3. Despliegue del backend con Turnstile temporalmente no obligatorio.
+4. Promoción del nuevo frontend.
+5. Verificación de la presencia del widget.
+6. Activación obligatoria de Turnstile en Render.
+7. Despliegue de actualización de entorno.
+8. Validaciones funcionales en producción.
+
+Este orden permitió evitar que el backend exigiera Turnstile mientras los visitantes todavía utilizaban el formulario antiguo.
+
+### 11. Validaciones reales en producción
+
+Se comprobaron las siguientes operaciones:
+
+Registro de usuarios:
+- El widget de Turnstile apareció correctamente.
+- El widget completó la verificación visual.
+- El registro sin token fue rechazado por Django con HTTP 403.
+- El registro válido fue realizado correctamente.
+
+Confirmación de correo:
+- Se recibió el correo de activación.
+- La cuenta fue activada correctamente.
+
+Inicio de sesión:
+- La cuenta activada pudo iniciar sesión.
+
+Selector de cuentas:
+- Se agregó una segunda cuenta.
+- Ambas cuentas aparecieron disponibles.
+- Se cambió entre ellas correctamente.
+- La interfaz reflejó la cuenta activa.
+
+Aislamiento:
+- Favoritos y archivos comprados cambiaron según la cuenta.
+
+Cierre de sesión:
+- La aplicación volvió a mostrar Acceder y Registrarse.
+- La sesión no reapareció después de actualizar la página.
+
+Sincronización:
+- El cambio de cuenta realizado en una pestaña se reflejó en otra pestaña del mismo navegador.
+
+Resultado:
+Las funcionalidades principales de autenticación y selector de cuentas quedaron validadas mediante pruebas manuales en producción.
+
+### 12. Configuración final y decisiones
+
+Configuración mantenida:
+- TURNSTILE_REGISTRATION_ENABLED=1.
+- AUTH_TRUST_RENDER_CF_IP desactivada.
+- Auto-Deploy de Render en Off.
+- Promoción manual de versiones de Vercel.
+
+No se realizaron nuevas modificaciones al limitador después de decidir conservar desactivada la confianza en la IP del proxy.
+
+Las futuras publicaciones deberán tener en cuenta que la automatización de despliegues quedó desactivada o limitada.
+
+### 13. Cierre de la etapa
+
+Estado:
+Implementación publicada y validada.
+
+Último commit de implementación:
+933a835
+
+Validaciones:
+- 112 pruebas automatizadas aprobadas.
+- Registro y activación por correo comprobados.
+- Turnstile comprobado en frontend y backend.
+- Inicio de sesión comprobado.
+- Selector y cambio de cuentas comprobados.
+- Aislamiento de datos comprobado visualmente.
+- Cierre de sesión y sincronización entre pestañas comprobados.
+
+Pendiente no bloqueante:
+Revisar en el futuro el origen confiable de la IP real del visitante detrás de Render.
+
+Se da por finalizada esta etapa de desarrollo y validación de BeatCloud.
