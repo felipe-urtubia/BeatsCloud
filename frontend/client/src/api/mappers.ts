@@ -71,6 +71,7 @@ export function mapTrack(d: DTrack, opts?: { isPurchased?: boolean; isOwner?: bo
   const free = d.precio === 0;
   return {
     id: slug(d.id_track),
+    isRetired: d.is_retired === true,
     title: d.nombre_track,
     producerId: String(d.usuario.id),
     producerName: d.usuario.nombre_artistico || d.usuario.username,

@@ -510,9 +510,20 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => deleteTrack(track.id)}
+                            onClick={() => {
+                              const confirmado = window.confirm(
+                                `¿Retirar "${track.title}" del catálogo?\n\n` +
+                                'El beat dejará de estar disponible para nuevas compras. ' +
+                                'Las compras y licencias anteriores se conservarán.'
+                              );
+
+                              if (confirmado) {
+                                deleteTrack(track.id);
+                              }
+                            }}
                             className="p-2 text-zinc-400 hover:text-rose-400 rounded-lg hover:bg-zinc-800"
-                            title="Eliminar beat"
+                            title="Retirar beat del catálogo"
+                            aria-label={`Retirar ${track.title} del catálogo`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import WebpayTransaction
+from .models import Genero_Musical, Track, Usuario, WebpayTransaction
 from .webpay_checkout_guard import (
     PaymentStartBlocked, create_pending_webpay_order,
 )
@@ -14,9 +14,44 @@ class WebpayInicioGuardTests(TestCase):
             username="comprador_inicio_guard",
             password="test-password",
         )
+        # Datos reales para validar el inicio de pagos.
+        productor_user = get_user_model().objects.create_user(
+            username="productor_inicio_guard",
+            password="test-password",
+        )
+
+        productor = Usuario.objects.create(
+            user=productor_user,
+            tipo_usu=Usuario.PRODUCTOR,
+        )
+
+        genero = Genero_Musical.objects.create(
+            descripcion=Genero_Musical.POP,
+        )
+
+        self.track_inicial = Track.objects.create(
+            nombre_track="Track inicio Webpay 1",
+            precio=1000,
+            usuario=productor,
+            genero=genero,
+            track="canciones/webpay_guard_1.mp3",
+            preview="previews/webpay_guard_1.mp3",
+            media_status="ready",
+        )
+
+        self.track_segundo = Track.objects.create(
+            nombre_track="Track inicio Webpay 2",
+            precio=1000,
+            usuario=productor,
+            genero=genero,
+            track="canciones/webpay_guard_2.mp3",
+            preview="previews/webpay_guard_2.mp3",
+            media_status="ready",
+        )
+
         self.snapshot = [{
             "venta_id": 10,
-            "track_id": 20,
+            "track_id": self.track_inicial.pk,
             "precio": 1000,
             "iva": 190,
         }]
@@ -52,7 +87,7 @@ class WebpayInicioGuardTests(TestCase):
 
         nueva = self.iniciar([{
             "venta_id": 11,
-            "track_id": 21,
+            "track_id": self.track_segundo.pk,
             "precio": 1000,
             "iva": 190,
         }])

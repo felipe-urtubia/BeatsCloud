@@ -3,7 +3,7 @@ import secrets
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from .models import HistorialCompra, Suscripcion, Usuario, WebpayTransaction
+from .models import HistorialCompra, Suscripcion, Track, Usuario, WebpayTransaction
 from .subscription_membership import has_active_subscription
 from .subscription_plans import validate_plan_duration
 
@@ -132,6 +132,22 @@ def create_pending_webpay_order(
                 )
         else:
             tracks = {item["track_id"] for item in snapshot}
+
+            # Bloquear los tracks durante la creacion del pedido.
+            # La retirada logica actualiza las mismas filas.
+            tracks_bloqueados = list(
+                Track.objects.select_for_update()
+                .filter(pk__in=tracks)
+                .order_by("pk")
+            )
+
+            if (
+                len(tracks_bloqueados) != len(tracks)
+                or any(track.is_retired for track in tracks_bloqueados)
+            ):
+                raise PaymentStartBlocked(
+                    "El carrito contiene tracks retirados o no disponibles."
+                )
 
             perfil = Usuario.objects.filter(user_id=user.pk).first()
             if perfil is not None and HistorialCompra.objects.filter(

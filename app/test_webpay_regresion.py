@@ -527,3 +527,156 @@ class WebpayRegresionTests(TestCase):
                 completada=False,
             ).exists()
         )
+
+
+    def test_pago_autorizado_despues_de_retirada(self):
+        from datetime import date
+
+        from django.test import RequestFactory
+
+        from .api_shim import (
+            _puede_escuchar_completo,
+            track_delete_api,
+            track_detail_api,
+        )
+        from .models import Genero_Musical, Track, Venta
+
+        # Crear al productor y su track.
+        vendedor = User.objects.create_user(
+            username="vendedor_retirada_webpay",
+            password="test-password",
+        )
+
+        perfil_vendedor = Usuario.objects.create(
+            user=vendedor,
+            tipo_usu=Usuario.PRODUCTOR,
+        )
+
+        genero = Genero_Musical.objects.create(
+            descripcion="Genero Retirada Webpay",
+        )
+
+        track = Track.objects.create(
+            nombre_track="Track retirado durante Webpay",
+            precio=1000,
+            genero=genero,
+            usuario=perfil_vendedor,
+            track="canciones/pago_retirada_test.mp3",
+            preview="previews/pago_retirada_test.mp3",
+            media_status="ready",
+        )
+
+        archivo_original = track.track.name
+
+        # El comprador tiene una venta pendiente.
+        venta = Venta.objects.create(
+            detalle="Pedido anterior a retirada",
+            fecha=date.today(),
+            precio=1000,
+            iva=190,
+            precio_total=1190,
+            usuario_id=self.profile,
+            track=track,
+        )
+
+        # La orden fue creada antes de retirar el track.
+        snapshot = [{
+            "venta_id": venta.pk,
+            "track_id": track.pk,
+            "precio": 1000,
+            "iva": 190,
+        }]
+
+        self.payment.cart_snapshot = snapshot
+        self.payment.save(update_fields=["cart_snapshot"])
+
+        # El productor retira el track.
+        factory = RequestFactory()
+
+        solicitud = factory.post(
+            f"/api/tracks/{track.pk}/delete/"
+        )
+        solicitud.user = vendedor
+
+        retirada = track_delete_api(solicitud, track.pk)
+
+        self.assertEqual(retirada.status_code, 200)
+
+        track.refresh_from_db()
+        self.assertTrue(track.is_retired)
+
+        # Todavia no se ha confirmado el pago.
+        self.assertFalse(
+            HistorialCompra.objects.filter(
+                usuario=self.profile,
+                track=track,
+            ).exists()
+        )
+
+        # Webpay confirma el pago posteriormente.
+        respuesta = self.simular_retorno(
+            self.respuesta_webpay(0, "AUTHORIZED")
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn("pago=exito", respuesta.url)
+
+        # La orden debe quedar autorizada y entregada.
+        self.payment.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            WebpayTransaction.ESTADO_AUTORIZADO,
+        )
+        self.assertIsNotNone(self.payment.fulfilled_at)
+
+        # El comprador conserva sus derechos.
+        self.assertTrue(
+            HistorialCompra.objects.filter(
+                usuario=self.profile,
+                track=track,
+            ).exists()
+        )
+
+        # La venta se registra una sola vez.
+        self.assertEqual(
+            HistorialVenta.objects.filter(
+                comprador=self.user,
+                track=track,
+            ).count(),
+            1,
+        )
+
+        # Se elimina el item pagado del carrito.
+        self.assertFalse(
+            Venta.objects.filter(pk=venta.pk).exists()
+        )
+
+        # El track permanece retirado y su archivo intacto.
+        track.refresh_from_db()
+
+        self.assertTrue(track.is_retired)
+        self.assertEqual(
+            track.track.name,
+            archivo_original,
+        )
+
+        # El comprador conserva el acceso autorizado.
+        solicitud_comprador = factory.get(
+            f"/api/tracks/{track.pk}/"
+        )
+        solicitud_comprador.user = self.user
+
+        self.assertTrue(
+            _puede_escuchar_completo(
+                solicitud_comprador,
+                track,
+            )
+        )
+
+        detalle = track_detail_api(
+            solicitud_comprador,
+            track.pk,
+        )
+
+        self.assertEqual(detalle.status_code, 200)

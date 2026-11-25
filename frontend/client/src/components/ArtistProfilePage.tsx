@@ -19,7 +19,7 @@ import { LicenseCertificateModal } from './LicenseCertificateModal';
 import { LicenseContract } from '../types';
 import { ProfileEditForm } from './ProfileEditForm';
 import { DjangoApi } from '../api/django.service';
-import { djangoId, mapLicense } from '../api/mappers';
+import { djangoId, mapLicense, mapTrack } from '../api/mappers';
 
 interface ArtistProfilePageProps {
   artistId?: string;
@@ -55,6 +55,7 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
   const [viewingContract, setViewingContract] = useState<LicenseContract | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [isLoadingLicense, setIsLoadingLicense] = useState(false);
+  const [loadingPurchaseId, setLoadingPurchaseId] = useState<string | null>(null);
 
   const targetUser: User = artistId
     ? users.find((u) => u.id === artistId) || (currentUser as User)
@@ -97,6 +98,37 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
   const handleSaveProfile = async (data: Parameters<typeof updateProfile>[0]) => {
     await updateProfile(data);
     setIsEditingBio(false);
+  };
+
+  const handlePlayPurchasedTrack = async (purchase: PurchaseRecord) => {
+    if (loadingPurchaseId !== null) return;
+
+    setPurchaseError(null);
+
+    if (configuredMode !== 'hybrid' || !purchase.trackId.startsWith('dj-')) {
+      setPurchaseError('No se encontro una pista reproducible para esta compra.');
+      return;
+    }
+
+    setLoadingPurchaseId(purchase.id);
+
+    try {
+      // Consulta privada: Django verifica los derechos del comprador.
+      const detalle = await DjangoApi.track(djangoId(purchase.trackId));
+
+      // No agregar esta pista al catalogo publico.
+      const purchasedTrack = mapTrack(detalle, { isPurchased: true });
+
+      playTrack(purchasedTrack);
+    } catch (error) {
+      setPurchaseError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo reproducir la pista comprada.'
+      );
+    } finally {
+      setLoadingPurchaseId(null);
+    }
   };
 
   const handleDownload = async (purchase: PurchaseRecord) => {
@@ -293,7 +325,8 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
               </div>
             ) : (
               purchaseHistory.map((purchase) => {
-                const track = tracks.find((item) => item.id === purchase.trackId);
+                const track = tracks.find((item) => item.id === purchase.trackId)
+                  ?? (activeTrack?.id === purchase.trackId ? activeTrack : undefined);
                 const isThisPlaying = !!track && isPlaying && activeTrack?.id === track.id;
                 const badge = track ? getResourceBadgeInfo(track.resourceType) : null;
 
@@ -316,7 +349,21 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                               {isThisPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
                             </button>
                           </>
-                        ) : <FileMusic className="w-full h-full p-3 text-zinc-500" aria-hidden="true" />}
+                        ) : (
+                          <>
+                            <FileMusic className="w-full h-full p-3 text-zinc-500" aria-hidden="true" />
+                            <button
+                              type="button"
+                              disabled={loadingPurchaseId === purchase.id}
+                              aria-busy={loadingPurchaseId === purchase.id}
+                              aria-label={`Reproducir ${purchase.trackTitle}`}
+                              onClick={() => void handlePlayPurchasedTrack(purchase)}
+                              className="absolute inset-0 m-auto w-7 h-7 rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center disabled:opacity-50"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
 
                       <div className="min-w-0">
@@ -324,8 +371,8 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                           {badge && <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded border ${badge.badgeClass}`}>{badge.label}</span>}
                           {track && <span className="text-[11px] font-mono text-zinc-400">{track.bpm} BPM · {track.scaleKey}</span>}
                         </div>
-                        {track ? (
-                          <button type="button" onClick={() => onOpenTrackDetail(track.id)} className="block max-w-full font-bold text-white text-left text-sm hover:text-amber-400 truncate mt-0.5">
+                        {(track || (configuredMode === 'hybrid' && purchase.trackId.startsWith('dj-'))) ? (
+                          <button type="button" onClick={() => onOpenTrackDetail(purchase.trackId)} className="block max-w-full font-bold text-white text-left text-sm hover:text-amber-400 truncate mt-0.5">
                             {purchase.trackTitle}
                           </button>
                         ) : <h4 className="font-bold text-white text-sm truncate mt-0.5">{purchase.trackTitle}</h4>}

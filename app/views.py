@@ -816,11 +816,14 @@ def eliminar_track(request, track_id):
     )
 
     nombre_track = track.nombre_track
-    track.delete()
+
+    # Retirada logica: preservar los derechos de compradores previos.
+    track.is_retired = True
+    track.save(update_fields=["is_retired"])
 
     messages.success(
         request,
-        f'El track "{nombre_track}" fue eliminado correctamente.'
+        f'El track "{nombre_track}" fue retirado del catalogo correctamente.'
     )
     return redirect('perfil_productor')
 
@@ -874,6 +877,11 @@ def reproducir_preview_track(request, track_id):
     from django.http import FileResponse, Http404
 
     track = get_object_or_404(Track, id_track=track_id, media_status="ready")
+
+    from .track_retirement_access import can_access_retired_track
+
+    if track.is_retired and not can_access_retired_track(request.user, track):
+        raise Http404("Track no encontrado.")
 
     if not track.preview:
         raise Http404("Este track todavía no tiene una vista previa disponible.")
@@ -1017,7 +1025,7 @@ def catalogo(request):
         usuario__user__username=ANON_USER_USERNAME,
     )
 
-    tracks = only_ready_tracks(tracks)
+    tracks = only_ready_tracks(tracks).filter(is_retired=False)
 
     generos = Genero_Musical.objects.all().order_by('descripcion')
 
@@ -1127,7 +1135,7 @@ def perfil_productor1(request, username):
     from .r2_visibility import only_ready_tracks
     usuario = get_object_or_404(User, username=username)
     perfil = get_object_or_404(Usuario, user=usuario)
-    canciones = only_ready_tracks(Track.objects.filter(usuario=perfil))
+    canciones = only_ready_tracks(Track.objects.filter(usuario=perfil, is_retired=False))
     suscripcion = Suscripcion.objects.filter(
         user=perfil,
         activo=True,
@@ -1143,6 +1151,12 @@ def perfil_productor1(request, username):
 
 def detalle_track(request, track_id):
     track = get_object_or_404(Track, id_track=track_id, media_status="ready")
+
+    from django.http import Http404
+    from .track_retirement_access import can_access_retired_track
+
+    if track.is_retired and not can_access_retired_track(request.user, track):
+        raise Http404("Track no encontrado.")
     comentarios = track.comentarios.all()
 
     ya_comprado = False
@@ -2035,6 +2049,14 @@ def pago(request):
 @require_POST
 def agregar_al_carrito(request, track_id):
     track = get_object_or_404(Track, id_track=track_id)
+
+    if track.is_retired:
+        messages.error(
+            request,
+            "Este track fue retirado del catalogo y no puede comprarse."
+        )
+        return redirect("carrito")
+
     usuario = get_object_or_404(Usuario, user=request.user)
 
     if track.usuario.user.username == ANON_USER_USERNAME:
