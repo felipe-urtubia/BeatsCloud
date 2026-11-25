@@ -68,6 +68,7 @@ export interface TrackComment {
 
 export interface Track {
   id: string;
+  isRetired?: boolean;
   title: string;
   producerId: string;
   producerName: string;

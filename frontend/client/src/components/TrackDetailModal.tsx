@@ -27,7 +27,7 @@ import {
 import { LicenseCertificateModal } from './LicenseCertificateModal';
 import type { LicenseContract } from '../types';
 import DjangoApi from '../api/django.service';
-import { mapLicense } from '../api/mappers';
+import { mapLicense, mapTrack } from '../api/mappers';
 
 interface TrackDetailModalProps {
   trackId: string | null;
@@ -72,6 +72,67 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
   const [viewingContract, setViewingContract] = useState<LicenseContract | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
+  const [privateTrack, setPrivateTrack] = useState<Track | null>(null);
+  const [privateIsPurchased, setPrivateIsPurchased] = useState(false);
+  const [privateLoadState, setPrivateLoadState] =
+    useState<'idle' | 'loading' | 'error'>('idle');
+
+
+  useEffect(() => {
+    if (
+      !trackId ||
+      configuredMode !== 'hybrid' ||
+      !trackId.startsWith('dj-') ||
+      !currentUser
+    ) {
+      setPrivateTrack(null);
+      setPrivateIsPurchased(false);
+      setPrivateLoadState('idle');
+      return;
+    }
+
+    const numericId = Number(trackId.slice(3));
+
+    if (!Number.isSafeInteger(numericId) || numericId <= 0) {
+      setPrivateTrack(null);
+      setPrivateIsPurchased(false);
+      setPrivateLoadState('error');
+      return;
+    }
+
+    let cancelled = false;
+
+    setPrivateTrack(null);
+    setPrivateIsPurchased(false);
+    setPrivateLoadState('loading');
+
+    // Django verifica que el usuario tenga acceso autorizado.
+    void DjangoApi.track(numericId)
+      .then((detail) => {
+        if (cancelled) return;
+
+        setPrivateTrack({
+          ...mapTrack(detail, {
+            isPurchased: detail.is_purchased === true,
+          }),
+          isRetired: detail.is_retired === true,
+        });
+        setPrivateIsPurchased(detail.is_purchased === true);
+        setPrivateLoadState('idle');
+      })
+      .catch(() => {
+        if (cancelled) return;
+
+        setPrivateTrack(null);
+        setPrivateIsPurchased(false);
+        setPrivateLoadState('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trackId, configuredMode, currentUser?.id]);
+
   useEffect(() => {
     if (!trackId?.startsWith('dj-') || configuredMode !== 'hybrid') return;
     setCommentsError(null);
@@ -84,8 +145,42 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
 
   if (!trackId) return null;
 
-  const track = tracks.find((t) => t.id === trackId);
-  if (!track) return null;
+  const track = (
+    currentUser && privateTrack?.id === trackId
+      ? privateTrack
+      : undefined
+  ) ?? tracks.find((t) => t.id === trackId);
+
+  if (!track) {
+    const unavailable = privateLoadState === 'error'
+      || configuredMode !== 'hybrid'
+      || !trackId.startsWith('dj-')
+      || !currentUser;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Detalle de pista"
+          className="w-full max-w-md rounded-2xl border border-zinc-700 bg-[#0e111a] p-6 text-center"
+        >
+          <p role={unavailable ? 'alert' : 'status'} className="text-sm text-zinc-200">
+            {unavailable
+              ? 'Esta pista no está disponible para tu cuenta.'
+              : 'Cargando detalles de la pista...'}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-5 rounded-xl bg-zinc-800 px-5 py-2 text-sm text-white"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const producer = users.find((u) => u.id === track.producerId);
   const isThisTrack = activeTrack?.id === track.id;
@@ -101,10 +196,14 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
       ? Math.max(0, Math.min(currentTime, playbackDuration))
       : 0;
   const isLiked = currentUser?.likedTrackIds.includes(track.id);
-  const isPurchased = currentUser?.purchasedTrackIds.includes(track.id);
+  const isPurchased = Boolean(
+    currentUser?.purchasedTrackIds.includes(track.id)
+    || (privateTrack?.id === track.id && privateIsPurchased)
+  );
+  const isRetired = track.isRetired === true;
   // Regla de negocio "Punto Medio": un beat de pago puede ofrecer la maqueta
   // de composición si el productor activó allowFreeDownload al subirlo.
-  const canDownloadAuditionDemo = !isPurchased && (track.isFree || track.price === 0 ? false : track.allowFreeDownload === true);
+  const canDownloadAuditionDemo = !isRetired && !isPurchased && (track.isFree || track.price === 0 ? false : track.allowFreeDownload === true);
   const badge = getResourceBadgeInfo(track.resourceType);
 
   const formatTime = (secs: number) => {
@@ -227,6 +326,15 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-1">
                 {track.title}
               </h1>
+              {isRetired && (
+                <p
+                  role="status"
+                  className="mb-3 mt-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200"
+                >
+                  Track retirado del catálogo. Las compras anteriores
+                  conservan sus derechos de acceso.
+                </p>
+              )}
 
               {/* Producer quick link */}
               <div
@@ -261,7 +369,11 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                   )}
                 </div>
 
-                {!isPurchased ? (
+                {isRetired && !isPurchased ? (
+                  <span className="rounded-xl border border-zinc-600 bg-zinc-800 px-4 py-3 text-xs font-bold text-zinc-300">
+                    No disponible para nuevas compras
+                  </span>
+                ) : !isPurchased ? (
                   track.isFree || track.price === 0 ? (
                     <button
                       onClick={() => void handleDownloadFree()}
@@ -335,7 +447,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
               </div>
 
               {/* Security & Sweet Spot (Punto Medio) Explainer Banner */}
-              {!isPurchased && !track.isFree && track.price > 0 && (
+              {!isRetired && !isPurchased && !track.isFree && track.price > 0 && (
                 <div className="mt-3.5 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#141724] to-[#121522] border border-amber-500/25 text-xs text-zinc-300 space-y-2">
                   <div className="flex items-center gap-2 text-amber-300 font-bold font-mono">
                     <Scale className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -365,7 +477,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                 </div>
               )}
 
-              {(track.isFree || track.price === 0) && !isPurchased && (
+              {!isRetired && (track.isFree || track.price === 0) && !isPurchased && (
                 <div className="mt-3.5 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-200 flex items-center gap-2.5">
                   <Sparkles className="w-4 h-4 text-sky-400 flex-shrink-0" />
                   <span>
@@ -399,7 +511,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
                     key={i}
                     onClick={() => {
                       if (playbackDuration <= 0) return;
-                      if (!isThisPlaying) playTrack(track);
+                      if (!isThisTrack) playTrack(track);
                       seekAudio((i / 48) * playbackDuration);
                     }}
                     className="flex-1 h-full flex items-center justify-center focus:outline-none group py-1"

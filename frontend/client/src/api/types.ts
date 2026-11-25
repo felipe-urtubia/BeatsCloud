@@ -53,6 +53,7 @@ export interface DTrack {
   usuario: DUser;            // productor dueño
   likes_count?: number;      // tracks_gustados.count()
   is_purchased?: boolean;    // el usuario autenticado ya lo compró
+  is_retired?: boolean;
   is_owner?: boolean;        // el usuario autenticado es el productor
   // Metadatos propuestos (migración 0016_track_metadata, ver docs/INTEGRACION_BACKEND.md §3-C)
   resource_type?: 'instrumental' | 'acapella' | 'loop' | 'drumkit';

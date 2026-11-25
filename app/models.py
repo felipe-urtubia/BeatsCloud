@@ -134,6 +134,12 @@ class Track(models.Model):
         default="ready",
     )
 
+    # Retirada logica: conserva compras y archivos.
+    is_retired = models.BooleanField(
+        default=False,
+        db_index=True,
+    )
+
     def __str__(self):
         return self.nombre_track
 

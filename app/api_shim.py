@@ -233,6 +233,7 @@ def ser_track(t: Track, comprador=None):
         "usuario": ser_user_public(t.usuario.user),
         "likes_count": likes,
         "is_purchased": is_purchased,
+        "is_retired": bool(t.is_retired),
         "subgenre": t.subgenre,
         # Metadatos de producción almacenados en Track.
         "resource_type": getattr(t, "resource_type", "instrumental"),
@@ -574,7 +575,7 @@ def catalogo_api(request):
     tracks = Track.objects.select_related("usuario__user", "genero").exclude(
         usuario__user__username=ANON_USER_USERNAME,
     )
-    tracks = only_ready_tracks(tracks)
+    tracks = only_ready_tracks(tracks).filter(is_retired=False)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -652,6 +653,10 @@ def track_detail_api(request, track_id):
     ).first()
     if t is None or not is_media_ready(t):
         return _err("Track no encontrado.", 404)
+    # Retirado: acceso solo para propietario o comprador.
+    if t.is_retired and not _puede_escuchar_completo(request, t):
+        return _err("Track no encontrado.", 404)
+
     return JsonResponse(ser_track(t, request.user))
 
 
@@ -684,6 +689,10 @@ def preview_stream_api(request, track_id):
     track = Track.objects.filter(id_track=track_id).first()
     if track is None or not is_media_ready(track) or not track.preview:
         raise Http404("Este track todavía no tiene una vista previa disponible.")
+    # No publicar previews de tracks retirados.
+    if track.is_retired and not _puede_escuchar_completo(request, track):
+        raise Http404("Track no encontrado.")
+
     if getattr(track, "storage_backend", "local") == "r2":
         from app.r2_preview_delivery import r2_preview_response
         return r2_preview_response(track)
@@ -718,15 +727,8 @@ def full_stream_api(request, track_id):
         )
     if not track.track:
         raise Http404("El archivo de audio no está disponible.")
-    archivo = track.track.open("rb")
-    nombre = track.track.name.rsplit("/", 1)[-1]
-    response = FileResponse(
-        archivo, content_type=mimetypes.guess_type(nombre)[0] or "application/octet-stream"
-    )
-    response["Content-Disposition"] = f'inline; filename="{nombre}"'
-    response["X-Content-Type-Options"] = "nosniff"
-    response["Cache-Control"] = "private, no-store"
-    return response
+    from .track_audio_range import serve_local_track_audio
+    return serve_local_track_audio(request, track)
 
 
 def download_api(request, track_id):
@@ -786,6 +788,11 @@ def cart_add_api(request, track_id):
     track = Track.objects.filter(id_track=track_id).first()
     if track is None or not is_media_ready(track):
         return _err("Track no encontrado.", 404)
+    if track.is_retired:
+        return _err(
+            "Este track fue retirado del catalogo y no puede comprarse.",
+            409,
+        )
     perfil = Usuario.objects.filter(user=request.user).first()
 
     if track.usuario.user.username == ANON_USER_USERNAME:
@@ -878,6 +885,17 @@ def pago_init_api(request):
         ).order_by("pk"))
         if not ventas:
             return _err("Tu carrito no tiene productos pendientes de pago.", 400)
+
+        # Bloquear pagos nuevos de tracks retirados.
+        if Venta.objects.filter(
+            usuario_id=perfil,
+            completada=False,
+            track__is_retired=True,
+        ).exists():
+            return _err(
+                "Tu carrito contiene un track retirado. Quitalo antes de pagar.",
+                409,
+            )
 
         cart_snapshot = [
             {
@@ -1083,6 +1101,11 @@ def track_cover_api(request, track_id):
         return _err("Portada no disponible.", 404)
 
     from app.r2_cover_bridge import serve_private_r2_cover
+
+    from .track_retirement_access import can_access_retired_track
+
+    if track.is_retired and not can_access_retired_track(request.user, track):
+        return _err("Portada no disponible.", 404)
 
     return serve_private_r2_cover(request, track)
 
@@ -1291,12 +1314,10 @@ def track_delete_api(request, track_id):
     t, err = _owned_track_or_404(track_id, request.user)
     if err:
         return err
-    if HistorialVenta.objects.filter(track=t).exists():
-        return _err(
-            "No puedes eliminar un track que ya ha sido vendido.", 409
-        )  # misma guarda que eliminar_track()
-    t.delete()
-    return JsonResponse({"ok": True})
+    # Retirada logica: no borrar compras, ventas ni archivos.
+    t.is_retired = True
+    t.save(update_fields=["is_retired"])
+    return JsonResponse({"ok": True, "retired": True})
 
 
 def claim_free_track_api(request, track_id):
@@ -1307,6 +1328,8 @@ def claim_free_track_api(request, track_id):
     track = Track.objects.filter(id_track=track_id, media_status="ready").first()
     if track is None:
         return _err("Track no encontrado.", 404)
+    if track.is_retired:
+        return _err("Este track fue retirado del catalogo.", 409)
     if track.precio != 0:
         return _err("Este track no es gratuito.", 409)
     profile = Usuario.objects.filter(user=request.user).first()
@@ -1711,7 +1734,7 @@ def perfil_publico_api(request, username):
         perfil = None
     if perfil is not None:
         tracks = only_ready_tracks(
-            Track.objects.filter(usuario=perfil)
+            Track.objects.filter(usuario=perfil, is_retired=False)
         ).order_by("-id_track")
         data["tracks"] = [ser_track(t, request.user) for t in tracks]
     else:
