@@ -24,6 +24,7 @@ import {
   lookupPublicProfileForRoute,
 } from './navigation/urlState';
 import { BackendStatusBanner } from './components/BackendStatusBanner';
+import { getProtectedSectionNotice } from './navigation/authGuard';
 import { X } from 'lucide-react';
 import { AccountDeletionModal } from './components/AccountDeletionModal';
 const AboutPage = React.lazy(() => import('./components/AboutPage').then(module => ({ default: module.AboutPage })));
@@ -208,6 +209,8 @@ export const App: React.FC = () => {
     handleOpenPublicProfile(userId, role);
   };
 
+  const accessNotice = getProtectedSectionNotice(currentTab, currentUser?.role);
+
   return (
     <div className="min-h-screen bg-[#0a0c10] text-zinc-100 flex flex-row font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Studio Left Sidebar */}
@@ -256,7 +259,7 @@ export const App: React.FC = () => {
               <button type="button" className="rounded-lg bg-amber-400 px-3 py-2 font-bold text-zinc-950" onClick={() => {
                 clearAuthNotice();
                 handleOpenAuth('login');
-              }}>Iniciar sesion</button>
+              }}>Iniciar sesión</button>
             </div>
           )}
           {paymentNotice && (
@@ -284,21 +287,37 @@ export const App: React.FC = () => {
               </button>
             </div>
           )}
-          {(
-            (currentTab === 'carrito' && !currentUser) ||
-            (currentTab === 'perfil' && !currentUser) ||
-            (currentTab === 'ventas' && currentUser?.role !== 'productor') ||
-            (currentTab === 'favoritos' && currentUser?.role !== 'artista')
-          ) && (
+          {accessNotice && (
             <div role="status" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-200">
-              <h2 className="text-lg font-bold mb-2">Secci?n de cuenta no disponible</h2>
-              <p className="text-sm text-zinc-400">
-                Inicia sesi?n con la cuenta y el rol correspondientes para acceder.
-              </p>
-              <button type="button" onClick={() => handleNavigateTab('descubrir')}
-                className="mt-4 rounded-lg bg-amber-400 px-4 py-2 font-bold text-zinc-950">
-                Volver al inicio
-              </button>
+              <h2 className="text-lg font-bold mb-2">{accessNotice.title}</h2>
+              <p className="text-sm text-zinc-400">{accessNotice.description}</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {accessNotice.requiresLogin && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAuth('login')}
+                      className="rounded-lg bg-amber-400 px-4 py-2 font-bold text-zinc-950 hover:bg-amber-300"
+                    >
+                      Iniciar sesión
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAuth('register')}
+                      className="rounded-lg border border-zinc-600 px-4 py-2 font-bold text-zinc-100 hover:bg-zinc-800"
+                    >
+                      Crear cuenta
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleNavigateTab('descubrir')}
+                  className="rounded-lg border border-zinc-600 px-4 py-2 font-bold text-zinc-100 hover:bg-zinc-800"
+                >
+                  Volver al inicio
+                </button>
+              </div>
             </div>
           )}
           {(currentTab === 'descubrir' || currentTab === 'inicio') && (
@@ -394,7 +413,7 @@ export const App: React.FC = () => {
               </h2>
               <p className="text-sm text-zinc-400">
                 No pudimos encontrar este perfil entre los usuarios cargados.
-                Comprueba el enlace y la conexion con el servidor.
+                Comprueba el enlace y la conexión con el servidor.
               </p>
               <button
                 type="button"
