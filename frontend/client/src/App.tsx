@@ -3,13 +3,13 @@ import { useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { GlobalAudioPlayer } from './components/GlobalAudioPlayer';
-import { DiscoverPage } from './components/DiscoverPage';
-import { CatalogPage } from './components/CatalogPage';
-import { CartPage } from './components/CartPage';
-import { UsersCatalogPage } from './components/UsersCatalogPage';
-import { ProducerProfilePage } from './components/ProducerProfilePage';
-import { ArtistProfilePage } from './components/ArtistProfilePage';
-import { AboutPage } from './components/AboutPage';
+
+
+
+
+
+
+
 import { TrackDetailModal } from './components/TrackDetailModal';
 import { UploadTrackModal } from './components/UploadTrackModal';
 import { AuthModal } from './components/AuthModal';
@@ -26,6 +26,13 @@ import {
 import { BackendStatusBanner } from './components/BackendStatusBanner';
 import { X } from 'lucide-react';
 import { AccountDeletionModal } from './components/AccountDeletionModal';
+const AboutPage = React.lazy(() => import('./components/AboutPage').then(module => ({ default: module.AboutPage })));
+const ArtistProfilePage = React.lazy(() => import('./components/ArtistProfilePage').then(module => ({ default: module.ArtistProfilePage })));
+const ProducerProfilePage = React.lazy(() => import('./components/ProducerProfilePage').then(module => ({ default: module.ProducerProfilePage })));
+const UsersCatalogPage = React.lazy(() => import('./components/UsersCatalogPage').then(module => ({ default: module.UsersCatalogPage })));
+const CartPage = React.lazy(() => import('./components/CartPage').then(module => ({ default: module.CartPage })));
+const CatalogPage = React.lazy(() => import('./components/CatalogPage').then(module => ({ default: module.CatalogPage })));
+const DiscoverPage = React.lazy(() => import('./components/DiscoverPage').then(module => ({ default: module.DiscoverPage })));
 
 export const App: React.FC = () => {
   const { currentUser, users, paymentNotice, paymentReturnReady, clearPaymentNotice, authNotice, clearAuthNotice, setActiveResourceFilter, notifications, dismissNotification } = useApp();
@@ -242,6 +249,7 @@ export const App: React.FC = () => {
 
         {/* Dynamic Main Views Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28">
+          <React.Suspense fallback={<div role="status" className="p-6 text-zinc-400">Cargando sección...</div>}>
           {authNotice && (
             <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/40 bg-zinc-900 p-4 text-sm text-amber-100">
               <span>{authNotice}</span>
@@ -397,6 +405,7 @@ export const App: React.FC = () => {
               </button>
             </div>
           )}
+          </React.Suspense>
         </main>
       </div>
 
