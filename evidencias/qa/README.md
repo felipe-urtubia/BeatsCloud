@@ -13,4 +13,4 @@ Ejemplos de nombres (no son archivos de evidencia):
 
 Carpetas: `screenshots/`, `videos/`, `logs/`, `reports/`, `execution-notes/`. Adjunta una nota por corrida con SHA completo, fecha y zona horaria, SO, navegador/versiones, tipo de ejecución (mock/local/externa/manual), precondiciones, resultado esperado/observado y artefactos. Redacta identificadores de cuenta y datos de pago.
 
-No afirmes aprobación basándote en preparación del entorno o en una prueba mock. El flujo integrado `scripts/qa/run-all.sh` guarda cada corrida en `.qa-private/runs/<fecha>/`, con fecha y SHA propios. Pauta: `../../QA_TEST_MATRIX.md` y `../../QA_HANDOFF.md`. No es necesario aplicar un parche para usar la infraestructura integrada.
+No afirmes aprobación basándote en preparación del entorno o en una prueba mock. El flujo integrado `scripts/qa/run-all.sh` guarda cada corrida en `.qa-private/runs/<fecha>/`, con fecha y SHA propios. La pauta de revisión web está en `../../docs/qa/PLAN_REVISION_WEB.md` y la matriz trazable está en `../../docs/qa/MATRIZ_PRUEBAS_BACKLOG.md`. La primera ronda no requiere infraestructura local.

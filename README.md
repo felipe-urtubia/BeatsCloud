@@ -95,3 +95,4 @@ El 22-11-2026 se verificó el flujo E2E de compra y descarga mediante Webpay TES
 - [Configuración e integraciones](docs/entrega-apt/despliegue_y_configuracion.md)
 - [Plan de pruebas y QA de cierre](docs/entrega-apt/plan_pruebas.md) · [resultados](docs/entrega-apt/validacion_qa_cierre_2026-11-19.md)
 - [Riesgos técnicos](docs/entrega-apt/plan_riesgos.md) · [visión y alcance](docs/entrega-apt/vision_producto.md)
+- [Índice de QA web y evidencias](docs/qa/README.md)

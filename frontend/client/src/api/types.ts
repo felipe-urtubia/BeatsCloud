@@ -105,6 +105,19 @@ export interface DHistorialCompra {
   fecha_compra: string;
 }
 
+/** Compra de pista derivada de una orden Webpay autorizada y entregada. */
+export interface DCompraConfirmada {
+  id: string;
+  transaction_id: number;
+  buy_order: string;
+  order_amount: number;
+  line_amount: number;
+  fecha_compra: string;
+  status: 'AUTHORIZED';
+  download_available: boolean;
+  track: DTrack;
+}
+
 /** app.models.HistorialVenta */
 export interface DHistorialVenta {
   id: number;

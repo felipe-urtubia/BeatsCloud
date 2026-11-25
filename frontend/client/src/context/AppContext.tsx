@@ -25,7 +25,7 @@ import DjangoApi, { subscribeToSessionInvalidation } from '../api/django.service
 import type { DAuthorizedAccount } from '../api/django.service';
 import {
   mapComentario,
-  mapHistorialCompra,
+  mapCompraConfirmada,
   mapHistorialVenta,
   mapSubscription,
   mapTrack,
@@ -81,7 +81,8 @@ interface AppContextType {
   closeAudioPlayer: () => void;
   seekAudio: (seconds: number) => void;
   setAudioVolume: (volume: number) => void;
-  toggleLike: (trackId: string) => void;
+  toggleLike: (trackId: string) => Promise<void>;
+  pendingLikeTrackIds: string[];
   addToCart: (track: Track) => boolean;
   removeFromCart: (trackId: string) => void;
   clearCart: () => void;
@@ -232,6 +233,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [purchasesLoading, setPurchasesLoading] = useState(isHybrid);
   const [purchasesError, setPurchasesError] = useState<string | null>(null);
+  const [pendingLikeTrackIds, setPendingLikeTrackIds] = useState<string[]>([]);
+  const pendingLikeRequests = useRef(new Set<string>());
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const notificationId = useRef(0);
   const notify = (kind: AppNotification['kind'], message: string) => {
@@ -322,6 +325,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPurchases([]);
     setPurchasesLoading(false);
     setPurchasesError(null);
+    pendingLikeRequests.current.clear();
+    setPendingLikeTrackIds([]);
     setSales([]);
     setActiveTrack(null);
     audioEngine.pause();
@@ -370,9 +375,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const identityGeneration = cartIdentityGeneration.current;
       purchaseRequestStarted = !!session;
       const purchaseRowsPromise = session
-        ? DjangoApi.misCompras().then((rows) => {
+        ? DjangoApi.misComprasConfirmadas().then((rows) => {
             if (sequence === refreshSequence.current) {
-              setPurchases(rows.map((purchase) => mapHistorialCompra(purchase, String(session.id))));
+              setPurchases(rows.map((purchase) => mapCompraConfirmada(purchase, String(session.id))));
               setPurchasesLoading(false);
             }
             return rows;
@@ -392,7 +397,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         session ? DjangoApi.misVentas() : Promise.resolve([]),
       ]);
       const mappedPurchases = session
-        ? purchaseRows.map((purchase) => mapHistorialCompra(purchase, String(session.id)))
+        ? purchaseRows.map((purchase) => mapCompraConfirmada(purchase, String(session.id)))
         : [];
       const mappedSales = session ? saleRows.map(mapHistorialVenta) : [];
       const usersById = new Map(publicUsers.map((user) => {
@@ -700,59 +705,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     audioEngine.setVolume(vol);
   };
 
-  const toggleLike = (trackId: string) => {
-    if (!currentUser) return;
-    const isLiked = currentUser.likedTrackIds.includes(trackId);
-
-    const updatedUserLiked = isLiked
-      ? currentUser.likedTrackIds.filter((id) => id !== trackId)
-      : [...currentUser.likedTrackIds, trackId];
-
-    setUsers((prev) =>
-      prev.map((u) => (u.id === currentUser.id ? { ...u, likedTrackIds: updatedUserLiked } : u))
-    );
-
-    setTracks((prev) =>
-      prev.map((t) =>
-        t.id === trackId
-          ? { ...t, likesCount: isLiked ? Math.max(0, t.likesCount - 1) : t.likesCount + 1 }
-          : t
-      )
-    );
-
-    // Modo real: espejar en /api/like/<id>/ (optimista arriba, revert si falla)
-    if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
-      withSync(() => DjangoApi.toggleLike(djangoId(trackId)))
-        .then((res) => {
-          if (res.liked !== !isLiked) {
-            // El servidor dice lo contrario: revertir UI
-            toggleLikeServerRollback(trackId, isLiked);
-            notify('error', 'No se pudo guardar el like. Se restableció el estado anterior.');
-          }
-        })
-        .catch(() => {
-          toggleLikeServerRollback(trackId, isLiked);
-          notify('error', 'No se pudo guardar el like. Se restableció el estado anterior.');
-        });
+  const toggleLike = async (trackId: string) => {
+    if (!currentUser) {
+      notify('error', 'Inicia sesión como artista para guardar favoritos.');
+      return;
     }
-  };
+    if (modeRef.current !== 'hybrid' || !trackId.startsWith('dj-')) {
+      notify('error', 'Los favoritos persistentes requieren conexión con BeatsCloud.');
+      return;
+    }
+    if (pendingLikeRequests.current.has(trackId)) return;
 
-  const toggleLikeServerRollback = (trackId: string, wasLiked: boolean) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === currentUser?.id
-          ? {
-              ...u,
-              likedTrackIds: wasLiked
-                ? [...new Set([...u.likedTrackIds, trackId])]
-                : u.likedTrackIds.filter((id) => id !== trackId),
-            }
-          : u
-      )
-    );
-    setTracks((prev) =>
-      prev.map((t) => (t.id === trackId ? { ...t, likesCount: wasLiked ? t.likesCount + 1 : Math.max(0, t.likesCount - 1) } : t))
-    );
+    const actorId = currentUser.id;
+    const isLiked = currentUser.likedTrackIds.includes(trackId);
+    const desired = !isLiked;
+    const applyState = (from: boolean, to: boolean) => {
+      if (from === to || authenticatedId.current !== actorId) return;
+      setUsers((prev) => prev.map((user) => {
+        if (user.id !== actorId) return user;
+        const hasLike = user.likedTrackIds.includes(trackId);
+        if (hasLike === to) return user;
+        return {
+          ...user,
+          likedTrackIds: to
+            ? [...new Set([...user.likedTrackIds, trackId])]
+            : user.likedTrackIds.filter((id) => id !== trackId),
+        };
+      }));
+      setTracks((prev) => prev.map((track) => (
+        track.id === trackId
+          ? { ...track, likesCount: Math.max(0, track.likesCount + (to ? 1 : -1)) }
+          : track
+      )));
+    };
+
+    pendingLikeRequests.current.add(trackId);
+    setPendingLikeTrackIds((ids) => ids.includes(trackId) ? ids : [...ids, trackId]);
+    applyState(isLiked, desired);
+    try {
+      const response = await withSync(() => DjangoApi.setLike(djangoId(trackId), desired));
+      if (response.liked !== desired) {
+        applyState(desired, response.liked);
+        notify('error', 'El estado del favorito cambió en otra sesión; se mostró el estado guardado.');
+      } else {
+        notify('success', desired ? 'Pista agregada a favoritos.' : 'Pista quitada de favoritos.');
+      }
+    } catch {
+      applyState(desired, isLiked);
+      notify('error', 'No se pudo guardar el favorito. Se recuperó el estado anterior.');
+    } finally {
+      pendingLikeRequests.current.delete(trackId);
+      setPendingLikeTrackIds((ids) => ids.filter((id) => id !== trackId));
+    }
   };
 
   const addToCart = (track: Track): boolean => {
@@ -1893,6 +1897,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         seekAudio,
         setAudioVolume,
         toggleLike,
+        pendingLikeTrackIds,
         addToCart,
         removeFromCart,
         clearCart,

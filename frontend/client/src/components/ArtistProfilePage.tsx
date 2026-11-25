@@ -48,6 +48,8 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     configuredMode,
     purchasesLoading,
     purchasesError,
+    toggleLike,
+    pendingLikeTrackIds,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'compras' | 'favoritos' | 'membresias'>(initialTab);
@@ -66,7 +68,9 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
   const purchaseHistory = isOwner
     ? purchases.filter((purchase) => purchase.userId === targetUser.id)
     : [];
-  const likedTracks = tracks.filter((t) => targetUser.likedTrackIds.includes(t.id));
+  // Los favoritos pertenecen al artista autenticado; nunca mostramos la lista
+  // privada al visitar el perfil público de otra persona.
+  const likedTracks = isOwner ? tracks.filter((t) => targetUser.likedTrackIds.includes(t.id)) : [];
   const membershipIds = isOwner ? Array.from(new Set([
     ...Object.keys(currentUser?.subscriptionPeriods ?? {}),
     ...(currentUser?.subscriptions ?? []),
@@ -312,9 +316,9 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
             ) : purchasesError ? null : purchaseHistory.length === 0 ? (
               <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-10 text-center">
                 <FileMusic className="w-8 h-8 text-zinc-500 mx-auto mb-2" />
-                <p className="text-sm font-bold text-zinc-300">Aún no has adquirido pistas</p>
+                <p className="text-sm font-bold text-zinc-300">Aún no tienes compras confirmadas</p>
                 <p className="text-xs text-zinc-500 mt-1 mb-4">
-                  Las compras registradas aparecen aquí. La descarga depende de que el archivo siga disponible.
+                  Aquí aparecen únicamente compras autorizadas y entregadas a tu cuenta. Las compras de demostración no representan pagos reales.
                 </p>
                 <button
                   onClick={onNavigateCatalog}
@@ -380,7 +384,10 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                           Productor: <span className="text-zinc-200">{purchase.producerName}</span>
                         </p>
                         <p className="mt-1 text-[11px] text-zinc-400">
-                          Registro de compra · {purchase.date ? new Date(purchase.date).toLocaleDateString('es-CL') : 'Fecha no disponible'}
+                          Orden {purchase.buyOrder} · {purchase.date ? new Date(purchase.date).toLocaleString('es-CL') : 'Fecha no disponible'}
+                        </p>
+                        <p className="text-[11px] text-zinc-400">
+                          Compra confirmada · pista ${purchase.amount.toLocaleString('es-CL')} CLP · total de orden ${purchase.webpayAmount?.toLocaleString('es-CL') ?? purchase.amount.toLocaleString('es-CL')} CLP
                         </p>
                       </div>
                     </div>
@@ -399,11 +406,13 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
 
                       <button
                         type="button"
+                        disabled={configuredMode === 'hybrid' && !purchase.downloadAvailable}
                         onClick={() => void handleDownload(purchase)}
-                        className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black px-3.5 py-2 rounded-xl text-xs transition-colors shadow-sm"
+                        className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-700 disabled:text-zinc-400 disabled:cursor-not-allowed text-zinc-950 font-black px-3.5 py-2 rounded-xl text-xs transition-colors shadow-sm"
+                        title={purchase.downloadAvailable ? 'Descargar archivo autorizado' : 'El archivo no está disponible para descarga'}
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>{configuredMode === 'hybrid' ? 'Descargar archivo de audio' : 'Descargar comprobante de demostración'}</span>
+                        <span>{configuredMode === 'hybrid' ? (purchase.downloadAvailable ? 'Descargar audio' : 'Descarga no disponible') : 'Comprobante de demostración'}</span>
                       </button>
                     </div>
                   </div>
@@ -416,7 +425,15 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
         {/* Tab 2: Liked Tracks */}
         {activeTab === 'favoritos' && (
           <div className="mt-6 space-y-3">
-            {likedTracks.length === 0 ? (
+            {!isOwner ? (
+              <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-8 text-center text-xs text-zinc-400">
+                La lista de favoritos es privada y solo la puede consultar su artista.
+              </div>
+            ) : configuredMode !== 'hybrid' ? (
+              <div className="bg-[#0e111a] border border-amber-400/20 rounded-2xl p-8 text-center text-xs text-amber-200">
+                Conecta con BeatsCloud para guardar favoritos de forma persistente. Los datos de demostración no se guardan como favoritos reales.
+              </div>
+            ) : likedTracks.length === 0 ? (
               <div className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-8 text-center text-xs text-zinc-400">
                 No tienes beats guardados en favoritos todavía.
               </div>
@@ -452,6 +469,15 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                       className="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-semibold"
                     >
                       Ver Detalle
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pendingLikeTrackIds.includes(track.id)}
+                      onClick={() => void toggleLike(track.id)}
+                      className="px-2.5 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 disabled:opacity-50 text-rose-300 rounded-lg text-xs font-semibold"
+                      aria-label={`Quitar ${track.title} de favoritos`}
+                    >
+                      {pendingLikeTrackIds.includes(track.id) ? 'Guardando…' : 'Quitar'}
                     </button>
                   </div>
                 </div>
