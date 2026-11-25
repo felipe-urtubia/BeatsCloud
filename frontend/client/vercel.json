@@ -1,24 +1,26 @@
 {
-    "rewrites":  [
-                     {
-                         "source":  "/api/(.*)",
-                         "destination":  "https://beatscloud.onrender.com/api/$1"
-                     },
-                     {
-                         "source":  "/media/(.*)",
-                         "destination":  "https://beatscloud.onrender.com/media/$1"
-                     },
-                     {
-                         "source":  "/csrf/",
-                         "destination":  "https://beatscloud.onrender.com/csrf/"
-                     },
-                     {
-                         "source":  "/session/",
-                         "destination":  "https://beatscloud.onrender.com/session/"
-                     },
-                     {
-                         "source":  "/((?!api/|media/|csrf/|session/).*)",
-                         "destination":  "/index.html"
-                     }
-                 ]
+  "installCommand": "env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm ci",
+  "buildCommand": "env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm run build",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://beatscloud.onrender.com/api/$1"
+    },
+    {
+      "source": "/media/(.*)",
+      "destination": "https://beatscloud.onrender.com/media/$1"
+    },
+    {
+      "source": "/csrf/",
+      "destination": "https://beatscloud.onrender.com/csrf/"
+    },
+    {
+      "source": "/session/",
+      "destination": "https://beatscloud.onrender.com/session/"
+    },
+    {
+      "source": "/((?!api/|media/|csrf/|session/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
