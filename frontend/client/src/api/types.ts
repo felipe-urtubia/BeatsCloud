@@ -71,6 +71,7 @@ export interface DTrack {
 
 /** Respuesta de GET /api/catalogo/ (espejo del contexto de catalogo()) */
 export interface DCatalogoPage {
+  page_size: number;
   tracks: DTrack[];
   total_resultados: number;
   pagina_actual: number;

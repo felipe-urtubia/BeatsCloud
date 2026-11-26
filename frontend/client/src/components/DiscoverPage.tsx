@@ -1,3 +1,4 @@
+import { TrackCover } from './TrackCover';
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { ResourceType, Track } from '../types';
@@ -184,7 +185,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
                     )}
                   </button>
 
-                  <img
+                  <TrackCover
                     src={track.coverUrl}
                     alt={track.title}
                     className="w-10 h-10 rounded-lg object-cover flex-shrink-0 cursor-pointer"

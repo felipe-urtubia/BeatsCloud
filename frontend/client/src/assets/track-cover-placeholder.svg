@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+  <rect width="600" height="600" fill="#10131d"/>
+  <circle cx="300" cy="270" r="170" fill="#181c29" stroke="#34394b" stroke-width="3"/>
+  <circle cx="300" cy="270" r="130" fill="none" stroke="#34394b" stroke-width="3"/>
+  <circle cx="300" cy="270" r="90" fill="none" stroke="#34394b" stroke-width="3"/>
+  <circle cx="300" cy="270" r="55" fill="#fbbf24"/>
+  <circle cx="300" cy="270" r="10" fill="#10131d"/>
+  <text x="300" y="505" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="bold" fill="#fbbf24">BeatsCloud</text>
+  <text x="300" y="540" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="#a1a1aa">INSTRUMENTAL</text>
+</svg>

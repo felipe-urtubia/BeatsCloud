@@ -1,3 +1,4 @@
+import placeholderCover from '../assets/track-cover-placeholder.svg';
 import { classifyLicenseRecord } from './licenseRecord';
 /**
  * mappers.ts — Traducción entre los DTOs snake_case del backend Django de Felipe
@@ -83,7 +84,7 @@ export function mapTrack(d: DTrack, opts?: { isPurchased?: boolean; isOwner?: bo
     genre: d.genero?.descripcion?.trim() || 'Sin especificar',
     subgenre: d.subgenre ?? '',
     price: d.precio,
-    coverUrl: mediaUrl(d.foto) ?? `https://picsum.photos/seed/${d.id_track}/600/600`,
+    coverUrl: mediaUrl(d.foto) ?? placeholderCover,
     description: d.descripcion ?? '',
     bpm: d.bpm ?? 140,
     scaleKey: d.scale_key ?? 'Am',

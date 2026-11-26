@@ -1,3 +1,4 @@
+import { TrackCover } from './TrackCover';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { MusicGenre, ResourceType, MoodType, Track } from '../types';
@@ -5,6 +6,8 @@ import { getResourceBadgeInfo, RESOURCE_TYPES } from '../utils/resourceHelpers';
 import { sortCatalogTracks } from '../utils/catalogSort.mjs';
 import type { CatalogSortKey } from '../utils/catalogSort.mjs';
 import DjangoApi from '../api/django.service';
+import { buildCatalogQuery } from '../api/catalogQuery';
+import { mapTrack } from '../api/mappers';
 import {
   Search,
   SlidersHorizontal,
@@ -75,8 +78,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [selectedGenre, setSelectedGenre] = useState<'Todos' | MusicGenre>('Todos');
   const [selectedKey, setSelectedKey] = useState<string>('Todas');
   const [selectedMood, setSelectedMood] = useState<string>('Todos');
-  const [minBpm, setMinBpm] = useState<number>(60);
-  const [maxBpm, setMaxBpm] = useState<number>(180);
+  const [minBpm, setMinBpm] = useState<number>(1);
+  const [maxBpm, setMaxBpm] = useState<number>(300);
   const [onlyWithStems, setOnlyWithStems] = useState<boolean>(false);
   const [priceFilter, setPriceFilter] = useState<
     'all' | 'paid' | 'free' |
@@ -87,7 +90,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     CatalogSortKey
   >('recientes');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSelection, setPageSelection] = useState({
+    key: '',
+    page: 1,
+  });
   const [pageSize, setPageSize] = useState(12);
 
   const availableGenres = useMemo(() => {
@@ -125,7 +131,155 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     void downloadAuditionDemo(track).catch((error) => window.alert((error as Error).message));
   };
 
+  const isHybrid = configuredMode === 'hybrid';
+
+  const filters = useMemo(() => ({
+    search: globalSearchQuery,
+    genre: selectedGenre,
+    resource: activeResourceFilter,
+    mood: selectedMood,
+    scale: selectedKey,
+    minBpm,
+    maxBpm,
+    stems: onlyWithStems,
+    price: priceFilter,
+    sort: sortBy,
+    pageSize,
+  }), [
+    globalSearchQuery,
+    selectedGenre,
+    activeResourceFilter,
+    selectedMood,
+    selectedKey,
+    minBpm,
+    maxBpm,
+    onlyWithStems,
+    priceFilter,
+    sortBy,
+    pageSize,
+  ]);
+
+  const filterKey = JSON.stringify(filters);
+
+  const currentPage =
+    pageSelection.key === filterKey
+      ? pageSelection.page
+      : 1;
+
+  const setCurrentPage = (page: number) => {
+    setPageSelection({ key: filterKey, page });
+  };
+
+  useEffect(() => {
+    setPageSelection(previous =>
+      previous.key === filterKey
+        ? previous
+        : { key: filterKey, page: 1 }
+    );
+  }, [filterKey]);
+
+  const query = useMemo(
+    () => buildCatalogQuery(filters, currentPage),
+    [filters, currentPage],
+  );
+
+  const identity = currentUser?.id ?? '';
+  const username = currentUser?.username ?? '';
+
+  const purchasedKey =
+    currentUser?.purchasedTrackIds.join(',') ?? '';
+
+  const likedKey =
+    currentUser?.likedTrackIds.join(',') ?? '';
+
+  const viewKey = JSON.stringify([
+    query,
+    identity,
+    username,
+  ]);
+
+  const [retry, setRetry] = useState(0);
+
+  const [serverResult, setServerResult] = useState<{
+    key: string;
+    tracks: Track[];
+    total: number;
+    pages: number;
+    page: number;
+  } | null>(null);
+
+  const [serverError, setServerError] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isHybrid) return;
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    setServerError(null);
+
+    const timer = window.setTimeout(() => {
+      void DjangoApi.catalogo(query, controller.signal)
+        .then(response => {
+          if (cancelled) return;
+
+          const purchased = new Set(
+            response.tracks_comprados ?? [],
+          );
+
+          setServerResult({
+            key: viewKey,
+            tracks: response.tracks.map(track =>
+              mapTrack(track, {
+                isPurchased:
+                  track.is_purchased === true ||
+                  purchased.has(track.id_track),
+                isOwner:
+                  !!username &&
+                  track.usuario.username === username,
+              }),
+            ),
+            total: response.total_resultados,
+            pages: response.total_paginas,
+            page: response.pagina_actual,
+          });
+        })
+        .catch(error => {
+          if (cancelled || controller.signal.aborted) {
+            return;
+          }
+
+          setServerError({
+            key: viewKey,
+            message: error instanceof Error
+              ? error.message
+              : 'No se pudo cargar el catalogo.',
+          });
+        });
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    isHybrid,
+    query,
+    viewKey,
+    username,
+    purchasedKey,
+    likedKey,
+    pendingLikeTrackIds.length,
+    retry,
+  ]);
+
+  // El filtrado local queda limitado al modo demo.
   const filteredTracks = useMemo(() => {
+    if (isHybrid) return [];
     return sortCatalogTracks(tracks
       .filter((track) => {
         // Resource Type
@@ -191,6 +345,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         return true;
       }), sortBy);
   }, [
+    isHybrid,
     tracks,
     activeResourceFilter,
     globalSearchQuery,
@@ -204,34 +359,36 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     sortBy,
   ]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    activeResourceFilter,
-    globalSearchQuery,
-    selectedGenre,
-    selectedKey,
-    selectedMood,
-    minBpm,
-    maxBpm,
-    onlyWithStems,
-    priceFilter,
-    sortBy,
-    pageSize,
-  ]);
+  const response =
+    serverResult?.key === viewKey
+      ? serverResult
+      : null;
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredTracks.length / pageSize)
-  );
+  const catalogError =
+    isHybrid && serverError?.key === viewKey
+      ? serverError.message
+      : null;
 
-  const safePage = Math.min(currentPage, totalPages);
+  const catalogLoading =
+    isHybrid && !response && !catalogError;
+
+  const totalResults = isHybrid
+    ? (catalogError ? 0 : response?.total ?? 0)
+    : filteredTracks.length;
+
+  const totalPages = isHybrid
+    ? Math.max(1, response?.pages ?? 1)
+    : Math.max(1, Math.ceil(filteredTracks.length / pageSize));
+
+  const safePage = isHybrid
+    ? response?.page ?? 1
+    : Math.min(currentPage, totalPages);
+
   const startIndex = (safePage - 1) * pageSize;
 
-  const pagedTracks = filteredTracks.slice(
-    startIndex,
-    startIndex + pageSize
-  );
+  const pagedTracks = isHybrid
+    ? (catalogError ? [] : response?.tracks ?? [])
+    : filteredTracks.slice(startIndex, startIndex + pageSize);
 
   return (
     <div className="py-5 pb-36 max-w-7xl mx-auto space-y-5">
@@ -346,6 +503,45 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* BPM server-side */}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-zinc-300">
+              BPM minimo: {minBpm}
+              <input
+                aria-label="BPM minimo"
+                type="range"
+                min={1}
+                max={300}
+                value={minBpm}
+                onChange={event =>
+                  setMinBpm(Math.min(
+                    Number(event.target.value),
+                    maxBpm,
+                  ))
+                }
+                className="w-24 accent-amber-400"
+              />
+            </label>
+
+            <label className="flex items-center gap-2 text-zinc-300">
+              BPM maximo: {maxBpm}
+              <input
+                aria-label="BPM maximo"
+                type="range"
+                min={1}
+                max={300}
+                value={maxBpm}
+                onChange={event =>
+                  setMaxBpm(Math.max(
+                    Number(event.target.value),
+                    minBpm,
+                  ))
+                }
+                className="w-24 accent-amber-400"
+              />
+            </label>
           </div>
 
           {/* Mood filter */}
@@ -466,7 +662,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <span className="text-xs font-mono font-bold text-zinc-400">
-            RESULTADOS: <strong className="text-white">{filteredTracks.length}</strong> PISTAS ENCONTRADAS
+            RESULTADOS: <strong className="text-white">{totalResults}</strong> PISTAS ENCONTRADAS
           </span>
           {globalSearchQuery && (
             <span className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md font-mono">
@@ -477,7 +673,31 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       </div>
 
       {/* Content Rendering: TABLE / DAW VIEW vs GRID VIEW */}
-      {filteredTracks.length === 0 ? (
+      {catalogLoading ? (
+        <div
+          role="status"
+          className="p-12 text-center text-zinc-400"
+        >
+          Cargando resultados del catalogo...
+        </div>
+      ) : catalogError ? (
+        <div
+          role="alert"
+          className="p-8 text-center bg-[#10131d] rounded-2xl"
+        >
+          <p className="text-red-400 mb-4">{catalogError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setServerError(null);
+              setRetry(value => value + 1);
+            }}
+            className="px-4 py-2 bg-amber-400 text-zinc-950 rounded-xl"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : totalResults === 0 ? (
         <div className="p-12 text-center bg-[#0d0f17] border border-[#1b2030] rounded-3xl">
           <Disc3 className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-white mb-1">No se encontraron resultados</h3>
@@ -489,6 +709,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               setSelectedGenre('Todos');
               setSelectedKey('Todas');
               setSelectedMood('Todos');
+              setMinBpm(1);
+              setMaxBpm(300);
+              setSortBy('recientes');
+              setCurrentPage(1);
               setOnlyWithStems(false);
               setPriceFilter('all');
               setGlobalSearchQuery('');
@@ -552,7 +776,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       {/* Title & Cover */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <img
+                          <TrackCover
                             src={track.coverUrl}
                             alt={track.title}
                             className="w-10 h-10 rounded-lg object-cover flex-shrink-0 cursor-pointer"
@@ -715,7 +939,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               >
                 <div>
                   <div className="relative aspect-video rounded-xl overflow-hidden mb-3 bg-zinc-900">
-                    <img
+                    <TrackCover
                       src={track.coverUrl}
                       alt={track.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -839,7 +1063,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           })}
         </div>
       )}
-      {filteredTracks.length > 0 && (
+      {totalResults > 0 && (
         <nav
           aria-label="Paginacion del catalogo"
           className="flex flex-wrap items-center justify-between gap-4 bg-[#10131d] border border-[#1b2030] p-4 rounded-2xl"
@@ -868,8 +1092,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
             <span className="text-xs text-zinc-400" role="status">
               Mostrando {startIndex + 1}-
-              {Math.min(startIndex + pageSize, filteredTracks.length)}
-              {' '}de {filteredTracks.length} pistas
+              {Math.min(startIndex + pageSize, totalResults)}
+              {' '}de {totalResults} pistas
             </span>
           </div>
 

@@ -1,3 +1,4 @@
+import { TrackCover } from './TrackCover';
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Track } from '../types';
@@ -283,7 +284,7 @@ export const TrackDetailModal: React.FC<TrackDetailModalProps> = ({
           <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
             {/* Big Cover */}
             <div className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-2xl overflow-hidden shadow-2xl flex-shrink-0 group bg-zinc-800 border border-zinc-700">
-              <img
+              <TrackCover
                 src={track.coverUrl}
                 alt={track.title}
                 className="w-full h-full object-cover"

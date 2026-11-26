@@ -1,3 +1,4 @@
+import { TrackCover } from './TrackCover';
 import { DjangoApi } from '../api/django.service';
 import { PaymentMethodsNotice } from './PaymentMethodsNotice';
 import React, { useEffect, useState } from 'react';
@@ -281,7 +282,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                   className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-3.5 flex items-center justify-between gap-4 group hover:border-amber-400/30 transition-all shadow-sm"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <img
+                    <TrackCover
                       src={item.track.coverUrl}
                       alt={item.track.title}
                       className="w-14 h-14 rounded-xl object-cover flex-shrink-0 cursor-pointer"

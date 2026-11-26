@@ -1,3 +1,4 @@
+import { TrackCover } from './TrackCover';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, PurchaseRecord } from '../types';
@@ -343,7 +344,7 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                       <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 group">
                         {track ? (
                           <>
-                            <img src={track.coverUrl} alt={purchase.trackTitle} className="w-full h-full object-cover" />
+                            <TrackCover src={track.coverUrl} alt={purchase.trackTitle} className="w-full h-full object-cover" />
                             <button
                               type="button"
                               aria-label={`${isThisPlaying ? 'Pausar' : 'Reproducir'} ${purchase.trackTitle}`}
@@ -444,7 +445,7 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                   className="bg-[#0e111a] border border-[#1b2030] rounded-2xl p-3.5 flex items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
+                    <TrackCover
                       src={track.coverUrl}
                       alt={track.title}
                       className="w-10 h-10 rounded-lg object-cover"
