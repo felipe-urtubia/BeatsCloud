@@ -1,11 +1,11 @@
 # REGISTRO DE CAMBIOS — BEATSCLOUD
 
 **Proyecto:** BeatsCloud
-**Periodo cubierto:** 28-08-2026 al 06-11-2026
-**Última actualización:** 06-11-2026
+**Periodo cubierto:** 28-08-2026 al 26-11-2026
+**Última actualización:** 26-11-2026
 
 > Este documento consolida los cambios funcionales, visuales, de seguridad, configuración, documentación y pruebas realizados durante la etapa final de mejora del proyecto BeatsCloud.
-> Se revisó el registro anterior y se incorporaron los cambios realizados hasta la última prueba manual del 04-09-2026.
+> Se conserva el historial anterior y se incorporan los cambios, pruebas y despliegues documentados hasta el cierre D10 del 26-11-2026.
 
 ---
 
@@ -4354,3 +4354,299 @@ Pendiente no bloqueante:
 Revisar en el futuro el origen confiable de la IP real del visitante detrás de Render.
 
 Se da por finalizada esta etapa de desarrollo y validación de BeatCloud.
+
+---
+
+# 24–26-11-2026 — Retirada segura, estabilización del frontend y cierre D10
+
+<!-- BEATSCLOUD_CIERRE_2026_11_26_D10 -->
+
+**Estado:** implementación integrada en main y desplegada; comprobante gratuito validado en producción.
+**Alcance:** continuación del cierre PASO 453.9.20 del 24-11-2026, trabajo del chat «Continuar proyecto BeatsCloud» y cierre D10 del chat actual.
+**Repositorio:** [felipe-urtubia/BeatsCloud](https://github.com/felipe-urtubia/BeatsCloud).
+**Versión funcional desplegada al cierre:** b110e00 (PR #12).
+
+Este complemento conserva el historial anterior. Los estados de retirada, cuentas y licencias descritos aquí reemplazan los comportamientos históricos de borrado físico y emisión de documentos cuando existe una contradicción. Se distingue entre pruebas automatizadas, verificaciones manuales y limitaciones; no se incluyen credenciales ni datos de clientes.
+
+## 1. Continuidad de la etapa anterior: retirada segura de tracks (24–25-11-2026)
+
+Se trabajó en la rama `feat/retirada-segura-tracks` para retirar contenido del catálogo sin privar a compradores anteriores de sus adquisiciones ni destruir registros comerciales.
+
+### Cambios de backend y frontend
+
+- Se incorporó el estado de retirada lógica y la migración `0033_track_retirement.py`.
+- Se revisaron las rutas de catálogo, detalle, carrito, acceso a audio y descarga para diferenciar disponibilidad comercial de permisos históricos.
+- Se protegieron las compras previas y los archivos necesarios para ejercer los derechos adquiridos.
+- Se reforzó la validación de inicio de Webpay y de disponibilidad de tracks mediante `app/webpay_checkout_guard.py`, sin dar por aprobada una compra solo por iniciar el pago.
+- Se centralizaron comprobaciones de acceso mediante `app/track_retirement_access.py` y manejo de rangos de audio en `app/track_audio_range.py`.
+- Se ajustaron los flujos React relacionados con retirada y contenido adquirido.
+- Se agregaron pruebas de retirada, concurrencia, rangos de audio, guardas de inicio de Webpay y regresión. Entre los archivos: `app/test_track_retirement.py`, `app/test_track_retirement_race.py`, `app/test_track_audio_range.py`, `app/test_webpay_inicio_guard.py` y `app/test_webpay_regresion.py`.
+
+### Evidencia de validación y publicación
+
+| Etapa | Resultado |
+|---|---|
+| Validación previa a commit | 35/35 Django y 40/40 React (75 pruebas) |
+| Validación de integración con los cambios de main | 43/43 Django y 44/44 React (87 pruebas); Django 21,209 s; Vite 2,72 s |
+| Consistencia de modelos | No changes detected |
+| Respaldo remoto previo | 101.082 bytes; comprobación de archivo y tablas relevantes; sin modificar datos |
+| Migración de producción 0033 | Aplicación OK observada en Render |
+| Backend Render | Commit c3bd5a7, Live |
+
+Los conteos corresponden a ejecuciones sucesivas, no a pruebas únicas acumulables. Algunas respuestas Webpay AUTHORIZED observadas en suites eran simulaciones destinadas a verificar condiciones de rechazo y revisión; no constituyen evidencia de cobros efectivos.
+
+- [18ec93d — implementación de retirada segura](https://github.com/felipe-urtubia/BeatsCloud/commit/18ec93d).
+- [40f37c3 — integración de cambios de origin/main en la rama de trabajo](https://github.com/felipe-urtubia/BeatsCloud/commit/40f37c3).
+- [PR #8 — retirada segura de tracks](https://github.com/felipe-urtubia/BeatsCloud/pull/8), merge c3bd5a7.
+
+Se conservaron los commits de otros integrantes. No se atribuyen al trabajo propio modificaciones documentales realizadas por terceros. La evidencia recuperada confirma el despliegue del backend y el estado final de main; no se recuperó un log completo de cada comprobación manual intermedia.
+
+## 2. Estabilización de compilación y navegación (25-11-2026)
+
+| Cambio | Commit / PR | Resultado |
+|---|---|---|
+| Autorizar script de instalación de esbuild en npm | 4bb3bf2 / [PR #9](https://github.com/felipe-urtubia/BeatsCloud/pull/9), merge 0d7705a | Ajuste incorporado a main |
+| Carga de vistas React bajo demanda | c35b45d | División de vistas para reducir carga inicial |
+| Ajuste de compilación Vercel sin cache-dir inválido | 9c948fe / [PR #10](https://github.com/felipe-urtubia/BeatsCloud/pull/10), merge 8f2af95 | Integrado |
+| Corrección de mensajes de acceso al carrito y acentos | cbd5fe4 | Integrado |
+| Diferenciar ausencia de sesión y permisos de rol | 90d7076 | Integrado |
+| Pruebas de vistas privadas y mensajes de acceso | 84ad70b | Integrado |
+| Incorporación de regresión de acceso a npm test | 195d618 / [PR #11](https://github.com/felipe-urtubia/BeatsCloud/pull/11), merge 13729a6 | Integrado |
+
+Se ajustaron `frontend/client/src/App.tsx`, `src/navigation/authGuard.ts`, `src/navigation/authGuard.test.mjs`, `frontend/client/package.json` y `frontend/client/vercel.json`.
+
+El catálogo público no exige sesión. Las vistas privadas solicitan autenticación cuando no existe sesión; se distingue esa condición de la falta de permisos por rol. El carrito y el perfil admiten ambos roles; ventas requiere productor y favoritos requiere artista. Las pruebas de navegación y mensajes quedaron incluidas en la regresión final D10.
+
+La etapa terminó con main y producción reportados en 13729a6 y la rama temporal eliminada según la confirmación del usuario. Se mantuvieron los cambios de los compañeros.
+
+## 3. Antecedente DDPB-55 y Webpay TEST
+
+DDPB-55: «Como artista quiero que, al pagar, pueda descargar el track».
+
+El registro del 23-11-2026 ya documenta una prueba de integración de Webpay de 21.420 CLP (18.000 + 3.420 de IVA), transacción AUTHORIZED con compra y venta registradas, y una transacción CANCELLED por el mismo monto sin compra registrada. También consta la revisión de acceso y descarga de archivos originales mediante R2 y los controles de usuarios sin compra.
+
+Debe distinguirse de la verificación del despliegue DDPB-53 (d1eb6b6), donde se visualizó el monto y la redirección a Webpay TEST, sin confirmación de pago aprobado en esa sesión de producción. La prueba autorizada anterior no demuestra una licencia D10 emitida después del nuevo despliegue. No hubo evidencia de cobro real en esta etapa.
+
+## 4. D10 — Licencias comerciales verificables (25–26-11-2026)
+
+Rama: `feat/d10-licencias-verificables`.
+
+### Modelo y migraciones
+
+| Migración | Propósito |
+|---|---|
+| 0034_licencia | Crear registro persistente de licencia asociado a compra y transacción |
+| 0035_historialcompra_origen_adquisicion | Distinguir origen desconocido, gratuito o Webpay |
+| 0036_usuario_cuenta_cerrada_en | Registrar cierre definitivo de cuenta |
+
+- Modelo `Licencia`: relación única con HistorialCompra, referencia protegida a WebpayTransaction, orden de compra, código único, huella de verificación y fecha de emisión.
+- Se implementó `app/license_service.py` con firma HMAC-SHA256, payload canónico versionado D10-v2, verificación mediante comparación segura y gestión de clave activa y claves anteriores cuando corresponda.
+- La clave `LICENSE_SIGNING_KEY` se mantiene separada de Django SECRET_KEY. No se debe introducir su valor en Git.
+- La emisión exige una compra de origen Webpay, transacción autorizada y cumplida, comprador y orden coherentes, snapshot válido y monto consistente; se protege contra emisión duplicada y concurrencia.
+- La emisión forma parte de la transacción de cumplimiento de compra. Si falla la firma o una condición de integridad, no se debe presentar la entrega como completada; la operación puede requerir conciliación.
+- El endpoint de licencia consulta registros existentes y valida autorización y titularidad. Una consulta GET no genera licencias comerciales nuevas.
+- La huella HMAC permite validación por el servidor que posee la clave; no es una firma digital pública ni un contrato legal certificado.
+
+### Tratamiento del historial
+
+La auditoría local previa identificó 10 historiales de compra, 4 de venta, 0 registros del modelo Compra y 0 licencias; se revisaron 14 órdenes Webpay (5 autorizadas, 8 canceladas, 1 pendiente). Se identificaron tres candidatos históricos que requerían revisión manual; no existía evidencia relacional suficiente para atribuir automáticamente todas las compras a una transacción.
+
+Decisión: no emitir licencias retrospectivas por inferencia. La migración conserva las relaciones y asigna origen desconocido cuando no hay acreditación. Los documentos gratuitos reconocidos no se presentan como licencias comerciales.
+
+## 5. Protección de cuentas, permisos y almacenamiento
+
+### Cierre seguro definitivo
+
+- Se integró el flujo de cierre con preservación de compras, ventas, transacciones, licencias y referencias necesarias.
+- Cuando existen registros protegidos, seudonimización de identidad, desactivación del acceso, contraseña inutilizable, limpieza de datos de perfil y relaciones personales, y marca de cierre definitivo.
+- Se mantienen identificadores técnicos cuando son necesarios para proteger relaciones históricas. La eliminación física queda restringida a casos sin referencias que requieran conservación; no se confunde seudonimización con anonimización irreversible.
+- El cierre de productor retira sus tracks del catálogo y desactiva sus planes sin borrar archivos ni perjudicar adquisiciones previas.
+- Se preservan órdenes y registros de terceros; operaciones en curso que requieren reconciliación pueden impedir temporalmente el cierre.
+- Se utilizaron bloqueos transaccionales de PostgreSQL para coordinar cierre, compra gratuita, inicio de checkout y operaciones R2. Se corrigió un conflicto de bloqueos concurrentes observado en pruebas mediante select_for_update(no_key=True) en puntos de coordinación. No se afirma que esto elimine toda condición de carrera posible.
+
+### Autenticación y administración
+
+- `app/account_activation.py`, `app/account_auth_urls.py`, `app/account_password_reset.py` y `app/auth_backends.py`: controles de cuenta cerrada en activación, login, restablecimiento de clave y permisos.
+- `app/account_switch_api.py`: refuerzo de las comprobaciones de cuenta habilitada.
+- `app/admin_identity.py` y `app/admin_catalog.py`: restricciones administrativas contra reactivación, modificación o borrado indebido de identidades y registros comerciales protegidos.
+- Se mantuvo el control de acceso por propietario y rol. Los perfiles cerrados y contenido retirado se excluyen de las vistas públicas correspondientes.
+
+### R2 y archivos
+
+- `app/r2_account_guard.py`: guardas de propietario activo y coordinación con reclamos de subida en procesamiento.
+- Refuerzo de presign, registro, confirmación, finalización y recuperación de cargas mediante `r2_presign.py`, `r2_claim_service.py`, `r2_claim_lifecycle.py`, `r2_claim_finalize.py`, `r2_track_registration.py` y `r2_upload_workflow.py`.
+- Protección de archivos de audio existentes y validación de permisos para editar/retirar tracks, incluyendo rutas tradicionales y API.
+- Limpieza conservadora de objetos privados: no borrar si existen referencias o no se puede verificar el estado de base de datos. Algunos fallos requieren revisión manual.
+- Se conserva el acceso histórico autorizado; no se afirma que una URL prefirmada ya emitida pueda revocarse individualmente antes de su expiración.
+
+## 6. D10 — frontend React
+
+Se actualizaron los tipos, mapeadores y documentos de licencia en:
+
+- `frontend/client/src/api/types.ts`
+- `frontend/client/src/types.ts`
+- `frontend/client/src/api/mappers.ts`
+- `frontend/client/src/api/licenseRecord.ts`
+- `frontend/client/src/components/LicenseCertificateModal.tsx`
+- `frontend/client/src/components/AccountDeletionModal.tsx`
+- `frontend/client/src/api/licenseRecord.test.mjs`
+- `frontend/client/package.json`
+
+| Tipo de documento | Presentación | Verificación comercial |
+|---|---|---|
+| paid_license + verified=true | Licencia comercial verificada | Huella visible |
+| legacy_free_receipt + verified=false | Comprobante de adquisición gratuita | No |
+| Documento mock/demo | Documento de demostración | Sin validez comercial |
+
+Se rechazan respuestas inconsistentes del servidor, se evita inferir el tipo de licencia exclusivamente por precio y se restringe la copia de la huella a licencias confirmadas. El cierre de cuenta informa el carácter permanente y la posible conservación de registros seudonimizados.
+
+## 7. Evidencia de pruebas automatizadas y resolución de errores
+
+El trabajo se reorganizó en cinco bloques para evitar repetir validaciones parciales:
+
+| Bloque | Resultado |
+|---|---|
+| 1. Protección final de cuentas y archivos | 71 pruebas focalizadas aprobadas |
+| 2. Integración de cierre y retirada | Corrección de fixtures, expectativas y bloqueo concurrente; 30 pruebas focalizadas aprobadas al cierre |
+| 3. Regresión completa Django/PostgreSQL | 699/699 aprobadas, sin errores finales |
+| 4. Frontend React | 51 pruebas existentes + 7 nuevas de licencias = 58/58; compilación exitosa |
+| 5. Entrega | Respaldo, migraciones locales, commit, push, merge y despliegue controlado |
+
+En las ejecuciones intermedias se detectaron errores de fixtures, mocks de archivos R2, lectura/cierre de respuestas y expectativas anteriores de borrado. Se corrigieron antes de aprobar la regresión final. Se conservan las pruebas de integridad criptográfica, autorización, aislamiento, concurrencia, migraciones históricas, cierre, R2, administración y Webpay.
+
+### Resultados definitivos — 26-11-2026
+
+| Comprobación | Resultado |
+|---|---|
+| Django | 699 tests; OK; ejecución final registrada en 1.024,561 s |
+| React / Node test | 58 tests; 58 pass; 0 fail; 0 skipped |
+| Total final | **757/757 pruebas automatizadas aprobadas** |
+| npm run build | TypeScript y Vite OK; 1.934 módulos; 2,91 s |
+| Django system check | 0 problemas |
+| makemigrations --check --dry-run | No changes detected |
+| git diff --check / git diff --cached --check | Sin errores; avisos LF/CRLF no bloqueantes |
+
+Las pruebas focalizadas y las ejecuciones anteriores no se suman al total de 757. El conjunto automatizado utiliza entornos de prueba y simulaciones de servicios externos cuando corresponde; no sustituye una auditoría independiente ni una prueba comercial posterior al despliegue.
+
+### Archivos de evidencia de consola (conversación)
+
+- `Texto pegado(20261126-015050).txt`: bloque 1; 71 pruebas y comprobaciones.
+- `Texto pegado(20261126-023605).txt`: regresión final de 699 pruebas y validación de modelos.
+- `Texto pegado(20261126-030124).txt`: 51 pruebas frontend de base.
+- `Texto pegado(20261126-031230).txt`: 58 pruebas, compilación y cierre del bloque 4.
+- `Texto pegado(20261126-032036).txt`: respaldo local, migraciones, commit y push.
+- Evidencia anterior recuperada: `Texto pegado(20261125-075839).txt` (43 Django, 44 React, compilación).
+
+Estos nombres identifican los logs compartidos en las conversaciones, no archivos añadidos a Git. No se publican las salidas crudas que puedan contener datos sensibles.
+
+## 8. Respaldos, migraciones y seguridad de configuración
+
+### PostgreSQL local
+
+Base: beatsbd. Antes de actualizar se verificó que el host fuera local y que el plan solo incluyera 0035 y 0036.
+
+- Respaldo: `beatscloud-d10-20261126-001949.dump`, 108.208 bytes, en el directorio privado Backups fuera del repositorio.
+- `pg_dump --format=custom` y comprobación de legibilidad con `pg_restore --list`.
+- Migraciones 0035 y 0036: OK.
+- showmigrations app: 36/36 aplicadas, incluida 0034.
+- Django check sin problemas y sin cambios pendientes de modelos.
+
+### PostgreSQL remoto (Render)
+
+- Respaldo previo a integración D10: `beatscloud-render-d10-20261126-010118.dump`, 102.966 bytes.
+- Conexión externa mediante TLS requerido, credenciales introducidas mediante entrada oculta.
+- Comprobación de archivo legible; base remota no modificada por el respaldo.
+- Los respaldos no se subieron al repositorio. La lectura del índice del dump no equivale a una restauración de prueba.
+
+### Secretos
+
+Se verificó que .env estuviera ignorado y no estuviera registrado en Git. Se realizó búsqueda de coincidencias con los valores locales de LICENSE_SIGNING_KEY, Django SECRET_KEY y contraseña de base de datos bajo las reglas de la revisión; no se detectaron coincidencias. Esto no es una auditoría exhaustiva.
+
+Se agregó LICENSE_SIGNING_KEY al entorno de Render mediante Save only. Durante la conversación se compartió accidentalmente una clave generada; se recomendó reemplazarla antes de emitir licencias en producción. El usuario decidió continuar. **La rotación no está acreditada y permanece como acción de seguridad pendiente.** No se reproduce la clave en este registro. Si ya existen licencias emitidas, la rotación requiere una estrategia segura de verificación histórica.
+
+## 9. GitHub e integración controlada
+
+- Commit de D10: [15841a9](https://github.com/felipe-urtubia/BeatsCloud/commit/15841a9), «Completar D10: licencias verificables y cierre seguro de cuentas».
+- 57 archivos; 13.292 inserciones y 769 eliminaciones.
+- Push a `origin/feat/d10-licencias-verificables`: correcto.
+- [Pull Request #12](https://github.com/felipe-urtubia/BeatsCloud/pull/12): título, descripción, validaciones, migraciones y pendientes de producción documentados.
+- Se comparó main con la rama D10: main había avanzado dos commits y no había archivos modificados por ambas ramas desde el ancestro común. Se conservaron ambos cambios.
+- Los commits [6ff6f55](https://github.com/felipe-urtubia/BeatsCloud/commit/6ff6f55) y [3ca1408](https://github.com/felipe-urtubia/BeatsCloud/commit/3ca1408) corresponden a limpieza de prototipo, normalización de autores, README y documentación QA antigua; no forman parte de la implementación D10.
+- Con autorización explícita del usuario, se integró el PR #12 mediante merge de GitHub, verificando el SHA esperado de la rama.
+- Commit resultante: [b110e00](https://github.com/felipe-urtubia/BeatsCloud/commit/b110e00f43c2b9e69ca05aae6a2537863e87c457).
+
+### Sincronización local al cierre
+
+```powershell
+git switch main
+git pull --ff-only origin main
+git log -1 --oneline
+git status -sb
+```
+
+Resultado: fast-forward de 13729a6 a b110e00, 78 archivos afectados incluyendo los cambios independientes de main. Git informó que no podía eliminar el directorio img; se respondió n y la actualización terminó correctamente. No se eliminó manualmente la carpeta.
+
+```text
+b110e00 (HEAD -> main, origin/main, origin/HEAD) Merge pull request #12
+## main...origin/main
+```
+
+Estado limpio y sincronizado antes de esta actualización exclusivamente documental.
+
+## 10. Despliegue final — 26-11-2026
+
+### Render
+
+- Servicio web vinculado a main; Auto-Deploy en Off.
+- Build Command: bash build.sh; arranque mediante Gunicorn.
+- build.sh comprobado: pip install -r requirements.txt; collectstatic --noinput; migrate --noinput, con set -o errexit.
+- La configuración de Pre-Deploy Command no se utilizó.
+- Despliegue manual del commit b110e00 después de respaldar la base remota y configurar la clave.
+- Captura final: Deploy succeeded / Live, 54,5 segundos; Gunicorn iniciado.
+- El script incluye migraciones y el despliegue terminó bien. No se inspeccionaron individualmente todas las líneas de migración 0034–0036 en los logs remotos.
+
+### Vercel
+
+- Proyecto beats-cloud, entorno Production, seguimiento de main.
+- Auto-assign Custom Production Domains: Disabled.
+- Compilación de b110e00 en Ready (16 segundos).
+- Se promovió el frontend a Production después de tener Render Live.
+- Captura final: Production / Current.
+- URL pública: https://beats-cloud.vercel.app/
+
+### Prueba funcional D10 en producción
+
+El usuario confirmó que una adquisición gratuita generó su comprobante en BeatsCloud. Esta comprobación permite acreditar el flujo gratuito en el entorno publicado; no acredita por sí sola la persistencia tras recargar, una compra comercial Webpay posterior a D10 o una licencia HMAC emitida en el entorno desplegado. No se realizó un cobro real ni una eliminación de cuenta existente para la prueba final.
+
+Evidencias visuales compartidas: capturas de Environment/Settings Render, respaldo remoto, Production Settings Vercel, despliegue Live de Render (image(20261126-042503).png), build Ready de Vercel (image(20261126-042844).png) y Production Current (image(20261126-044630).png). No se añaden capturas con información sensible al repositorio.
+
+## 11. Cierre y limitaciones conocidas
+
+| Área | Estado |
+|---|---|
+| Retirada segura y protección de adquisiciones | Implementada e integrada |
+| Correcciones esbuild, carga bajo demanda, acceso y navegación | Integradas |
+| Licencias D10 y comprobantes | Implementados |
+| Cierre seguro y permisos | Implementados |
+| Pruebas automatizadas | 757/757 aprobadas |
+| Migraciones locales | 36/36 aplicadas |
+| Respaldos local y remoto | Generados y legibles |
+| GitHub, Render y Vercel | Integrados y desplegados en b110e00 |
+| Comprobante gratuito en producción | Confirmado por el usuario |
+| Licencia comercial D10 con Webpay externo después de despliegue | No acreditada; Webpay TEST anterior sí comprobado |
+| Rotación de clave de licencias expuesta | Pendiente de seguridad |
+
+Otras limitaciones: no se ejecutó restauración de respaldo; no se emitieron licencias históricas de manera automática; las URLs R2 previamente emitidas pueden continuar válidas hasta expirar; las pruebas no certifican ausencia total de vulnerabilidades; la revisión de IP confiable de Render de la etapa anterior permanece como mejora pendiente.
+
+**Resultado final:** se cierra la implementación y el despliegue de D10 para el proyecto Capstone. No se requiere repetir las 757 pruebas sin cambios de código. La validación comercial posterior a D10 y la rotación de la clave deben distinguirse de la implementación ya finalizada.
+
+## 12. Referencias de trazabilidad
+
+- [Versión de retirada segura — PR #8](https://github.com/felipe-urtubia/BeatsCloud/pull/8)
+- [Corrección esbuild — PR #9](https://github.com/felipe-urtubia/BeatsCloud/pull/9)
+- [Optimización React y Vercel — PR #10](https://github.com/felipe-urtubia/BeatsCloud/pull/10)
+- [Corrección navegación — PR #11](https://github.com/felipe-urtubia/BeatsCloud/pull/11)
+- [Licencias y cierre de cuentas — PR #12](https://github.com/felipe-urtubia/BeatsCloud/pull/12)
+- [Versión funcional desplegada b110e00](https://github.com/felipe-urtubia/BeatsCloud/tree/b110e00)
+- Evidencias de consola, confirmaciones del usuario y capturas de los chats del 24–26 de noviembre de 2026. Se conservaron únicamente resultados respaldados por los registros accesibles; no se reconstruyeron pasos manuales sin evidencia suficiente.
+
