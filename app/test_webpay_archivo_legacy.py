@@ -30,13 +30,59 @@ class ArchivoLegacyWebpayTests(TestCase):
         )
 
     def nueva_compra(self):
+        from datetime import date
+        from django.contrib.auth import get_user_model
+        from app.models import Usuario, Track, Genero_Musical, Venta
+
+        comprador = self.usuario
+
+        perfil, _ = Usuario.objects.get_or_create(
+            user=comprador,
+            defaults={"tipo_usu": Usuario.ARTISTA},
+        )
+
+        vendedor = get_user_model().objects.create_user(
+            username="productor_fixture_checkout",
+            password="solo-pruebas",
+        )
+
+        productor = Usuario.objects.create(
+            user=vendedor,
+            tipo_usu=Usuario.PRODUCTOR,
+        )
+
+        genero, _ = Genero_Musical.objects.get_or_create(
+            descripcion="Pop",
+        )
+
+        track = Track.objects.create(
+            nombre_track="Track valido checkout",
+            precio=1000,
+            genero=genero,
+            usuario=productor,
+            track="canciones/fixture-checkout.mp3",
+            media_status="ready",
+            is_retired=False,
+        )
+
+        venta = Venta.objects.create(
+            detalle="Pedido de prueba",
+            fecha=date.today(),
+            precio=1000,
+            iva=190,
+            precio_total=1190,
+            usuario_id=perfil,
+            track=track,
+            completada=False,
+        )
+
         return create_pending_webpay_order(
             user=self.usuario,
             amount=1190,
             cart_snapshot=[
                 {
-                    "venta_id": 901,
-                    "track_id": 902,
+                    "venta_id": venta.pk,
+                    "track_id": track.pk,
                     "precio": 1000,
                     "iva": 190,
                 }

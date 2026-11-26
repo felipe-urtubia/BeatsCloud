@@ -46,18 +46,26 @@ def attach_r2_private_key(*, claim_id, user_id, private_key):
             "Extension no permitida."
         )
 
-    afectados = R2UploadClaim.objects.filter(
-        pk=claim_id,
-        owner_id=user_id,
-        status="processing",
-        private_key="",
-        pending_key__endswith=extension,
-    ).update(
-        private_key=private_key,
-        updated_at=timezone.now(),
-    )
+    from django.db import transaction
+    from app.r2_account_guard import lock_r2_upload_owner
 
-    return afectados == 1
+    with transaction.atomic():
+
+        if not lock_r2_upload_owner(user_id):
+            return False
+
+        afectados = R2UploadClaim.objects.filter(
+            pk=claim_id,
+            owner_id=user_id,
+            status="processing",
+            private_key="",
+            pending_key__endswith=extension,
+        ).update(
+            private_key=private_key,
+            updated_at=timezone.now(),
+        )
+
+        return afectados == 1
 
 
 def mark_r2_claim_failed(*, claim_id, user_id):

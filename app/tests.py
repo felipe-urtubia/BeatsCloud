@@ -148,7 +148,7 @@ class EliminarCuentaTests(TestCase):
         self.assertContains(response, 'Cannot delete user')
         self.assertContains(response, 'admin_delete_artist')
 
-    def test_productor_conserva_track_comprado_como_anonimo(self):
+    def test_productor_conserva_track_comprado_seudonimizado(self):
         productor, perfil_productor = self.crear_usuario(
             'productor1',
             Usuario.PRODUCTOR,
@@ -199,32 +199,133 @@ class EliminarCuentaTests(TestCase):
         sin_compras_id = sin_compras.pk
 
         codigo = self.solicitar_codigo(productor)
+        # Conservar referencias antes de cerrar la cuenta.
+        tracks_antes = list(
+            Track.objects.filter(
+                usuario__user_id=productor_id
+            ).values(
+                "pk",
+                "usuario_id",
+                "track",
+                "preview",
+                "r2_object_key",
+                "r2_cover_key",
+                "r2_stems_key",
+            )
+        )
+
+        ids_tracks = [
+            item["pk"] for item in tracks_antes
+        ]
+
+        compras_antes = list(
+            HistorialCompra.objects.filter(
+                track_id__in=ids_tracks
+            ).values_list("pk", "usuario_id", "track_id")
+        )
+
+        ventas_antes = list(
+            HistorialVenta.objects.filter(
+                track_id__in=ids_tracks
+            ).values_list("pk", "comprador_id", "track_id")
+        )
+
+        self.assertTrue(tracks_antes)
+        self.assertTrue(compras_antes)
+
         response = self.confirmar_codigo(codigo)
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(User.objects.filter(pk=productor_id).exists())
-        self.assertTrue(Track.objects.filter(pk=comprado_id).exists())
-        self.assertFalse(Track.objects.filter(pk=sin_compras_id).exists())
+        cuenta = User.objects.get(pk=productor_id)
 
-        comprado.refresh_from_db()
+        self.assertFalse(cuenta.is_active)
+        self.assertFalse(cuenta.has_usable_password())
+        self.assertEqual(cuenta.email, "")
+
+        perfil = Usuario.objects.get(user_id=productor_id)
+
+        self.assertIsNotNone(perfil.cuenta_cerrada_en)
+        self.assertEqual(
+            perfil.nombre_artistico,
+            "Usuario eliminado",
+        )
 
         self.assertEqual(
-            comprado.r2_owner_user_id,
-            productor_id,
+            Track.objects.filter(
+                usuario_id=perfil.pk
+            ).count(),
+            len(tracks_antes),
         )
-        self.assertEqual(
-            comprado.usuario.user.username,
-            'UsuarioAnonimo',
-        )
-        self.assertFalse(comprado.usuario.user.is_active)
-        self.assertFalse(comprado.usuario.user.has_usable_password())
 
-        self.assertTrue(
+        for anterior_track in tracks_antes:
+
+            conservado = Track.objects.get(
+                pk=anterior_track["pk"]
+            )
+
+            self.assertTrue(conservado.is_retired)
+
+            self.assertEqual(
+                conservado.usuario_id,
+                anterior_track["usuario_id"],
+            )
+
+            for campo in (
+                "track",
+                "preview",
+                "r2_object_key",
+                "r2_cover_key",
+                "r2_stems_key",
+            ):
+
+                valor = getattr(conservado, campo)
+
+                if campo in ("track", "preview"):
+                    valor = valor.name
+
+                self.assertEqual(
+                    valor or "",
+                    anterior_track[campo] or "",
+                )
+
+        self.assertCountEqual(
             HistorialCompra.objects.filter(
-                usuario=perfil_comprador,
-                track=comprado,
-            ).exists()
+                track_id__in=ids_tracks
+            ).values_list("pk", "usuario_id", "track_id"),
+            compras_antes,
         )
+
+        self.assertCountEqual(
+            HistorialVenta.objects.filter(
+                track_id__in=ids_tracks
+            ).values_list("pk", "comprador_id", "track_id"),
+            ventas_antes,
+        )
+
+        self.assertNotIn(
+            "_auth_user_id",
+            self.client.session,
+        )
+
+        # Verificar acceso de compradores anteriores.
+
+        from django.test import RequestFactory
+        from app.api_shim import _puede_escuchar_completo
+
+        for _, perfil_id, track_id in compras_antes:
+
+            solicitud = RequestFactory().get("/")
+
+            solicitud.user = Usuario.objects.get(
+                pk=perfil_id
+            ).user
+
+            self.assertTrue(
+                _puede_escuchar_completo(
+                    solicitud,
+                    Track.objects.get(pk=track_id),
+                )
+            )
 
     def test_al_borrar_artista_venta_permanece_como_usuario_eliminado(self):
         productor, perfil_productor = self.crear_usuario(

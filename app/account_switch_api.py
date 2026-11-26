@@ -72,6 +72,7 @@ def valid_accounts(request):
             user = get_user_model().objects.filter(
                 pk=uid,
                 is_active=True,
+                usuario__cuenta_cerrada_en__isnull=True,
             ).first()
 
             if user is None:
@@ -112,6 +113,7 @@ def public_accounts(request, entries):
         for user in get_user_model().objects.filter(
             pk__in=ids,
             is_active=True,
+            usuario__cuenta_cerrada_en__isnull=True,
         )
     }
 
@@ -235,6 +237,7 @@ def account_switch_api(request):
     target = get_user_model().objects.filter(
         pk=target_id,
         is_active=True,
+        usuario__cuenta_cerrada_en__isnull=True,
     ).first()
 
     if target is None or not secrets.compare_digest(

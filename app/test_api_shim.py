@@ -395,7 +395,30 @@ class ApiShimSecurityTests(TestCase):
 
         self.assertEqual(confirm.status_code, 200, confirm.content)
         self.assertEqual(confirm.json(), {"ok": True})
-        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+        cuenta = User.objects.get(pk=self.user.pk)
+
+        self.assertFalse(cuenta.is_active)
+        self.assertFalse(cuenta.has_usable_password())
+        self.assertEqual(cuenta.email, "")
+
+        self.assertTrue(
+            Usuario.objects.filter(
+                user_id=cuenta.pk,
+                cuenta_cerrada_en__isnull=False,
+            ).exists()
+        )
+
+        self.assertFalse(
+            Track.objects.filter(
+                usuario__user_id=cuenta.pk,
+                is_retired=False,
+            ).exists()
+        )
+
+        self.assertNotIn(
+            "_auth_user_id",
+            self.client.session,
+        )
 
     def test_comment_delete_requires_ownership(self):
         comment = Comentario.objects.create(

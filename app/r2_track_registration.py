@@ -345,6 +345,15 @@ def register_prepared_r2_track(
 
     try:
         with transaction.atomic():
+
+            from app.r2_account_guard import lock_r2_upload_owner
+
+            if not lock_r2_upload_owner(user_id):
+
+                raise R2TrackRegistrationError(
+                    "La cuenta no esta habilitada para publicar."
+                )
+
             cancion = Track(
                 nombre_track=nombre_track.strip(),
                 original_filename=draft.original_filename,

@@ -161,37 +161,58 @@ def r2_presign_upload_api(request):
         kind, ext, mime, size = validate_upload(data)
     except (ValueError, UnicodeDecodeError):
         return JsonResponse({"detail": "Metadatos de archivo invalidos."}, status=400)
-    config = r2_configuration()
-    if config is None:
-        return JsonResponse({"detail": "Subida R2 no configurada."}, status=503)
-    key = "pending/{}/{}/{}{}".format(request.user.pk, kind, uuid4().hex, ext)
-    try:
-        url = r2_client(config).generate_presigned_url(
-            "put_object",
-            Params={"Bucket": config["R2_BUCKET_NAME"], "Key": key, "ContentType": mime},
-            ExpiresIn=URL_EXPIRY_SECONDS,
-            HttpMethod="PUT",
+    from django.db import transaction
+    from app.r2_account_guard import lock_r2_upload_owner
+
+    with transaction.atomic():
+
+        if not lock_r2_upload_owner(request.user.pk):
+            return JsonResponse(
+                {"detail": "La cuenta no esta habilitada para cargas R2."},
+                status=403,
+            )
+
+        if not Usuario.objects.filter(
+            user_id=request.user.pk,
+            tipo_usu=Usuario.PRODUCTOR,
+            cuenta_cerrada_en__isnull=True,
+        ).exists():
+            return JsonResponse(
+                {"detail": "Perfil de productor no autorizado."},
+                status=403,
+            )
+
+        config = r2_configuration()
+        if config is None:
+            return JsonResponse({"detail": "Subida R2 no configurada."}, status=503)
+        key = "pending/{}/{}/{}{}".format(request.user.pk, kind, uuid4().hex, ext)
+        try:
+            url = r2_client(config).generate_presigned_url(
+                "put_object",
+                Params={"Bucket": config["R2_BUCKET_NAME"], "Key": key, "ContentType": mime},
+                ExpiresIn=URL_EXPIRY_SECONDS,
+                HttpMethod="PUT",
+            )
+        except Exception:
+            # Never include SDK exceptions or credential data in a client response.
+            return JsonResponse({"detail": "No fue posible autorizar la subida."}, status=503)
+        token = signing.dumps(
+            {
+                "owner": request.user.pk,
+                "key": key,
+                "size": size,
+                "kind": kind,
+                "mime": mime,
+                "filename": data["filename"],
+            },
+            salt=TOKEN_SALT,
         )
-    except Exception:
-        # Never include SDK exceptions or credential data in a client response.
-        return JsonResponse({"detail": "No fue posible autorizar la subida."}, status=503)
-    token = signing.dumps(
-        {
-            "owner": request.user.pk,
-            "key": key,
-            "size": size,
-            "kind": kind,
-            "mime": mime,
-            "filename": data["filename"],
-        },
-        salt=TOKEN_SALT,
-    )
-    response = JsonResponse({
-        "method": "PUT", "url": url, "headers": {"Content-Type": mime},
-        "upload_token": token, "expires_in": URL_EXPIRY_SECONDS,
-    })
-    response["Cache-Control"] = "no-store"
-    return response
+        response = JsonResponse({
+            "method": "PUT", "url": url, "headers": {"Content-Type": mime},
+            "upload_token": token, "expires_in": URL_EXPIRY_SECONDS,
+        })
+        response["Cache-Control"] = "no-store"
+        return response
 @csrf_protect
 def r2_confirm_upload_api(request):
     """Comprueba via HEAD un PUT temporal, sin asociarlo aun a un Track.
@@ -250,30 +271,51 @@ def r2_confirm_upload_api(request):
     except (ValueError, TypeError, signing.BadSignature, UnicodeDecodeError):
         return JsonResponse({"detail": "Token de subida invalido o caducado."}, status=400)
 
-    config = r2_configuration()
-    if config is None:
-        return JsonResponse({"detail": "Subida R2 no configurada."}, status=503)
-    try:
-        metadata = r2_client(config).head_object(Bucket=config["R2_BUCKET_NAME"], Key=key)
-    except Exception as exc:
-        # Los errores 404/NoSuchKey significan que el objeto aun no se encuentra.
-        error_info = getattr(exc, "response", None)
-        code = str(error_info.get("Error", {}).get("Code", "")) if isinstance(error_info, dict) else ""
-        if code in {"404", "NoSuchKey", "NotFound"}:
-            return JsonResponse({"detail": "El archivo aun no existe en R2."}, status=409)
-        return JsonResponse({"detail": "No se pudo verificar el archivo en R2."}, status=503)
-    if not isinstance(metadata, dict):
-        return JsonResponse({"detail": "Respuesta de R2 no valida."}, status=503)
-    if (type(metadata.get("ContentLength")) is not int
-            or metadata["ContentLength"] != size
-            or metadata.get("ContentType") != mime):
-        return JsonResponse({"detail": "El archivo de R2 no coincide con la autorizacion."}, status=409)
-    response = JsonResponse({
-        "verified": True,
-        "kind": kind,
-        "size": size,
-        "content_type": mime,
-        "detail": "Objeto temporal comprobado. Pendiente de registro y validacion multimedia.",
-    })
-    response["Cache-Control"] = "no-store"
-    return response
+    from django.db import transaction
+    from app.r2_account_guard import lock_r2_upload_owner
+
+    with transaction.atomic():
+
+        if not lock_r2_upload_owner(request.user.pk):
+            return JsonResponse(
+                {"detail": "La cuenta no esta habilitada para cargas R2."},
+                status=403,
+            )
+
+        if not Usuario.objects.filter(
+            user_id=request.user.pk,
+            tipo_usu=Usuario.PRODUCTOR,
+            cuenta_cerrada_en__isnull=True,
+        ).exists():
+            return JsonResponse(
+                {"detail": "Perfil de productor no autorizado."},
+                status=403,
+            )
+
+        config = r2_configuration()
+        if config is None:
+            return JsonResponse({"detail": "Subida R2 no configurada."}, status=503)
+        try:
+            metadata = r2_client(config).head_object(Bucket=config["R2_BUCKET_NAME"], Key=key)
+        except Exception as exc:
+            # Los errores 404/NoSuchKey significan que el objeto aun no se encuentra.
+            error_info = getattr(exc, "response", None)
+            code = str(error_info.get("Error", {}).get("Code", "")) if isinstance(error_info, dict) else ""
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                return JsonResponse({"detail": "El archivo aun no existe en R2."}, status=409)
+            return JsonResponse({"detail": "No se pudo verificar el archivo en R2."}, status=503)
+        if not isinstance(metadata, dict):
+            return JsonResponse({"detail": "Respuesta de R2 no valida."}, status=503)
+        if (type(metadata.get("ContentLength")) is not int
+                or metadata["ContentLength"] != size
+                or metadata.get("ContentType") != mime):
+            return JsonResponse({"detail": "El archivo de R2 no coincide con la autorizacion."}, status=409)
+        response = JsonResponse({
+            "verified": True,
+            "kind": kind,
+            "size": size,
+            "content_type": mime,
+            "detail": "Objeto temporal comprobado. Pendiente de registro y validacion multimedia.",
+        })
+        response["Cache-Control"] = "no-store"
+        return response

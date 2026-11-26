@@ -117,6 +117,8 @@ export interface CartItem {
 
 // Modelos alineados con la BD Django original (HistorialVenta, HistorialCompra, WebpayTransaction)
 export interface LicenseContract {
+  recordType?: 'paid_license' | 'legacy_free_receipt' | 'demo';
+  verified?: boolean;
   licenseCode: string; // Ej: LIC-BC-541209
   verificationHash: string; // Hash SHA-256 de verificación digital
   issueDate: string;

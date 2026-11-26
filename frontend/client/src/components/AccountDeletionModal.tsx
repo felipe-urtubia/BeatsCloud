@@ -57,7 +57,7 @@ export const AccountDeletionModal: React.FC<AccountDeletionModalProps> = ({ isOp
           </button>
         </div>
         <p className="mb-4 text-sm text-zinc-300">
-          Esta acción es permanente. Se conservarán de forma anonimizada los registros necesarios de compras anteriores.
+          El cierre de tu cuenta es permanente. Se deshabilitará tu acceso y, cuando corresponda, se conservarán registros comerciales y técnicos seudonimizados para proteger las transacciones y los derechos de los compradores.
         </p>
         <form onSubmit={verificationStarted ? handleConfirm : handleStart} className="space-y-3">
           {!verificationStarted ? (

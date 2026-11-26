@@ -15,23 +15,77 @@ class R2UploadWorkflowConflict(R2UploadWorkflowError):
     pass
 
 
-def _delete_private_if_unattached(client, bucket, draft, track, field_name):
+def _delete_private_if_unattached(
+    client, bucket, draft, track, field_name
+):
+    """Elimina exclusivamente objetos sin referencias conocidas."""
+
+    import logging
+
+    from django.db.models import Q
+    from app.models import R2UploadClaim
+
+    logger = logging.getLogger(__name__)
+
     if draft is None:
         return
-    key = getattr(draft, "private_key", "")
-    if not isinstance(key, str) or not key:
+
+    if field_name not in {
+        "r2_object_key",
+        "r2_cover_key",
+        "r2_stems_key",
+    }:
         return
-    attached = False
-    if track is not None and getattr(track, "pk", None):
-        try:
-            attached = Track.objects.filter(pk=track.pk, **{field_name: key}).exists()
-        except Exception:
-            attached = False
-    if not attached:
-        try:
-            client.delete_object(Bucket=bucket, Key=key)
-        except Exception:
-            pass
+
+    key = getattr(draft, "private_key", "")
+
+    if (
+        not isinstance(key, str)
+        or not key.startswith("private/")
+    ):
+        return
+
+    try:
+        # Comprobar todas las canciones, no solo la actual.
+        tiene_referencias = Track.objects.filter(
+            Q(r2_object_key=key)
+            | Q(r2_cover_key=key)
+            | Q(r2_stems_key=key)
+            | Q(track=key)
+            | Q(preview=key)
+            | Q(foto=key)
+        ).exists()
+
+        if tiene_referencias:
+            return
+
+        # Conservar referencias asociadas a reservas R2.
+        tiene_reservas = R2UploadClaim.objects.filter(
+            Q(private_key=key)
+            | Q(pending_key=key)
+        ).exists()
+
+        if tiene_reservas:
+            return
+
+    except Exception:
+        # Nunca interpretar un fallo de base de datos
+        # como una confirmacion de ausencia de referencias.
+        logger.warning(
+            "Limpieza R2 omitida: referencias no verificadas."
+        )
+        return
+
+    try:
+        client.delete_object(
+            Bucket=bucket,
+            Key=key,
+        )
+
+    except Exception:
+        logger.warning(
+            "No fue posible completar la limpieza R2."
+        )
 
 
 def complete_r2_track_upload(

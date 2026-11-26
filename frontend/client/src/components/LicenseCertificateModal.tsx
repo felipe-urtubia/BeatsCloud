@@ -1,3 +1,4 @@
+import { licensePresentation } from '../api/licenseRecord';
 import React, { useState } from 'react';
 import { LicenseContract } from '../types';
 import {
@@ -26,14 +27,30 @@ export const LicenseCertificateModal: React.FC<LicenseCertificateModalProps> = (
 
   if (!isOpen || !contract) return null;
 
+  const presentation = licensePresentation(
+    contract.recordType,
+    contract.verified,
+  );
+
+  const displayHash = presentation.showHash
+    ? contract.verificationHash
+    : 'Sin verificacion comercial';
+
+  const displayCode = presentation.official
+    ? contract.licenseCode
+    : 'DEMO';
+
+
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(contract.licenseCode);
+    navigator.clipboard.writeText(displayCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2500);
   };
 
   const handleCopyHash = () => {
-    navigator.clipboard.writeText(contract.verificationHash);
+    if (!presentation.showHash) return;
+
+    navigator.clipboard.writeText(displayHash);
     setCopiedHash(true);
     setTimeout(() => setCopiedHash(false), 2500);
   };
@@ -44,9 +61,10 @@ export const LicenseCertificateModal: React.FC<LicenseCertificateModalProps> = (
 
   const handleDownloadTextContract = () => {
     const textContent = `
-Comprobante de compra de BeatsCloud
+${presentation.title} - BeatsCloud
+Estado: ${presentation.status}
 
-Código de registro: ${contract.licenseCode}
+Código de registro: ${displayCode}
 Referencia interna: ${contract.buyOrder}
 Fecha registrada: ${contract.issueDate}
 Monto registrado: $${contract.amountClp.toLocaleString('es-CL')} CLP
@@ -54,7 +72,7 @@ Pista: ${contract.trackTitle}
 Género: ${contract.trackGenre}
 Productor: ${contract.producerName} (@${contract.producerUsername})
 Comprador: ${contract.buyerName} (@${contract.buyerUsername})
-Huella de verificación HMAC-SHA256: ${contract.verificationHash}
+${presentation.showHash ? 'HMAC-SHA256' : 'Verificacion'}: ${displayHash}
 
 Este comprobante refleja los datos de compra disponibles en BeatsCloud. No define
 por sí solo condiciones de licencia ni sustituye un contrato legal.
@@ -64,7 +82,7 @@ por sí solo condiciones de licencia ni sustituye un contrato legal.
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Comprobante_BeatsCloud_${contract.licenseCode}.txt`;
+    link.download = `Comprobante_BeatsCloud_${displayCode}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -77,7 +95,7 @@ por sí solo condiciones de licencia ni sustituye un contrato legal.
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <h3 className="text-xs font-mono font-black text-zinc-200 uppercase tracking-wider">
-              Comprobante de compra · BeatsCloud
+              {presentation.title} · BeatsCloud
             </h3>
           </div>
 
@@ -146,7 +164,7 @@ por sí solo condiciones de licencia ni sustituye un contrato legal.
                 </span>
                 <div className="flex items-center justify-center sm:justify-end gap-2 mt-1">
                   <span className="text-base font-black text-amber-400">
-                    {contract.licenseCode}
+                    {displayCode}
                   </span>
                   <button
                     onClick={handleCopyCode}
@@ -173,16 +191,17 @@ por sí solo condiciones de licencia ni sustituye un contrato legal.
               <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <div className="min-w-0">
                 <span className="text-[10px] text-zinc-400 uppercase font-bold block">
-                  Huella de verificación HMAC-SHA256
+                  {presentation.status}
                 </span>
                 <span className="text-xs text-zinc-300 font-bold break-all block truncate">
-                  {contract.verificationHash}
+                  {displayHash}
                 </span>
               </div>
             </div>
 
             <button
               onClick={handleCopyHash}
+              disabled={!presentation.showHash}
               className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold flex items-center gap-1.5 flex-shrink-0 transition-colors"
             >
               {copiedHash ? (

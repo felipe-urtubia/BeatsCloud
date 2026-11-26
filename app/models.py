@@ -20,6 +20,11 @@ class Usuario(models.Model):
     spotify = models.URLField(null=True, blank=True) 
     youtube = models.URLField(null=True, blank=True) 
     instagram = models.URLField(null=True, blank=True) 
+    cuenta_cerrada_en = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
     tracks_gustados = models.ManyToManyField('Track', related_name='usuarios_que_dieron_like')
     carrito1 = models.ManyToManyField('Track', related_name='usuarios_en_carrito')
     sus = models.ManyToManyField('Suscripcion')
@@ -168,7 +173,7 @@ class Venta(models.Model):
     
     completada = models.BooleanField(default=False)
     def __str__(self):
-        return self.id
+        return str(self.id)
     
 class Metodo_Pago(models.Model):
     id = models.AutoField(primary_key=True)
@@ -176,9 +181,27 @@ class Metodo_Pago(models.Model):
     venta_id = models.ForeignKey(Venta, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.id
+        return str(self.id)
     
 class HistorialCompra(models.Model):
+
+    ORIGEN_DESCONOCIDO = "unknown"
+    ORIGEN_GRATUITO = "free"
+    ORIGEN_WEBPAY = "webpay"
+
+    ORIGEN_CHOICES = [
+        (ORIGEN_DESCONOCIDO, "Desconocido"),
+        (ORIGEN_GRATUITO, "Gratuito"),
+        (ORIGEN_WEBPAY, "Webpay"),
+    ]
+
+    origen_adquisicion = models.CharField(
+        max_length=16,
+        choices=ORIGEN_CHOICES,
+        default=ORIGEN_DESCONOCIDO,
+        editable=False,
+    )
+
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT)
     track = models.ForeignKey(Track, on_delete=models.CASCADE)
     fecha_compra = models.DateTimeField(auto_now_add=True)
@@ -281,6 +304,46 @@ class WebpayTransaction(models.Model):
     def __str__(self):
         return f"{self.buy_order} - {self.amount} - {self.status}"
     
+class Licencia(models.Model):
+    """Registro verificable de una compra autorizada."""
+
+    compra = models.OneToOneField(
+        HistorialCompra,
+        on_delete=models.PROTECT,
+        related_name="licencia",
+    )
+
+    transaccion = models.ForeignKey(
+        WebpayTransaction,
+        on_delete=models.PROTECT,
+        related_name="licencias",
+    )
+
+    buy_order = models.CharField(
+        max_length=50,
+        db_index=True,
+    )
+
+    license_code = models.CharField(
+        max_length=40,
+        unique=True,
+    )
+
+    verification_hash = models.CharField(
+        max_length=64,
+        unique=True,
+        editable=False,
+    )
+
+    issued_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
+
+    def __str__(self):
+        return self.license_code
+
+
 class HistorialVenta(models.Model):
     comprador = models.ForeignKey(
         User,

@@ -201,7 +201,7 @@ FFMPEG_PATH = os.getenv('FFMPEG_PATH', 'ffmpeg')
 
 # Backend de autenticación
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
+    "app.auth_backends.BeatsCloudModelBackend",
 ]
 
 # Configuración de sesión
@@ -274,3 +274,16 @@ elif not isinstance(_modo_webpay, _WebpayIntegrationType):
     raise TypeError(
         "Tipo de configuracion Transbank no reconocido."
     )
+
+# D10: configuracion criptografica independiente.
+LICENSE_SIGNING_KEY = os.getenv(
+    "LICENSE_SIGNING_KEY", ""
+).strip()
+
+LICENSE_SIGNING_KEY_FALLBACKS = tuple(
+    clave.strip()
+    for clave in os.getenv(
+        "LICENSE_SIGNING_KEY_FALLBACKS", ""
+    ).split(",")
+    if clave.strip()
+)

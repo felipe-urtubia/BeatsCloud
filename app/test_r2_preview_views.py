@@ -22,6 +22,7 @@ class R2PreviewViewsTests(SimpleTestCase):
         )
 
         track = SimpleNamespace(
+            is_retired=False,
             preview=preview,
             storage_backend="r2",
         )
@@ -49,6 +50,7 @@ class R2PreviewViewsTests(SimpleTestCase):
         preview.open.return_value = BytesIO(b"ID3")
 
         track = SimpleNamespace(
+            is_retired=False,
             preview=preview,
             storage_backend="local",
         )
@@ -70,6 +72,7 @@ class R2PreviewViewsTests(SimpleTestCase):
 
     def test_sin_preview_devuelve_404(self):
         track = SimpleNamespace(
+            is_retired=False,
             preview=None,
             storage_backend="r2",
         )

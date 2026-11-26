@@ -77,3 +77,30 @@ class TrackForm(forms.ModelForm):
         # El widget CheckboxInput trata textos arbitrarios como True.
         # Validar el dato ORIGINAL antes de convertirlo.
         return validate_d9_field('has_stems', self.data.get('has_stems', None))
+
+class ArchivoExistenteProtegido(forms.FileField):
+
+    """Conserva archivos existentes sin volver a validarlos."""
+
+    @classmethod
+    def desde_campo(cls, campo):
+
+        return cls(
+            required=False,
+            disabled=True,
+            widget=campo.widget,
+            label=campo.label,
+            help_text=campo.help_text,
+        )
+
+    def clean(self, data, initial=None):
+
+        if not self.disabled:
+
+            raise forms.ValidationError(
+                "El campo de archivo debe permanecer protegido."
+            )
+
+        # No consultar size, open ni almacenamiento.
+        # Ignorar datos enviados por el cliente.
+        return initial
