@@ -1,0 +1,5 @@
+# Normalización de alias para git shortlog y git log.
+# No modifica commits existentes ni reasigna su autoría en GitHub.
+Ismael Araya <127540623+yaeaelo@users.noreply.github.com> Yaelo <yaelo@example.com>
+Felipe Urtubia <elmetaleroxd.contacto@gmail.com> Elmetaleroxd <elmetaleroxd.contacto@gmail.com>
+Felipe Urtubia <elmetaleroxd.contacto@gmail.com> felipe-urtubia <elmetaleroxd.contacto@gmail.com>
