@@ -5,7 +5,7 @@
 **Última actualización:** 26-11-2026
 
 > Este documento consolida los cambios funcionales, visuales, de seguridad, configuración, documentación y pruebas realizados durante la etapa final de mejora del proyecto BeatsCloud.
-> Se conserva el historial anterior y se incorporan los cambios, pruebas y despliegues documentados hasta el cierre D10 del 26-11-2026.
+> Se conserva el historial anterior y se incorporan los cambios, pruebas y despliegues documentados hasta los cierres de implementación D10 y D9 / DDPB-70 del 26-11-2026.
 
 ---
 
@@ -4650,3 +4650,59 @@ Otras limitaciones: no se ejecutó restauración de respaldo; no se emitieron li
 - [Versión funcional desplegada b110e00](https://github.com/felipe-urtubia/BeatsCloud/tree/b110e00)
 - Evidencias de consola, confirmaciones del usuario y capturas de los chats del 24–26 de noviembre de 2026. Se conservaron únicamente resultados respaldados por los registros accesibles; no se reconstruyeron pasos manuales sin evidencia suficiente.
 
+
+
+---
+
+# 26-11-2026 — D9 / DDPB-70: filtros server-side del catálogo
+
+## 1. Alcance y criterios de aceptación
+
+Historia: como artista, encontrar instrumentales rápidamente mediante filtros reales por BPM, género, tipo y mood. Los metadatos se apoyan en la migración existente 0017 (dependiente de 0016); no se requieren migraciones nuevas.
+
+| Criterio | Implementación | Estado |
+|---|---|---|
+| Endpoint con filtros y orden | Django, `app/catalog_filters.py` y `catalogo_api` | Aprobado |
+| SPA consulta parámetros al backend | `catalogQuery.ts`, servicio Django y CatalogPage; filtrado local reservado al modo demo | Aprobado |
+| Resultados paginados | Paginación del servidor, 6/12/24 por página, totales y orden estable | Aprobado |
+
+Se incorporaron búsqueda, tonalidad, rango BPM, stems, precio, ordenamientos y validación de parámetros; se mantuvieron las restricciones de visibilidad de pistas. La interfaz incorpora controles BPM, reinicio de página al cambiar filtros, cancelación de solicitudes obsoletas y estados de carga/error. Se conservó la carga global de pistas para otras secciones.
+
+## 2. Respaldo visual de portadas
+
+En el entorno local, las pistas 12, 13 y 15 tenían referencias R2 válidas y estado ready, pero head_object devolvió 404 en el bucket configurado. Se añadió un SVG local y el componente reutilizable TrackCover en siete vistas (catálogo, inicio, detalle, reproductor, carrito y perfiles de artista y productor); se eliminó la dependencia de imágenes aleatorias externas en el mapeador de pistas reales. No se modificaron objetos R2, referencias PostgreSQL ni permisos. La consulta de producción devolvió 404 sin distinguir si falló el detalle o la portada; no acredita ausencia de esos objetos en producción.
+
+## 3. Pruebas y validaciones
+
+| Comprobación | Resultado |
+|---|---|
+| Django focalizado | 53/53 aprobadas; incluye 14 nuevas pruebas de catálogo |
+| Django regresión completa | 713/713 aprobadas, 332,567 s |
+| React / Node | 64/64 aprobadas tras respaldo de portadas, incluye seis nuevas pruebas de parámetros |
+| Total de pruebas automatizadas | **777/777 aprobadas**, sin duplicar ejecuciones |
+| Compilación final | TypeScript y Vite OK; 1.937 módulos, 2,43 s |
+| Django check y diff check | Sin errores; avisos LF/CRLF no bloqueantes |
+| Migraciones | Sin cambios de modelos detectados |
+| Validación local de catálogo | Ocho comprobaciones confirmadas por el usuario |
+| Validación funcional en producción | Confirmada por el usuario: catálogo, filtros, ordenamiento, paginación, respaldo visual si corresponde, previews y acceso al carrito |
+
+Las pruebas existentes no incluyen una prueba automatizada específica del evento de error de TrackCover. La confirmación funcional de producción no identifica casos concretos de portadas ausentes ni acredita una transacción comercial nueva.
+
+## 4. Integración y despliegue
+
+- Rama: `feat/ddpb-70-filtros-server-side`.
+- Commit de implementación: [5ac4f4d](https://github.com/felipe-urtubia/BeatsCloud/commit/5ac4f4d), 19 archivos, 953 inserciones y 82 eliminaciones.
+- [PR #13](https://github.com/felipe-urtubia/BeatsCloud/pull/13), integrado con autorización del usuario mediante merge y comprobación de SHA esperado.
+- Commit desplegado: [0879ec2](https://github.com/felipe-urtubia/BeatsCloud/commit/0879ec2f309cf8da7e57d45928dc2242527e635f).
+- Repositorio local sincronizado con main mediante fast-forward, estado limpio.
+- Render: despliegue manual, Deploy succeeded / Live, 59,5 s, 26-11-2026 12:16:25 GMT-3.
+- Vercel: build Ready en 17 s; promoción manual posterior al backend; Production / Current, dominio https://beats-cloud.vercel.app/.
+- Evidencias: consola de regresión, logs de frontend y push, capturas Render y Vercel y confirmación del usuario del smoke test. No se publican logs crudos ni secretos.
+
+## 5. Cierre y pendientes
+
+D9 / DDPB-70 implementada, integrada, desplegada y validada funcionalmente según confirmación del usuario. El cierre administrativo en Jira y la eliminación de la rama se realizan por separado.
+
+- Optimización futura: eliminar la hidratación global de páginas de catálogo sin afectar perfiles, favoritos, carrito y otras vistas.
+- Recuperar las portadas originales ausentes en R2 cuando sea posible; el respaldo visual no recupera objetos ni impide necesariamente el primer 404 de red.
+- Se conservan los pendientes de seguridad y validación comercial documentados en D10; esta entrega no los da por resueltos.
