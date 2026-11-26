@@ -1,5 +1,5 @@
 from io import BytesIO
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -86,13 +86,28 @@ class R2AudioPermissionsTests(TestCase):
         )
 
     def solicitar_audio(self, url):
-        with patch(
-            "django.db.models.fields.files.FieldFile.open",
-            side_effect=lambda *args, **kwargs: BytesIO(
-                b"audio-de-prueba"
+        contenido = b"audio-de-prueba"
+
+        with (
+            patch(
+                "django.db.models.fields.files.FieldFile.open",
+                side_effect=lambda *args, **kwargs: BytesIO(contenido),
+            ),
+            patch(
+                "django.db.models.fields.files.FieldFile.size",
+                new_callable=PropertyMock,
+                return_value=len(contenido),
             ),
         ):
-            return self.client.get(url)
+            respuesta = self.client.get(url)
+
+            if respuesta.streaming:
+                self.assertEqual(
+                    b"".join(respuesta.streaming_content),
+                    contenido,
+                )
+
+            return respuesta
 
     def test_visitante_puede_escuchar_preview(self):
         response = self.solicitar_audio(

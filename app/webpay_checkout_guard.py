@@ -6,6 +6,7 @@ from django.db import transaction
 from .models import HistorialCompra, Suscripcion, Track, Usuario, WebpayTransaction
 from .subscription_membership import has_active_subscription
 from .subscription_plans import validate_plan_duration
+from secrets import token_hex as _webpay_session_token_hex
 
 
 class PaymentStartBlocked(Exception):
@@ -50,7 +51,15 @@ def create_pending_webpay_order(
     from .webpay_reconciliation import reconcile_stale_pending_for_user
     reconcile_stale_pending_for_user(user.pk)
 
+    from app.r2_account_guard import lock_r2_upload_owner
+
     with transaction.atomic():
+
+        if not lock_r2_upload_owner(user.pk):
+            raise PaymentStartBlocked(
+                "La cuenta no esta habilitada para comprar."
+            )
+
         # Serializa solicitudes de inicio del mismo usuario.
         get_user_model().objects.select_for_update().get(pk=user.pk)
 
@@ -176,7 +185,7 @@ def create_pending_webpay_order(
         return WebpayTransaction.objects.create(
             user=user,
             buy_order=secrets.token_hex(12),
-            session_id=user.username,
+            session_id=_webpay_session_token_hex(16),
             amount=amount,
             suscripcion=suscripcion,
             cart_snapshot=snapshot,

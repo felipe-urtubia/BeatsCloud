@@ -31,7 +31,16 @@ def finalize_r2_claim(*, claim_id, user_id, track_id):
                 "Identificador invalido."
             )
 
+    from app.r2_account_guard import lock_r2_upload_owner
+
     with transaction.atomic():
+
+        if not lock_r2_upload_owner(user_id):
+
+            raise R2ClaimFinalizationError(
+                "La cuenta no esta habilitada para publicar."
+            )
+
         reserva = (
             R2UploadClaim.objects
             .select_for_update()

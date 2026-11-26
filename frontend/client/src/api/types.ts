@@ -184,6 +184,8 @@ export interface DSuscripcion extends DSubscriptionPlanInput {
 }
 
 export interface DLicense {
+  record_type: 'paid_license' | 'legacy_free_receipt';
+  verified: boolean;
   license_code: string;
   verification_hash: string;
   issue_date: string;

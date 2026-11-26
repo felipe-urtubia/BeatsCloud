@@ -13,6 +13,13 @@ from .models import (
 )
 
 
+from django.test import override_settings as d10_override_settings
+
+
+@d10_override_settings(
+    LICENSE_SIGNING_KEY="test-only-webpay-d10-" + "d" * 48,
+    LICENSE_SIGNING_KEY_FALLBACKS=(),
+)
 @override_settings(FRONTEND_URL="http://localhost:5173")
 class WebpayRegresionTests(TestCase):
 
@@ -229,6 +236,34 @@ class WebpayRegresionTests(TestCase):
             WebpayTransaction.ESTADO_AUTORIZADO,
         )
         self.assertIsNotNone(self.payment.fulfilled_at)
+
+        # D10: el pago autorizado debe emitir una licencia persistente.
+        from .models import Licencia
+        from .license_service import verify_license
+
+        licencia = Licencia.objects.get(
+            compra__usuario=self.profile,
+            compra__track=cancion_a,
+        )
+
+        self.assertEqual(
+            licencia.compra.origen_adquisicion,
+            HistorialCompra.ORIGEN_WEBPAY,
+        )
+
+        self.assertEqual(licencia.transaccion_id, self.payment.pk)
+        self.assertEqual(licencia.buy_order, self.payment.buy_order)
+        self.assertEqual(len(licencia.verification_hash), 64)
+        self.assertTrue(verify_license(licencia))
+        self.assertEqual(Licencia.objects.count(), 1)
+
+        # La cancion agregada despues del inicio del pago
+        # no debe recibir licencia.
+        self.assertFalse(
+            Licencia.objects.filter(
+                compra__track=cancion_b,
+            ).exists()
+        )
 
         # Solo la cancion original debe estar comprada.
         self.assertTrue(
@@ -680,3 +715,237 @@ class WebpayRegresionTests(TestCase):
         )
 
         self.assertEqual(detalle.status_code, 200)
+
+
+    def _crear_pedido_d10(self):
+        from datetime import date
+        from .models import Genero_Musical, Track, Venta
+
+        vendedor = User.objects.create_user(
+            username="vendedor_origen_d10",
+            password="test-password",
+        )
+
+        perfil = Usuario.objects.create(
+            user=vendedor,
+            tipo_usu=Usuario.PRODUCTOR,
+        )
+
+        genero = Genero_Musical.objects.create(
+            descripcion="Genero origen D10",
+        )
+
+        track = Track.objects.create(
+            nombre_track="Track origen D10",
+            precio=1000,
+            genero=genero,
+            usuario=perfil,
+            media_status="ready",
+        )
+
+        venta = Venta.objects.create(
+            detalle="Pedido origen D10",
+            fecha=date.today(),
+            precio=1000,
+            iva=190,
+            precio_total=1190,
+            usuario_id=self.profile,
+            track=track,
+        )
+
+        self.payment.cart_snapshot = [{
+            "venta_id": venta.pk,
+            "track_id": track.pk,
+            "precio": 1000,
+            "iva": 190,
+        }]
+
+        self.payment.save(update_fields=["cart_snapshot"])
+
+        return track, venta
+
+    def test_webpay_no_reclasifica_adquisicion_gratuita(self):
+        from .models import Licencia, Venta
+
+        track, venta = self._crear_pedido_d10()
+
+        compra = HistorialCompra.objects.create(
+            usuario=self.profile,
+            track=track,
+            origen_adquisicion=HistorialCompra.ORIGEN_GRATUITO,
+        )
+
+        respuesta = self.simular_retorno(
+            self.respuesta_webpay(0, "AUTHORIZED")
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn("pago=revision", respuesta.url)
+
+        compra.refresh_from_db()
+        self.payment.refresh_from_db()
+
+        self.assertEqual(
+            compra.origen_adquisicion,
+            HistorialCompra.ORIGEN_GRATUITO,
+        )
+
+        self.assertEqual(
+            self.payment.status,
+            WebpayTransaction.ESTADO_AUTORIZADO,
+        )
+
+        self.assertIsNone(self.payment.fulfilled_at)
+        self.assertEqual(HistorialCompra.objects.count(), 1)
+        self.assertEqual(HistorialVenta.objects.count(), 0)
+        self.assertEqual(Licencia.objects.count(), 0)
+
+        self.assertTrue(
+            Venta.objects.filter(
+                pk=venta.pk,
+                completada=False,
+            ).exists()
+        )
+
+    def test_webpay_no_duplica_venta_historica(self):
+        from .models import Licencia, Venta
+
+        track, venta = self._crear_pedido_d10()
+
+        HistorialVenta.objects.create(
+            comprador=self.user,
+            track=track,
+            precio=1000,
+        )
+
+        respuesta = self.simular_retorno(
+            self.respuesta_webpay(0, "AUTHORIZED")
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn("pago=revision", respuesta.url)
+
+        self.payment.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            WebpayTransaction.ESTADO_AUTORIZADO,
+        )
+
+        self.assertIsNone(self.payment.fulfilled_at)
+        self.assertEqual(HistorialCompra.objects.count(), 0)
+        self.assertEqual(HistorialVenta.objects.count(), 1)
+        self.assertEqual(Licencia.objects.count(), 0)
+
+        self.assertTrue(
+            Venta.objects.filter(
+                pk=venta.pk,
+                completada=False,
+            ).exists()
+        )
+
+
+    def test_fallo_firma_no_entrega_compra_parcial(self):
+        from .models import Licencia, Venta
+
+        track, venta = self._crear_pedido_d10()
+
+        with self.settings(LICENSE_SIGNING_KEY=""):
+            respuesta = self.simular_retorno(
+                self.respuesta_webpay(0, "AUTHORIZED")
+            )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn("pago=revision", respuesta.url)
+
+        self.payment.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            WebpayTransaction.ESTADO_AUTORIZADO,
+        )
+
+        self.assertIsNone(self.payment.fulfilled_at)
+
+        self.assertEqual(
+            HistorialCompra.objects.count(), 0
+        )
+
+        self.assertEqual(
+            HistorialVenta.objects.count(), 0
+        )
+
+        self.assertEqual(
+            Licencia.objects.count(), 0
+        )
+
+        self.assertTrue(
+            Venta.objects.filter(
+                pk=venta.pk,
+                completada=False,
+            ).exists()
+        )
+
+    def test_fallo_despues_de_emitir_revierte_licencia(self):
+        from .models import Licencia, Venta
+        from .license_service import issue_license_for_purchase
+
+        track, venta = self._crear_pedido_d10()
+
+        emisiones = []
+
+        def emitir_y_fallar(compra, orden):
+            licencia, creada = issue_license_for_purchase(
+                compra,
+                orden,
+            )
+
+            emisiones.append((licencia.pk, creada))
+
+            raise RuntimeError(
+                "Fallo simulado posterior a emision D10"
+            )
+
+        with patch(
+            "app.license_service.issue_license_for_purchase",
+            side_effect=emitir_y_fallar,
+        ):
+            respuesta = self.simular_retorno(
+                self.respuesta_webpay(0, "AUTHORIZED")
+            )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn("pago=revision", respuesta.url)
+
+        # Confirmar que realmente se alcanzo la emision.
+        self.assertEqual(len(emisiones), 1)
+        self.assertTrue(emisiones[0][1])
+
+        self.payment.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            WebpayTransaction.ESTADO_AUTORIZADO,
+        )
+
+        self.assertIsNone(self.payment.fulfilled_at)
+
+        # La transaccion atomica debe revertir toda la entrega.
+        self.assertEqual(
+            HistorialCompra.objects.count(), 0
+        )
+
+        self.assertEqual(
+            HistorialVenta.objects.count(), 0
+        )
+
+        self.assertEqual(
+            Licencia.objects.count(), 0
+        )
+
+        self.assertTrue(
+            Venta.objects.filter(
+                pk=venta.pk,
+                completada=False,
+            ).exists()
+        )

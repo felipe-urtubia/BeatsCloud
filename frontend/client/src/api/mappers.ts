@@ -1,3 +1,4 @@
+import { classifyLicenseRecord } from './licenseRecord';
 /**
  * mappers.ts — Traducción entre los DTOs snake_case del backend Django de Felipe
  * y los tipos camelCase que consume la UI React (src/types.ts).
@@ -195,6 +196,8 @@ export function mapSubscription(d: DSuscripcion): ProducerSubscription {
 export function mapLicense(d: DLicense): import('../types').LicenseContract {
   const producer = d.track.usuario;
   return {
+    recordType: classifyLicenseRecord(d),
+    verified: d.verified === true,
     licenseCode: d.license_code,
     verificationHash: `HMAC-SHA256:${d.verification_hash}`,
     issueDate: d.issue_date,
@@ -213,7 +216,7 @@ export function mapLicense(d: DLicense): import('../types').LicenseContract {
     buyerRut: 'No registrado',
     amountClp: d.amount_clp,
     buyOrder: d.purchase_reference,
-    licenseType: d.amount_clp === 0 ? 'maqueta_ensayo' : 'comercial_wav_stems',
+    licenseType: d.record_type === 'legacy_free_receipt' ? 'maqueta_ensayo' : 'comercial_wav_stems',
     musicRightsSplit: { producerPercent: 0, artistPercent: 0, scdRegistered: false },
     distributionTerms: {
       streamsLimit: 'No especificado',

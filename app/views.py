@@ -388,6 +388,19 @@ def confirmar_eliminacion_cuenta(request):
     _limpiar_verificacion_eliminacion(request)
     try:
         return _ejecutar_eliminacion_cuenta(request, usuario)
+    except EliminacionCuentaConLicencias as exc:
+        messages.error(request, str(exc))
+
+        return render(
+            request,
+            'app/eliminar_cuenta.html',
+            {
+                'usuario': usuario,
+                'verificacion_enviada': False,
+            },
+            status=409,
+        )
+
     except EliminacionCuentaBloqueada:
         messages.error(request, 'Hay pagos por conciliar o entregar. Solicita un código nuevo después de resolverlos.')
         return render(
@@ -414,145 +427,276 @@ def _hay_webpay_sin_resolver(user):
     )
 
 
-def _ejecutar_eliminacion_cuenta(request, usuario):
-    user_original = request.user
-    perfil_anonimo = None
-    email_destino = user_original.email
-    nombre_destino = user_original.first_name or user_original.username
+class EliminacionCuentaConLicencias(Exception):
+    """Impide destruir registros comerciales protegidos."""
+
+
+def _seudonimizar_identidad_cuenta(usuario):
+    """Retira datos personales conservando los identificadores internos."""
 
     with transaction.atomic():
-        # Checkout y cierre serializan sobre el usuario.
-        User.objects.select_for_update().get(pk=user_original.pk)
-        if _hay_webpay_sin_resolver(user_original):
-            raise EliminacionCuentaBloqueada('Pagos sin resolver.')
 
-        _programar_borrado_archivo(usuario.foto_perfil)
-        _programar_borrado_archivo(usuario.foto_fondo)
+        cuenta = User.objects.select_for_update().get(
+            pk=usuario.user_id
+        )
 
-        tracks_propios = list(Track.objects.filter(usuario=usuario))
+        from app.r2_account_guard import r2_upload_in_progress
 
-        for track in tracks_propios:
-            tiene_compras = (
-                HistorialCompra.objects.filter(track=track).exists()
-                or HistorialVenta.objects.filter(track=track).exists()
-                or Compra.objects.filter(track=track).exists()
-                or Venta.objects.filter(track=track, completada=True).exists()
+        if r2_upload_in_progress(cuenta.pk):
+
+            raise EliminacionCuentaBloqueada(
+                "Hay cargas R2 pendientes de procesamiento."
             )
 
-            Venta.objects.filter(
-                track=track,
-                completada=False,
-            ).delete()
-            Carrito.objects.filter(track=track).delete()
-            track.usuarios_en_carrito.clear()
+        perfil = Usuario.objects.select_for_update().get(
+            pk=usuario.pk,
+            user_id=cuenta.pk,
+        )
 
-            if tiene_compras:
-                if perfil_anonimo is None:
-                    perfil_anonimo = _obtener_perfil_anonimo()
+        # Programar la retirada de fotografias tras confirmar cambios.
+        _programar_borrado_archivo(perfil.foto_perfil)
+        _programar_borrado_archivo(perfil.foto_fondo)
 
-                track.usuario = perfil_anonimo
-                track.descripcion = (
-                    'Track conservado para compradores anteriores. '
-                    'El creador original eliminó su cuenta.'
-                )
+        # Conservar la PK utilizada por las firmas comerciales.
+        cuenta.username = "closed_" + secrets.token_hex(20)
+        cuenta.first_name = ""
+        cuenta.last_name = ""
+        cuenta.email = ""
+        cuenta.last_login = None
+
+        cuenta.is_active = False
+        cuenta.is_staff = False
+        cuenta.is_superuser = False
+
+        cuenta.set_unusable_password()
+
+        cuenta.save(update_fields=[
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "last_login",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "password",
+        ])
+
+        cuenta.groups.clear()
+        cuenta.user_permissions.clear()
+
+        # Retirar informacion identificativa del perfil.
+        if perfil.cuenta_cerrada_en is None:
+            perfil.cuenta_cerrada_en = timezone.now()
+
+        perfil.nombre_artistico = "Usuario eliminado"
+        perfil.descripcion = None
+        perfil.foto_perfil = None
+        perfil.foto_fondo = None
+        perfil.spotify = None
+        perfil.youtube = None
+        perfil.instagram = None
+
+        perfil.save(update_fields=[
+            "cuenta_cerrada_en",
+            "nombre_artistico",
+            "descripcion",
+            "foto_perfil",
+            "foto_fondo",
+            "spotify",
+            "youtube",
+            "instagram",
+        ])
+
+        perfil.tracks_gustados.clear()
+        perfil.carrito1.clear()
+        perfil.sus.clear()
+
+        # D10: eliminar actividad personal no comercial.
+        from .models import Comentario, Interes
+
+        Comentario.objects.filter(
+            usuario_id=cuenta.pk
+        ).delete()
+
+        Interes.objects.filter(
+            usuario_id=cuenta.pk
+        ).delete()
+
+        # Las compras, ventas y ordenes comerciales se conservan.
+        return cuenta, perfil
+
+
+def _ejecutar_eliminacion_cuenta(request, usuario):
+
+    from django.db import transaction
+    from app.models import Licencia, R2UploadClaim
+    from app.r2_account_guard import r2_upload_in_progress
+
+    with transaction.atomic():
+
+        cuenta = (
+            User.objects.select_for_update(no_key=True)
+            .filter(pk=request.user.pk)
+            .first()
+        )
+
+        if cuenta is None or not cuenta.is_active:
+            raise EliminacionCuentaBloqueada(
+                "Cuenta no disponible."
+            )
+
+        perfil = (
+            Usuario.objects.select_for_update()
+            .filter(
+                pk=usuario.pk,
+                user_id=cuenta.pk,
+                cuenta_cerrada_en__isnull=True,
+            )
+            .first()
+        )
+
+        if perfil is None:
+            raise EliminacionCuentaBloqueada(
+                "Cuenta no disponible."
+            )
+
+        if _hay_webpay_sin_resolver(cuenta):
+            raise EliminacionCuentaBloqueada(
+                "Hay pagos pendientes de conciliacion o entrega."
+            )
+
+        if r2_upload_in_progress(cuenta.pk):
+            raise EliminacionCuentaBloqueada(
+                "Hay cargas R2 pendientes de procesamiento."
+            )
+
+        email_destino = cuenta.email
+        nombre_destino = cuenta.first_name or cuenta.username
+
+        tracks = list(
+            Track.objects.select_for_update()
+            .filter(usuario_id=perfil.pk)
+            .order_by("pk")
+        )
+
+        planes = list(
+            Suscripcion.objects.select_for_update()
+            .filter(user_id=perfil.pk)
+            .order_by("pk")
+        )
+
+        conservar = (
+            bool(tracks)
+            or bool(planes)
+            or HistorialCompra.objects.filter(
+                usuario_id=perfil.pk
+            ).exists()
+            or Compra.objects.filter(
+                usuario_id=perfil.pk
+            ).exists()
+            or Venta.objects.filter(
+                usuario_id=perfil,
+                completada=True,
+            ).exists()
+            or WebpayTransaction.objects.filter(
+                user_id=cuenta.pk
+            ).exists()
+            or R2UploadClaim.objects.filter(
+                owner_id=cuenta.pk
+            ).exists()
+            or Licencia.objects.filter(
+                compra__usuario_id=perfil.pk
+            ).exists()
+            or Licencia.objects.filter(
+                transaccion__user_id=cuenta.pk
+            ).exists()
+        )
+
+        # Eliminar exclusivamente el carrito pendiente propio.
+        # No destruir items de pedidos de otros compradores.
+        Venta.objects.filter(
+            usuario_id=perfil,
+            completada=False,
+        ).delete()
+
+        Carrito.objects.filter(
+            usuario=perfil
+        ).delete()
+
+        if conservar:
+
+            # Mantener archivos, IDs, ventas, compras y licencias.
+            for track in tracks:
+
+                campos = []
+
+                if not track.is_retired:
+                    track.is_retired = True
+                    campos.append("is_retired")
+
                 if (
                     track.storage_backend == "r2"
                     and not track.r2_owner_user_id
                 ):
-                    track.r2_owner_user_id = user_original.pk
+                    track.r2_owner_user_id = cuenta.pk
+                    campos.append("r2_owner_user_id")
 
-                track.save(
-                    update_fields=[
-                        'usuario',
-                        'descripcion',
-                        'r2_owner_user_id',
-                    ]
-                )
-            else:
-                _programar_borrado_archivo(track.track)
-                _programar_borrado_archivo(track.foto)
-                track.delete()
+                if campos:
+                    track.save(update_fields=campos)
 
-        Venta.objects.filter(usuario_id=usuario).delete()
-        Carrito.objects.filter(usuario=usuario).delete()
-        Compra.objects.filter(usuario=usuario).delete()
-        HistorialCompra.objects.filter(usuario=usuario).delete()
+            # Impedir nuevas contrataciones.
+            # No destruir planes ni contratos historicos.
+            for plan in planes:
 
-        usuario.tracks_gustados.clear()
-        usuario.carrito1.clear()
-        usuario.sus.clear()
+                if plan.activo:
+                    plan.activo = False
+                    plan.save(update_fields=["activo"])
 
-        for suscripcion in list(Suscripcion.objects.filter(user=usuario)):
-            if WebpayTransaction.objects.filter(
-                suscripcion=suscripcion
-            ).exists():
-                if perfil_anonimo is None:
-                    perfil_anonimo = _obtener_perfil_anonimo()
+            _seudonimizar_identidad_cuenta(perfil)
 
-                suscripcion.user = perfil_anonimo
-                suscripcion.detalle = 'Suscripción de usuario eliminado'
-                suscripcion.descripcion = ""
-                suscripcion.beneficios = []
-                suscripcion.activo = False
+        else:
 
-                suscripcion.save(update_fields=[
-                    "user",
-                    "detalle",
-                    "descripcion",
-                    "beneficios",
-                    "activo",
-                ])
-            else:
-                suscripcion.delete()
+            # Compatibilidad con cuentas sin registros protegidos.
+            _programar_borrado_archivo(perfil.foto_perfil)
+            _programar_borrado_archivo(perfil.foto_fondo)
 
-        # HistorialVenta.comprador usa SET_NULL:
-        # la venta permanece, pero ya no conserva los datos del comprador.
+            cuenta.delete()
 
-        def enviar_correo_cuenta_eliminada():
+        def enviar_confirmacion():
+
             if not email_destino:
                 return
 
-            text_content = (
-                f'Hola {nombre_destino},\n\n'
-                'Te confirmamos que tu cuenta de BeatsCloud fue eliminada '
-                'correctamente.\n\n'
-                'Tu perfil y acceso ya no se encuentran activos. '
-                'Los registros que deban conservarse para compradores o historial '
-                'de ventas permanecen únicamente de forma anonimizada.\n\n'
-                'Si no reconoces esta acción, comunícate con el equipo de soporte '
-                'de BeatsCloud.\n\n'
-                'Equipo BeatsCloud'
-            )
-
-            html_content = render_to_string(
-                'emails/cuenta_eliminada.html',
-                {
-                    'nombre_usuario': nombre_destino,
-                },
-            )
-
             email = EmailMultiAlternatives(
-                subject='Tu cuenta fue eliminada | BeatsCloud',
-                body=text_content,
+                subject="Cierre de cuenta | BeatsCloud",
+                body=(
+                    f"Hola {nombre_destino},\\n\\n"
+                    "Tu cuenta de BeatsCloud ha sido cerrada. "
+                    "El acceso ha sido deshabilitado. "
+                    "Cuando corresponde, conservamos registros "
+                    "comerciales y tecnicos necesarios para "
+                    "proteger las transacciones y los derechos "
+                    "de los compradores.\\n\\n"
+                    "Equipo BeatsCloud"
+                ),
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[email_destino],
             )
-            email.attach_alternative(html_content, 'text/html')
+
             email.send(fail_silently=True)
 
-        # Las órdenes son terminales (canceladas o autorizadas/entregadas).
-        # UsuarioAnonimo es inactivo y no puede comprar ni iniciar sesión.
-        pagos_cerrados = WebpayTransaction.objects.filter(user=user_original)
-        if pagos_cerrados.exists():
-            if perfil_anonimo is None:
-                perfil_anonimo = _obtener_perfil_anonimo()
-            pagos_cerrados.update(user=perfil_anonimo.user)
-
-        transaction.on_commit(enviar_correo_cuenta_eliminada)
-        user_original.delete()
+        transaction.on_commit(
+            enviar_confirmacion,
+            robust=True,
+        )
 
     auth_logout(request)
-    return render(request, 'app/cuenta_eliminada.html')
+
+    return render(
+        request,
+        "app/cuenta_eliminada.html",
+    )
 
 
 def inicio(request):
@@ -683,19 +827,19 @@ def registro(request):
 
 
 def activar_cuenta(request, uidb64, token):
-    try:
-        uid = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.get(pk=uid)
-    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-        user = None
+    from .account_activation import activate_account_from_token
 
-    if user is not None and default_token_generator.check_token(user, token):
-        if not user.is_active:
-            user.is_active = True
-            user.save(update_fields=['is_active'])
-        return render(request, 'registration/cuenta_activada.html')
+    if activate_account_from_token(uidb64, token):
+        return render(
+            request,
+            'registration/cuenta_activada.html',
+        )
 
-    return render(request, 'registration/enlace_invalido.html', status=400)
+    return render(
+        request,
+        'registration/enlace_invalido.html',
+        status=400,
+    )
 
 
 @login_required
@@ -755,77 +899,201 @@ def perfil_productor(request):
 
 @login_required
 def editar_track(request, track_id):
-    track = get_object_or_404(
-        Track,
-        id_track=track_id,
-        usuario=request.user.usuario,
+
+    from django.db import transaction
+    from django.http import (
+        HttpResponse,
+        HttpResponseForbidden,
+        HttpResponseNotAllowed,
     )
 
-    # Si el track ya fue comprado, permitimos editar sus datos,
-    # pero no reemplazar el archivo de audio para no cambiar
-    # lo que ya adquirieron otros usuarios.
-    tiene_compras = (
-        HistorialVenta.objects.filter(track=track).exists()
-        or HistorialCompra.objects.filter(track=track).exists()
-    )
+    from app.r2_account_guard import lock_r2_upload_owner
+    from app.forms import ArchivoExistenteProtegido
 
-    if request.method == 'POST':
-        form = TrackForm(
-            request.POST,
-            request.FILES,
-            instance=track,
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
+
+    with transaction.atomic():
+
+        if not lock_r2_upload_owner(request.user.pk):
+
+            return HttpResponseForbidden(
+                "La cuenta no esta habilitada para editar."
+            )
+
+        track = get_object_or_404(
+            Track.objects.select_for_update(of=("self",)),
+            pk=track_id,
+            usuario__user_id=request.user.pk,
         )
 
-        if tiene_compras and request.FILES.get('track'):
-            form.add_error(
-                'track',
-                'Este track ya tiene compras y el archivo de audio no puede reemplazarse.'
+        if track.is_retired:
+
+            return HttpResponse(
+                "No se puede editar un track retirado.",
+                status=409,
             )
 
-        if form.is_valid():
-            track_actualizado = form.save(commit=False)
+        tiene_compras = (
+            HistorialVenta.objects.filter(track=track).exists()
+            or HistorialCompra.objects.filter(track=track).exists()
+        )
 
-            # Conservamos siempre al dueño original.
-            track_actualizado.usuario = request.user.usuario
-            track_actualizado.save()
+        portada_r2 = bool(track.r2_cover_key)
 
-            messages.success(
-                request,
-                f'El track "{track_actualizado.nombre_track}" fue actualizado correctamente.'
+        if request.method == "POST":
+
+            form = TrackForm(
+                request.POST,
+                request.FILES,
+                instance=track,
             )
-            return redirect('perfil_productor')
-    else:
-        form = TrackForm(instance=track)
 
-    context = {
-        'form': form,
-        'track': track,
-        'tiene_compras': tiene_compras,
-    }
+        else:
 
-    return render(request, 'app/editar_track.html', context)
+            form = TrackForm(instance=track)
+
+        # Proteccion conservadora del audio original.
+        # No exigir un archivo local a las canciones R2.
+        form.fields["track"] = (
+            ArchivoExistenteProtegido.desde_campo(
+                form.fields["track"]
+            )
+        )
+
+        # Una portada R2 solo puede reemplazarse
+        # mediante el flujo R2 autorizado.
+        if portada_r2:
+
+            form.fields["foto"] = (
+                ArchivoExistenteProtegido.desde_campo(
+                    form.fields["foto"]
+                )
+            )
+
+        if request.method == "POST":
+
+            valido = form.is_valid()
+
+            if (
+                request.FILES.get("track") is not None
+                or "track-clear" in request.POST
+            ):
+
+                form.add_error(
+                    "track",
+                    "El reemplazo de audio esta temporalmente restringido.",
+                )
+
+                valido = False
+
+            if portada_r2 and (
+                request.FILES.get("foto") is not None
+                or "foto-clear" in request.POST
+            ):
+
+                form.add_error(
+                    "foto",
+                    "La portada debe actualizarse mediante R2.",
+                )
+
+                valido = False
+
+            if valido and not form.errors:
+
+                permitidos = {
+                    "nombre_track",
+                    "precio",
+                    "foto",
+                    "genero",
+                    "descripcion",
+                    "subgenre",
+                    "resource_type",
+                    "bpm",
+                    "scale_key",
+                    "mood",
+                    "has_stems",
+                    "has_wav",
+                    "has_midi",
+                    "allow_free_download",
+                    "has_watermark",
+                    "duration",
+                }
+
+                if portada_r2:
+                    permitidos.discard("foto")
+
+                campos = sorted(
+                    permitidos.intersection(
+                        form.changed_data
+                    )
+                )
+
+                actualizado = form.save(commit=False)
+
+                if campos:
+
+                    actualizado.save(
+                        update_fields=campos
+                    )
+
+                messages.success(
+                    request,
+                    "El track fue actualizado correctamente.",
+                )
+
+                return redirect("perfil_productor")
+
+        context = {
+            "form": form,
+            "track": track,
+            "tiene_compras": tiene_compras,
+            "audio_bloqueado": True,
+            "portada_r2": portada_r2,
+        }
+
+        return render(
+            request,
+            "app/editar_track.html",
+            context,
+        )
 
 
 @login_required
 @require_POST
 def eliminar_track(request, track_id):
-    track = get_object_or_404(
-        Track,
-        id_track=track_id,
-        usuario=request.user.usuario,
+
+    from django.db import transaction
+    from django.http import (
+        HttpResponseForbidden,
+        HttpResponseNotAllowed,
     )
+    from app.r2_account_guard import lock_r2_upload_owner
 
-    nombre_track = track.nombre_track
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
 
-    # Retirada logica: preservar los derechos de compradores previos.
-    track.is_retired = True
-    track.save(update_fields=["is_retired"])
+    with transaction.atomic():
 
-    messages.success(
-        request,
-        f'El track "{nombre_track}" fue retirado del catalogo correctamente.'
-    )
-    return redirect('perfil_productor')
+        if not lock_r2_upload_owner(request.user.pk):
+            return HttpResponseForbidden("Cuenta no habilitada.")
+
+        track = get_object_or_404(
+            Track.objects.select_for_update(of=("self",)),
+            pk=track_id,
+            usuario__user_id=request.user.pk,
+        )
+
+        if not track.is_retired:
+            track.is_retired = True
+            track.save(update_fields=["is_retired"])
+
+        messages.success(
+            request,
+            "El track fue retirado del catalogo correctamente.",
+        )
+
+        return redirect("perfil_productor")
 
 @login_required
 def editar_perfil(request):
@@ -904,115 +1172,144 @@ def reproducir_preview_track(request, track_id):
 @login_required
 def upload_file(request):
     # Solo los productores pueden acceder a la subida de tracks.
-    if request.user.usuario.tipo_usu != Usuario.PRODUCTOR:
-        messages.error(request, 'Solo los productores pueden subir pistas.')
-        return redirect('perfil')
+    from django.db import transaction
+    from app.r2_account_guard import lock_r2_upload_owner
+    from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 
-    if request.method == 'POST':
-        post_data = request.POST.copy()
-        post_data.setdefault('resource_type', 'instrumental')
-        post_data.setdefault('bpm', '140')
-        post_data.setdefault('scale_key', 'Am')
-        post_data.setdefault('mood', 'Oscuro')
-        post_data.setdefault('has_stems', 'false')
-        post_data.setdefault('has_wav', 'true')
-        post_data.setdefault('has_midi', 'false')
-        post_data.setdefault('allow_free_download', 'false')
-        post_data.setdefault('has_watermark', 'true')
-        post_data.setdefault('duration', '30')
-        form = TrackForm(post_data, request.FILES)
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
 
-        # Primero dejamos que Django ejecute todas las validaciones del formulario.
-        formulario_valido = form.is_valid()
-        archivos_validos = True
-
-        archivo_audio = request.FILES.get('track')
-        archivo_imagen = request.FILES.get('foto')
-
-        formatos_audio = {'.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg'}
-        formatos_imagen = {'.jpg', '.jpeg', '.png', '.webp'}
-
-        # Validación adicional del archivo de audio directamente en la vista.
-        # Esto evita que un archivo inválido se guarde aunque el navegador
-        # permita seleccionarlo manualmente.
-        if archivo_audio:
-            nombre_audio = archivo_audio.name.lower()
-            extension_audio = (
-                '.' + nombre_audio.rsplit('.', 1)[-1]
-                if '.' in nombre_audio
-                else ''
+    with transaction.atomic():
+        if not lock_r2_upload_owner(request.user.pk):
+            return HttpResponseForbidden(
+                "La cuenta no esta habilitada para publicar."
             )
 
-            if extension_audio not in formatos_audio:
-                form.add_error(
-                    'track',
-                    'Archivo de audio inválido. Solo se permiten '
-                    'MP3, WAV, FLAC, M4A, AAC u OGG.'
-                )
-                archivos_validos = False
-            else:
-                try:
-                    archivo_audio.seek(0)
-                    audio_detectado = mutagen.File(archivo_audio)
-                    archivo_audio.seek(0)
+        perfil = Usuario.objects.filter(
+            user_id=request.user.pk,
+            tipo_usu=Usuario.PRODUCTOR,
+            cuenta_cerrada_en__isnull=True,
+        ).first()
 
-                    if audio_detectado is None:
-                        form.add_error(
-                            'track',
-                            'El archivo seleccionado no contiene un audio válido.'
-                        )
-                        archivos_validos = False
-
-                except Exception:
-                    try:
-                        archivo_audio.seek(0)
-                    except Exception:
-                        pass
-
-                    form.add_error(
-                        'track',
-                        'No fue posible validar el audio. '
-                        'Comprueba que el archivo no esté dañado.'
-                    )
-                    archivos_validos = False
-        else:
-            form.add_error(
-                'track',
-                'Debes seleccionar un archivo de audio.'
-            )
-            archivos_validos = False
-
-        # La imagen es opcional, pero si se envía debe tener un formato permitido.
-        if archivo_imagen:
-            nombre_imagen = archivo_imagen.name.lower()
-            extension_imagen = (
-                '.' + nombre_imagen.rsplit('.', 1)[-1]
-                if '.' in nombre_imagen
-                else ''
-            )
-
-            if extension_imagen not in formatos_imagen:
-                form.add_error(
-                    'foto',
-                    'Imagen inválida. Solo se permiten JPG, JPEG, PNG o WEBP.'
-                )
-                archivos_validos = False
-
-        if formulario_valido and archivos_validos:
-            usuario = request.user.usuario
-
-            track = form.save(commit=False)
-            track.usuario = usuario
-            track.save()
-            generar_preview_audio(track)
-
-            messages.success(request, 'Track subido correctamente.')
+        if perfil is None:
+            messages.error(request, 'Solo los productores pueden subir pistas.')
             return redirect('perfil')
 
-    else:
-        form = TrackForm()
+        if request.method == 'POST':
+            post_data = request.POST.copy()
+            post_data.setdefault('resource_type', 'instrumental')
+            post_data.setdefault('bpm', '140')
+            post_data.setdefault('scale_key', 'Am')
+            post_data.setdefault('mood', 'Oscuro')
+            post_data.setdefault('has_stems', 'false')
+            post_data.setdefault('has_wav', 'true')
+            post_data.setdefault('has_midi', 'false')
+            post_data.setdefault('allow_free_download', 'false')
+            post_data.setdefault('has_watermark', 'true')
+            post_data.setdefault('duration', '30')
+            form = TrackForm(post_data, request.FILES)
 
-    return render(request, 'app/subir_archivo.html', {'form': form})
+            # Primero dejamos que Django ejecute todas las validaciones del formulario.
+            formulario_valido = form.is_valid()
+            archivos_validos = True
+
+            archivo_audio = request.FILES.get('track')
+            archivo_imagen = request.FILES.get('foto')
+
+            formatos_audio = {'.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg'}
+            formatos_imagen = {'.jpg', '.jpeg', '.png', '.webp'}
+
+            # Validación adicional del archivo de audio directamente en la vista.
+            # Esto evita que un archivo inválido se guarde aunque el navegador
+            # permita seleccionarlo manualmente.
+            if archivo_audio:
+                nombre_audio = archivo_audio.name.lower()
+                extension_audio = (
+                    '.' + nombre_audio.rsplit('.', 1)[-1]
+                    if '.' in nombre_audio
+                    else ''
+                )
+
+                if extension_audio not in formatos_audio:
+                    form.add_error(
+                        'track',
+                        'Archivo de audio inválido. Solo se permiten '
+                        'MP3, WAV, FLAC, M4A, AAC u OGG.'
+                    )
+                    archivos_validos = False
+                else:
+                    try:
+                        archivo_audio.seek(0)
+                        audio_detectado = mutagen.File(archivo_audio)
+                        archivo_audio.seek(0)
+
+                        if audio_detectado is None:
+                            form.add_error(
+                                'track',
+                                'El archivo seleccionado no contiene un audio válido.'
+                            )
+                            archivos_validos = False
+
+                    except Exception:
+                        try:
+                            archivo_audio.seek(0)
+                        except Exception:
+                            pass
+
+                        form.add_error(
+                            'track',
+                            'No fue posible validar el audio. '
+                            'Comprueba que el archivo no esté dañado.'
+                        )
+                        archivos_validos = False
+            else:
+                form.add_error(
+                    'track',
+                    'Debes seleccionar un archivo de audio.'
+                )
+                archivos_validos = False
+
+            # La imagen es opcional, pero si se envía debe tener un formato permitido.
+            if archivo_imagen:
+                nombre_imagen = archivo_imagen.name.lower()
+                extension_imagen = (
+                    '.' + nombre_imagen.rsplit('.', 1)[-1]
+                    if '.' in nombre_imagen
+                    else ''
+                )
+
+                if extension_imagen not in formatos_imagen:
+                    form.add_error(
+                        'foto',
+                        'Imagen inválida. Solo se permiten JPG, JPEG, PNG o WEBP.'
+                    )
+                    archivos_validos = False
+
+            if formulario_valido and archivos_validos:
+                usuario = perfil
+
+                track = form.save(commit=False)
+                track.usuario = usuario
+                track.save()
+                try:
+                    generar_preview_audio(track)
+                except Exception:
+                    from django.http import HttpResponse
+
+                    transaction.set_rollback(True)
+
+                    return HttpResponse(
+                        "No fue posible generar el preview.",
+                        status=500,
+                    )
+
+                messages.success(request, 'Track subido correctamente.')
+                return redirect('perfil')
+
+        else:
+            form = TrackForm()
+
+        return render(request, 'app/subir_archivo.html', {'form': form})
 
 def catalogo(request):
     from .r2_visibility import only_ready_tracks
@@ -1117,7 +1414,15 @@ def catalogo(request):
     return render(request, 'app/catalogo.html', context)
 
 def perfil2(request, username):
-    usuario = get_object_or_404(User, username=username)
+    usuario = get_object_or_404(
+        User.objects.filter(
+            usuario__isnull=False,
+            usuario__cuenta_cerrada_en__isnull=True,
+        ).exclude(
+            username=ANON_USER_USERNAME,
+        ),
+        username=username,
+    )
     tipo_usuario = usuario.usuario.tipo_usu
     
     if tipo_usuario == Usuario.ARTISTA:
@@ -1127,13 +1432,29 @@ def perfil2(request, username):
 
 
 def perfil_artista1(request, username):
-    usuario = get_object_or_404(User, username=username)
+    usuario = get_object_or_404(
+        User.objects.filter(
+            usuario__isnull=False,
+            usuario__cuenta_cerrada_en__isnull=True,
+        ).exclude(
+            username=ANON_USER_USERNAME,
+        ),
+        username=username,
+    )
     perfil = get_object_or_404(Usuario, user=usuario)
     return render(request, 'app/perfil_artista1.html', {'perfil': perfil})
 
 def perfil_productor1(request, username):
     from .r2_visibility import only_ready_tracks
-    usuario = get_object_or_404(User, username=username)
+    usuario = get_object_or_404(
+        User.objects.filter(
+            usuario__isnull=False,
+            usuario__cuenta_cerrada_en__isnull=True,
+        ).exclude(
+            username=ANON_USER_USERNAME,
+        ),
+        username=username,
+    )
     perfil = get_object_or_404(Usuario, user=usuario)
     canciones = only_ready_tracks(Track.objects.filter(usuario=perfil, is_retired=False))
     suscripcion = Suscripcion.objects.filter(
@@ -1808,10 +2129,16 @@ def exito_carrito(request):
             )
 
             # Tampoco registrar nuevamente una cancion ya comprada.
-            canciones_ya_compradas = HistorialCompra.objects.filter(
-                usuario=usuario_comprador,
-                track_id__in=[item[1] for item in items],
-            ).exists()
+            canciones_ya_compradas = (
+                HistorialCompra.objects.filter(
+                    usuario=usuario_comprador,
+                    track_id__in=[item[1] for item in items],
+                ).exists()
+                or HistorialVenta.objects.filter(
+                    comprador=usuario_comprador.user,
+                    track_id__in=[item[1] for item in items],
+                ).exists()
+            )
 
             if not pedido_disponible or canciones_ya_compradas:
                 print(
@@ -1826,9 +2153,10 @@ def exito_carrito(request):
             for venta_id, track_id, precio, iva in items:
                 track = tracks[track_id]
 
-                HistorialCompra.objects.get_or_create(
+                HistorialCompra.objects.create(
                     usuario=usuario_comprador,
                     track=track,
+                    origen_adquisicion=HistorialCompra.ORIGEN_WEBPAY,
                 )
 
                 HistorialVenta.objects.create(
@@ -1850,6 +2178,17 @@ def exito_carrito(request):
             orden.status = WebpayTransaction.ESTADO_AUTORIZADO
             orden.fulfilled_at = timezone.now()
             orden.save(update_fields=["status", "fulfilled_at"])
+
+            # D10: emitir las licencias dentro de la misma
+            # transaccion atomica que registra la compra.
+            from .license_service import issue_license_for_purchase
+
+            for _, track_id, _, _ in items:
+                compra = HistorialCompra.objects.get(
+                    usuario=usuario_comprador,
+                    track_id=track_id,
+                )
+                issue_license_for_purchase(compra, orden)
 
         return _respuesta_retorno_webpay(request, 'exito') or render(
             request,
@@ -2152,7 +2491,10 @@ def recuperar_contrasena_success(request):
 
 def recuperar_contrasena(request):
     # Flujo seguro oficial de Django: nunca cambia la contraseña solo conociendo el correo.
+    from .account_password_reset import BeatsCloudPasswordResetForm
+
     view = PasswordResetView.as_view(
+        form_class=BeatsCloudPasswordResetForm,
         template_name='app/password_reset_form.html',
         email_template_name='registration/password_reset_email.txt',
         html_email_template_name='emails/restablecer_contrasena.html',
@@ -2164,12 +2506,15 @@ def recuperar_contrasena(request):
 
 def catalogo_usuarios(request):
     # Todos los perfiles reales; la cuenta técnica anónima no se lista.
-    usuarios = (
+    visibles = (
         Usuario.objects
         .select_related('user')
+        .filter(cuenta_cerrada_en__isnull=True)
         .exclude(user__username=ANON_USER_USERNAME)
         .order_by('user__username')
     )
+
+    usuarios = visibles
 
     tipo = (request.GET.get('tipo') or 'todos').strip().lower()
     query = (request.GET.get('q') or '').strip()
@@ -2192,8 +2537,8 @@ def catalogo_usuarios(request):
         'usuarios': usuarios,
         'tipo': tipo,
         'query': query,
-        'total_artistas': Usuario.objects.filter(tipo_usu=Usuario.ARTISTA).exclude(user__username=ANON_USER_USERNAME).count(),
-        'total_productores': Usuario.objects.filter(tipo_usu=Usuario.PRODUCTOR).exclude(user__username=ANON_USER_USERNAME).count(),
+        'total_artistas': visibles.filter(tipo_usu=Usuario.ARTISTA).count(),
+        'total_productores': visibles.filter(tipo_usu=Usuario.PRODUCTOR).count(),
     }
 
     return render(request, 'app/catalogo_usuarios.html', context)

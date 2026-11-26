@@ -49,13 +49,37 @@ class CierreCuentaWebpayTests(TestCase):
             'codigo': codigo
         })
         self.assertEqual(respuesta.status_code, 200)
-        self.assertFalse(User.objects.filter(pk=user.pk).exists())
-        anonimo = User.objects.get(username='UsuarioAnonimo')
-        self.assertFalse(anonimo.is_active)
-        for pk in (autorizado.pk, cancelado.pk):
-            pago = WebpayTransaction.objects.get(pk=pk)
-            self.assertEqual(pago.user_id, anonimo.pk)
-            self.assertEqual(str(pago.amount), '1190.00')
+        cuenta = User.objects.get(pk=user.pk)
+
+        self.assertFalse(cuenta.is_active)
+        self.assertFalse(cuenta.has_usable_password())
+        self.assertEqual(cuenta.email, "")
+
+        self.assertTrue(
+            Usuario.objects.filter(
+                user_id=user.pk,
+                cuenta_cerrada_en__isnull=False,
+            ).exists()
+        )
+
+        self.assertNotIn(
+            "_auth_user_id",
+            self.client.session,
+        )
+
+        for anterior_pago in (autorizado, cancelado):
+
+            pago = WebpayTransaction.objects.get(
+                pk=anterior_pago.pk
+            )
+
+            self.assertEqual(pago.user_id, user.pk)
+            self.assertEqual(str(pago.amount), "1190.00")
+            self.assertEqual(pago.status, anterior_pago.status)
+            self.assertEqual(pago.buy_order, anterior_pago.buy_order)
+            self.assertEqual(pago.session_id, anterior_pago.session_id)
+            self.assertEqual(pago.fulfilled_at, anterior_pago.fulfilled_at)
+            self.assertEqual(pago.cart_snapshot, anterior_pago.cart_snapshot)
         self.assertTrue(User.objects.filter(pk=otro.pk).exists())
         orden_ajena.refresh_from_db()
         self.assertEqual(orden_ajena.user_id, otro.pk)

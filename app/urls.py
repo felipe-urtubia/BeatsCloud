@@ -12,6 +12,8 @@ from .views import (
     cancelar_pago_pendiente, eliminar_cuenta, confirmar_eliminacion_cuenta, sobre_nosotros,
 )
 
+from app.account_password_reset import BeatsCloudPasswordResetConfirmView
+
 urlpatterns = [
     path('', inicio, name='inicio'),
     path('registro/', registro, name='registro'),
@@ -55,7 +57,7 @@ urlpatterns = [
     path('recuperar/enviado/', auth_views.PasswordResetDoneView.as_view(
         template_name='app/password_reset_done.html'
     ), name='beatcloud_password_reset_done'),
-    path('recuperar/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+    path('recuperar/<uidb64>/<token>/', BeatsCloudPasswordResetConfirmView.as_view(
         template_name='app/password_reset_confirm.html',
         success_url='/recuperar/completado/'
     ), name='beatcloud_password_reset_confirm'),

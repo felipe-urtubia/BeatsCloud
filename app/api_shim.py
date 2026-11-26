@@ -326,7 +326,11 @@ def login_api(request):
     )
     if user is None:
         perfil = Usuario.objects.filter(user__username=body.get("username", "")).first()
-        if perfil and not perfil.user.is_active:
+        if (
+            perfil
+            and perfil.cuenta_cerrada_en is None
+            and not perfil.user.is_active
+        ):
             return _err(
                 "Debes confirmar tu cuenta desde el correo de activación antes de iniciar sesión.",
                 403,
@@ -353,25 +357,35 @@ def logout_api(request):
 def activar_cuenta_api(request):
     if request.method != "POST":
         return _method_not_allowed(["POST"])
+
     body = _json_body(request)
+
     if not isinstance(body, dict):
-        return _err("El enlace de activación no es válido.", 400)
+        return _err(
+            "El enlace de activación no es válido.",
+            400,
+        )
+
     uidb64 = body.get("uidb64")
     token = body.get("token")
-    if not isinstance(uidb64, str) or not isinstance(token, str):
-        return _err("El enlace de activación no es válido.", 400)
-    try:
-        user_id = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.filter(pk=user_id).first()
-    except (TypeError, ValueError, OverflowError, UnicodeDecodeError):
-        user = None
 
-    if user is None or not default_token_generator.check_token(user, token):
-        return _err("El enlace de activación no es válido o ha expirado.", 400)
-    if not user.is_active:
-        user.is_active = True
-        user.save(update_fields=["is_active"])
-    return JsonResponse({"detail": "Cuenta activada. Ya puedes iniciar sesión."})
+    if not isinstance(uidb64, str) or not isinstance(token, str):
+        return _err(
+            "El enlace de activación no es válido.",
+            400,
+        )
+
+    from .account_activation import activate_account_from_token
+
+    if not activate_account_from_token(uidb64, token):
+        return _err(
+            "El enlace de activación no es válido o ha expirado.",
+            400,
+        )
+
+    return JsonResponse({
+        "detail": "Cuenta activada. Ya puedes iniciar sesión."
+    })
 
 
 def solicitar_restauracion_contrasena_api(request):
@@ -384,7 +398,11 @@ def solicitar_restauracion_contrasena_api(request):
     if not isinstance(email, str):
         return _err("Ingresa un correo electrónico válido.", 400)
 
-    form = PasswordResetForm({"email": email.strip()})
+    from .account_password_reset import BeatsCloudPasswordResetForm
+
+    form = BeatsCloudPasswordResetForm(
+        {"email": email.strip()}
+    )
     if not form.is_valid():
         return JsonResponse(
             {"detail": "Ingresa un correo electrónico válido.", "errors": {
@@ -432,56 +450,70 @@ def confirmar_restauracion_contrasena_api(request):
     token = body.get("token")
     if not isinstance(uidb64, str) or not isinstance(token, str):
         return _err("El enlace de recuperación no es válido o expiró.", 400)
-    try:
-        user_id = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.filter(pk=user_id, is_active=True).first()
-    except (TypeError, ValueError, OverflowError, UnicodeDecodeError):
-        user = None
+    from django.db import transaction
 
-    if user is None or not default_token_generator.check_token(user, token):
-        return _err("El enlace de recuperación no es válido o expiró.", 400)
+    with transaction.atomic():
+        try:
+            user_id = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.select_for_update().filter(
+                pk=user_id,
+                is_active=True,
+            ).first()
+        except (TypeError, ValueError, OverflowError, UnicodeDecodeError):
+            user = None
 
-    new_password = body.get("new_password1")
-    if isinstance(new_password, str) and user.check_password(new_password):
-        message = "La nueva contraseña no puede ser igual a la contraseña actual."
-        return JsonResponse(
-            {
-                "detail": message,
-                "errors": {"new_password1": [message]},
-            },
-            status=400,
-        )
+        if (
+            user is None
+            or not user.has_usable_password()
+            or Usuario.objects.filter(
+                user_id=user.pk,
+                cuenta_cerrada_en__isnull=False,
+            ).exists()
+            or not default_token_generator.check_token(user, token)
+        ):
+            return _err("El enlace de recuperación no es válido o expiró.", 400)
 
-    form = SetPasswordForm(user, data={
-        "new_password1": new_password or "",
-        "new_password2": body.get("new_password2", ""),
-    })
-    if not form.is_valid():
-        localized_errors = {
-            key: [
-                str(message).replace(
-                    "The password is too similar to the first name.",
-                    "La contraseña es demasiado similar al nombre.",
-                )
+        new_password = body.get("new_password1")
+        if isinstance(new_password, str) and user.check_password(new_password):
+            message = "La nueva contraseña no puede ser igual a la contraseña actual."
+            return JsonResponse(
+                {
+                    "detail": message,
+                    "errors": {"new_password1": [message]},
+                },
+                status=400,
+            )
+
+        form = SetPasswordForm(user, data={
+            "new_password1": new_password or "",
+            "new_password2": body.get("new_password2", ""),
+        })
+        if not form.is_valid():
+            localized_errors = {
+                key: [
+                    str(message).replace(
+                        "The password is too similar to the first name.",
+                        "La contraseña es demasiado similar al nombre.",
+                    )
+                    for message in messages
+                ]
+                for key, messages in form.errors.items()
+            }
+            validation_messages = [
+                message
+                for messages in localized_errors.values()
                 for message in messages
             ]
-            for key, messages in form.errors.items()
-        }
-        validation_messages = [
-            message
-            for messages in localized_errors.values()
-            for message in messages
-        ]
-        return JsonResponse(
-            {
-                "detail": " ".join(validation_messages) or "Revisa la contraseña ingresada.",
-                "errors": localized_errors,
-            },
-            status=400,
-        )
+            return JsonResponse(
+                {
+                    "detail": " ".join(validation_messages) or "Revisa la contraseña ingresada.",
+                    "errors": localized_errors,
+                },
+                status=400,
+            )
 
-    form.save()
-    return JsonResponse({"detail": "Tu contraseña se actualizó. Ya puedes iniciar sesión."})
+        form.save()
+        return JsonResponse({"detail": "Tu contraseña se actualizó. Ya puedes iniciar sesión."})
 
 
 def registro_api(request):
@@ -1004,87 +1036,107 @@ def upload_api(request):
         return _err("Método no permitido.", 405)
     if not request.user.is_authenticated:
         return _err("Autenticación requerida.", 401)
-    if request.user.usuario.tipo_usu != Usuario.PRODUCTOR:
-        return _err("Solo los productores pueden subir pistas.", 403)
+    from django.db import transaction
+    from app.r2_account_guard import lock_r2_upload_owner
 
-    post_data = request.POST.copy()
-    post_data.setdefault("resource_type", "instrumental")
-    post_data.setdefault("bpm", "140")
-    post_data.setdefault("scale_key", "Am")
-    post_data.setdefault("mood", "Oscuro")
-    post_data.setdefault("has_stems", "false")
-    post_data.setdefault("has_wav", "true")
-    post_data.setdefault("has_midi", "false")
-    post_data.setdefault("allow_free_download", "false")
-    post_data.setdefault("has_watermark", "true")
-    post_data.setdefault("duration", "30")
-    genre_value = post_data.get("genero", "").strip()
-    if genre_value and not genre_value.isdecimal():
-        genre_names = {
-            "Hip-Hop": "Hip-Hop",
-            "Trap": "Hip-Hop",
-            "Reggaeton": "Reggaeton",
-            "Electronica": "Electronica",
-            "R&B": "R&B",
-            "Pop": "Pop",
-            "Rock": "Rock",
-            "Drill": "Metal",
-            "Boom-Bap": "Jazz",
-            "Soul": "Soul",
-        }
-        genre_name = genre_names.get(genre_value)
-        if genre_name:
-            genre, _ = Genero_Musical.objects.get_or_create(descripcion=genre_name)
-            post_data["genero"] = str(genre.pk)
-        else:
-            post_data["genero"] = ""
+    with transaction.atomic():
+        if not lock_r2_upload_owner(request.user.pk):
+            return _err(
+                "La cuenta no esta habilitada para publicar.", 403
+            )
 
-    form = TrackForm(post_data, request.FILES)
-    archivos_ok = True
-    errores = {}
+        perfil = Usuario.objects.filter(
+            user_id=request.user.pk,
+            tipo_usu=Usuario.PRODUCTOR,
+            cuenta_cerrada_en__isnull=True,
+        ).first()
 
-    import mutagen
+        if perfil is None:
+            return _err("Solo los productores pueden subir pistas.", 403)
 
-    audio = request.FILES.get("track")
-    formatos_audio = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg"}
-    if audio:
-        ext = "." + audio.name.lower().rsplit(".", 1)[-1] if "." in audio.name else ""
-        if ext not in formatos_audio:
-            archivos_ok = False
-            errores["track"] = "Archivo de audio inválido. Solo MP3, WAV, FLAC, M4A, AAC u OGG."
-        else:
-            try:
-                audio.seek(0)
-                if mutagen.File(audio) is None:
-                    archivos_ok = False
-                    errores["track"] = "El archivo seleccionado no contiene un audio válido."
-            except Exception:
+        post_data = request.POST.copy()
+        post_data.setdefault("resource_type", "instrumental")
+        post_data.setdefault("bpm", "140")
+        post_data.setdefault("scale_key", "Am")
+        post_data.setdefault("mood", "Oscuro")
+        post_data.setdefault("has_stems", "false")
+        post_data.setdefault("has_wav", "true")
+        post_data.setdefault("has_midi", "false")
+        post_data.setdefault("allow_free_download", "false")
+        post_data.setdefault("has_watermark", "true")
+        post_data.setdefault("duration", "30")
+        genre_value = post_data.get("genero", "").strip()
+        if genre_value and not genre_value.isdecimal():
+            genre_names = {
+                "Hip-Hop": "Hip-Hop",
+                "Trap": "Hip-Hop",
+                "Reggaeton": "Reggaeton",
+                "Electronica": "Electronica",
+                "R&B": "R&B",
+                "Pop": "Pop",
+                "Rock": "Rock",
+                "Drill": "Metal",
+                "Boom-Bap": "Jazz",
+                "Soul": "Soul",
+            }
+            genre_name = genre_names.get(genre_value)
+            if genre_name:
+                genre, _ = Genero_Musical.objects.get_or_create(descripcion=genre_name)
+                post_data["genero"] = str(genre.pk)
+            else:
+                post_data["genero"] = ""
+
+        form = TrackForm(post_data, request.FILES)
+        archivos_ok = True
+        errores = {}
+
+        import mutagen
+
+        audio = request.FILES.get("track")
+        formatos_audio = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg"}
+        if audio:
+            ext = "." + audio.name.lower().rsplit(".", 1)[-1] if "." in audio.name else ""
+            if ext not in formatos_audio:
                 archivos_ok = False
-                errores["track"] = "No fue posible validar el audio."
-            finally:
+                errores["track"] = "Archivo de audio inválido. Solo MP3, WAV, FLAC, M4A, AAC u OGG."
+            else:
                 try:
                     audio.seek(0)
+                    if mutagen.File(audio) is None:
+                        archivos_ok = False
+                        errores["track"] = "El archivo seleccionado no contiene un audio válido."
                 except Exception:
-                    pass
-    else:
-        archivos_ok = False
-        errores["track"] = "Debes seleccionar un archivo de audio."
+                    archivos_ok = False
+                    errores["track"] = "No fue posible validar el audio."
+                finally:
+                    try:
+                        audio.seek(0)
+                    except Exception:
+                        pass
+        else:
+            archivos_ok = False
+            errores["track"] = "Debes seleccionar un archivo de audio."
 
-    if not form.is_valid() or not archivos_ok:
-        errs = {k: [str(m) for m in v] for k, v in form.errors.items()}
-        errs.update({k: [v] for k, v in errores.items()})
-        return JsonResponse({"detail": "Errores de validación.", "errors": errs}, status=400)
+        if not form.is_valid() or not archivos_ok:
+            errs = {k: [str(m) for m in v] for k, v in form.errors.items()}
+            errs.update({k: [v] for k, v in errores.items()})
+            return JsonResponse({"detail": "Errores de validación.", "errors": errs}, status=400)
 
-    track = form.save(commit=False)
-    track.usuario = request.user.usuario
-    track.save()
-    try:
-        generar_preview_audio(track)  # mp3 30s — seguridad de preview server-side
-    except Exception as e:
-        track.delete()
-        return _err(f"Track guardado pero sin preview: {e!r}", 500)
+        track = form.save(commit=False)
+        track.usuario = perfil
+        track.save()
+        try:
+            generar_preview_audio(track)
+        except Exception:
 
-    return JsonResponse(ser_track(track, request.user), status=201)
+            transaction.set_rollback(True)
+
+            return _err(
+                "No fue posible generar el preview.",
+                500,
+            )
+
+        return JsonResponse(ser_track(track, request.user), status=201)
 
 
 def track_cover_api(request, track_id):
@@ -1115,270 +1167,449 @@ def track_update_api(request, track_id):
         return _err("Método no permitido.", 405)
     if not request.user.is_authenticated:
         return _err("Autenticación requerida.", 401)
-    t, err = _owned_track_or_404(track_id, request.user)
-    if err:
-        return err
-    # Misma restricción de editar_track: no se reemplaza el audio si ya hay ventas.
-    if request.content_type.startswith("multipart/"):
-        body, files = _multipart_body(request)
-    else:
-        body, files = _json_body(request), request.FILES
-    if "genero" in body:
-        genre_value = str(body["genero"]).strip()
-        genre_names = {
-            "Hip-Hop": "Hip-Hop",
-            "Trap": "Hip-Hop",
-            "Reggaeton": "Reggaeton",
-            "Electronica": "Electronica",
-            "R&B": "R&B",
-            "Pop": "Pop",
-            "Rock": "Rock",
-            "Drill": "Metal",
-            "Boom-Bap": "Jazz",
-            "Soul": "Soul",
-        }
-        genre_name = genre_names.get(genre_value)
-        if genre_name:
-            t.genero, _ = Genero_Musical.objects.get_or_create(descripcion=genre_name)
-        elif genre_value.isdecimal():
-            genero = Genero_Musical.objects.filter(pk=int(genre_value)).first()
-            if genero is None:
-                return _err("El género indicado no existe.", 400)
-            t.genero = genero
+    from django.db import transaction
+    from app.r2_account_guard import lock_r2_upload_owner
+
+    with transaction.atomic():
+        if not lock_r2_upload_owner(request.user.pk):
+            return _err("La cuenta no esta habilitada para editar.", 403)
+
+        t = (
+            Track.objects
+            .select_for_update()
+            .filter(pk=track_id)
+            .first()
+        )
+
+        if t is None:
+            return _err("Track no encontrado.", 404)
+
+        if t.usuario.user_id != request.user.pk:
+            return _err("No tienes permisos sobre este track.", 403)
+
+        if t.is_retired:
+            return _err("No se puede editar un track retirado.", 409)
+
+        campos_actualizados = set()
+        # Misma restricción de editar_track: no se reemplaza el audio si ya hay ventas.
+        if request.content_type.startswith("multipart/"):
+            body, files = _multipart_body(request)
         else:
-            return _err("El género indicado no es válido.", 400)
-    from django.core.exceptions import ValidationError
-    from .metadata_validation import validate_d9_field
+            body, files = _json_body(request), request.FILES
+        if "genero" in body:
+            genre_value = str(body["genero"]).strip()
+            genre_names = {
+                "Hip-Hop": "Hip-Hop",
+                "Trap": "Hip-Hop",
+                "Reggaeton": "Reggaeton",
+                "Electronica": "Electronica",
+                "R&B": "R&B",
+                "Pop": "Pop",
+                "Rock": "Rock",
+                "Drill": "Metal",
+                "Boom-Bap": "Jazz",
+                "Soul": "Soul",
+            }
+            genre_name = genre_names.get(genre_value)
+            if genre_name:
+                t.genero, _ = Genero_Musical.objects.get_or_create(descripcion=genre_name)
+            elif genre_value.isdecimal():
+                genero = Genero_Musical.objects.filter(pk=int(genre_value)).first()
+                if genero is None:
+                    return _err("El género indicado no existe.", 400)
+                t.genero = genero
+            else:
+                return _err("El género indicado no es válido.", 400)
+            campos_actualizados.add("genero")
 
-    editable = {
-        "nombre_track", "precio", "descripcion", "subgenre", "resource_type", "bpm",
-        "scale_key", "mood", "has_stems", "has_wav", "has_midi",
-        "allow_free_download", "has_watermark", "duration",
-    }
-    for campo in editable:
-        if campo not in body:
-            continue
-        valor = body[campo]
-        if campo in {"bpm", "mood", "resource_type", "has_stems"}:
-            try:
-                valor = validate_d9_field(campo, valor)
-            except ValidationError as exc:
-                return JsonResponse(
-                    {"detail": "Errores de validación.", "errors": {campo: exc.messages}},
-                    status=400,
-                )
-        elif campo in {"precio", "duration"}:
-            try:
-                valor = int(valor)
-            except (TypeError, ValueError):
-                return _err(f"El campo {campo} debe ser un número entero.", 400)
-        elif campo in {"has_wav", "has_midi", "allow_free_download", "has_watermark"}:
-            valor = str(valor).lower() in {"true", "1", "on"}
-        setattr(t, campo, valor)
-    cover_token = body.get("cover_upload_token")
-    old_cover_key = getattr(t, "r2_cover_key", "") or ""
-    new_cover_key = ""
-    cover_client = None
-    cover_bucket = None
+        from django.core.exceptions import ValidationError
+        from .metadata_validation import validate_d9_field
 
-    if cover_token is not None and files.get("foto"):
-        return _err(
-            "No se permite combinar una portada local y una portada R2.",
-            400,
-        )
+        editable = {
+            "nombre_track", "precio", "descripcion", "subgenre", "resource_type", "bpm",
+            "scale_key", "mood", "has_stems", "has_wav", "has_midi",
+            "allow_free_download", "has_watermark", "duration",
+        }
+        for campo in editable:
+            if campo not in body:
+                continue
+            valor = body[campo]
+            if campo in {"bpm", "mood", "resource_type", "has_stems"}:
+                try:
+                    valor = validate_d9_field(campo, valor)
+                except ValidationError as exc:
+                    return JsonResponse(
+                        {"detail": "Errores de validación.", "errors": {campo: exc.messages}},
+                        status=400,
+                    )
+            elif campo in {"precio", "duration"}:
+                try:
+                    valor = int(valor)
+                except (TypeError, ValueError):
+                    return _err(f"El campo {campo} debe ser un número entero.", 400)
+            elif campo in {"has_wav", "has_midi", "allow_free_download", "has_watermark"}:
+                valor = str(valor).lower() in {"true", "1", "on"}
+            setattr(t, campo, valor)
+            campos_actualizados.add(campo)
+        cover_token = body.get("cover_upload_token")
+        old_cover_key = getattr(t, "r2_cover_key", "") or ""
+        new_cover_key = ""
+        cover_client = None
+        cover_bucket = None
 
-    if cover_token is not None:
-        from app.r2_presign import (
-            r2_configuration,
-            r2_client,
-            r2_uploads_enabled,
-        )
-        from app.r2_registration_guard import (
-            R2RegistrationGuardError,
-            validate_r2_cover_token,
-        )
-        from app.r2_registration_prepare import (
-            R2RegistrationPrepareError,
-            prepare_r2_cover_upload,
-        )
-        from app.r2_upload_http import _bucket
-        from app.r2_cover_delivery import is_owned_r2_cover_key
-
-        if not r2_uploads_enabled():
-            return _err("Las subidas R2 estan desactivadas.", 503)
-
-        try:
-            validate_r2_cover_token(
-                upload_token=cover_token,
-                user_id=request.user.pk,
-            )
-        except R2RegistrationGuardError:
-            return _err("La autorizacion de portada no es valida o ha caducado.", 400)
-
-        try:
-            config = r2_configuration()
-            if not isinstance(config, dict):
-                return _err("Configuracion R2 no disponible.", 503)
-
-            cover_bucket = _bucket(config)
-            if not isinstance(cover_bucket, str) or not cover_bucket.strip():
-                return _err("Bucket R2 no configurado.", 503)
-
-            cover_client = r2_client(config)
-            if cover_client is None:
-                return _err("Cliente R2 no disponible.", 503)
-        except Exception:
-            logging.getLogger(__name__).exception(
-                "No fue posible iniciar el reemplazo de portada R2."
-            )
-            return _err("No se pudo iniciar el almacenamiento R2.", 503)
-
-        try:
-            cover_draft = prepare_r2_cover_upload(
-                client=cover_client,
-                bucket=cover_bucket,
-                user_id=request.user.pk,
-                upload_token=cover_token,
-            )
-        except R2RegistrationGuardError:
-            return _err("La autorizacion de portada no es valida o ha caducado.", 400)
-        except R2RegistrationPrepareError:
-            logging.getLogger(__name__).exception(
-                "No fue posible promover la nueva portada R2."
-            )
-            return _err("No fue posible preparar la portada en R2.", 503)
-
-        new_cover_key = getattr(cover_draft, "private_key", "")
-        if not is_owned_r2_cover_key(request.user.pk, new_cover_key):
-            return _err("La ruta privada de la portada no es valida.", 503)
-
-        t.r2_cover_key = new_cover_key
-
-    elif files.get("foto"):
-        if old_cover_key:
+        if cover_token is not None and files.get("foto"):
             return _err(
-                "Esta cancion utiliza una portada R2. Selecciona una nueva portada para subirla mediante R2.",
+                "No se permite combinar una portada local y una portada R2.",
                 400,
             )
 
-        foto_field = TrackForm(instance=t).fields["foto"]
-        try:
-            t.foto = foto_field.clean(files["foto"])
-        except ValidationError as exc:
-            return JsonResponse(
-                {"detail": "La portada no es una imagen valida.", "errors": {"foto": exc.messages}},
-                status=400,
+        if cover_token is not None:
+            from app.r2_presign import (
+                r2_configuration,
+                r2_client,
+                r2_uploads_enabled,
             )
+            from app.r2_registration_guard import (
+                R2RegistrationGuardError,
+                validate_r2_cover_token,
+            )
+            from app.r2_registration_prepare import (
+                R2RegistrationPrepareError,
+                prepare_r2_cover_upload,
+            )
+            from app.r2_upload_http import _bucket
+            from app.r2_cover_delivery import is_owned_r2_cover_key
 
-    try:
-        t.save()
-    except Exception:
-        if new_cover_key and cover_client is not None and cover_bucket:
-            if is_owned_r2_cover_key(request.user.pk, new_cover_key):
-                try:
-                    cover_client.delete_object(
-                        Bucket=cover_bucket,
-                        Key=new_cover_key,
-                    )
-                except Exception:
-                    logging.getLogger(__name__).exception(
-                        "No fue posible limpiar la nueva portada R2 tras fallar el guardado."
-                    )
-        raise
+            if not r2_uploads_enabled():
+                return _err("Las subidas R2 estan desactivadas.", 503)
 
-    if (
-        old_cover_key
-        and old_cover_key != new_cover_key
-        and cover_client is not None
-        and cover_bucket
-    ):
-        if is_owned_r2_cover_key(request.user.pk, old_cover_key):
             try:
-                cover_client.delete_object(
-                    Bucket=cover_bucket,
-                    Key=old_cover_key,
+                validate_r2_cover_token(
+                    upload_token=cover_token,
+                    user_id=request.user.pk,
                 )
+            except R2RegistrationGuardError:
+                return _err("La autorizacion de portada no es valida o ha caducado.", 400)
+
+            try:
+                config = r2_configuration()
+                if not isinstance(config, dict):
+                    return _err("Configuracion R2 no disponible.", 503)
+
+                cover_bucket = _bucket(config)
+                if not isinstance(cover_bucket, str) or not cover_bucket.strip():
+                    return _err("Bucket R2 no configurado.", 503)
+
+                cover_client = r2_client(config)
+                if cover_client is None:
+                    return _err("Cliente R2 no disponible.", 503)
             except Exception:
                 logging.getLogger(__name__).exception(
-                    "No fue posible limpiar la portada R2 anterior."
+                    "No fue posible iniciar el reemplazo de portada R2."
+                )
+                return _err("No se pudo iniciar el almacenamiento R2.", 503)
+
+            try:
+                cover_draft = prepare_r2_cover_upload(
+                    client=cover_client,
+                    bucket=cover_bucket,
+                    user_id=request.user.pk,
+                    upload_token=cover_token,
+                )
+            except R2RegistrationGuardError:
+                return _err("La autorizacion de portada no es valida o ha caducado.", 400)
+            except R2RegistrationPrepareError:
+                logging.getLogger(__name__).exception(
+                    "No fue posible promover la nueva portada R2."
+                )
+                return _err("No fue posible preparar la portada en R2.", 503)
+
+            new_cover_key = getattr(cover_draft, "private_key", "")
+            if not is_owned_r2_cover_key(request.user.pk, new_cover_key):
+                return _err("La ruta privada de la portada no es valida.", 503)
+
+            t.r2_cover_key = new_cover_key
+            campos_actualizados.add("r2_cover_key")
+
+        elif files.get("foto"):
+            if old_cover_key:
+                return _err(
+                    "Esta cancion utiliza una portada R2. Selecciona una nueva portada para subirla mediante R2.",
+                    400,
                 )
 
-    return JsonResponse(ser_track(t, request.user))
+            foto_field = TrackForm(instance=t).fields["foto"]
+            try:
+                t.foto = foto_field.clean(files["foto"])
+                campos_actualizados.add("foto")
+            except ValidationError as exc:
+                return JsonResponse(
+                    {"detail": "La portada no es una imagen valida.", "errors": {"foto": exc.messages}},
+                    status=400,
+                )
+
+        try:
+
+            if campos_actualizados:
+                t.save(
+                    update_fields=sorted(campos_actualizados)
+                )
+
+        except Exception:
+
+            # Conservar objetos nuevos ante incertidumbre.
+            # No eliminar archivos si el guardado falla.
+            if new_cover_key:
+                logging.getLogger(__name__).warning(
+                    "Portada R2 pendiente de conciliacion tras fallo de guardado."
+                )
+
+            raise
+
+        if (
+            old_cover_key
+            and old_cover_key != new_cover_key
+            and cover_client is not None
+            and cover_bucket
+            and is_owned_r2_cover_key(request.user.pk, old_cover_key)
+        ):
+
+            from types import SimpleNamespace
+            from functools import partial
+
+            from app.r2_upload_workflow import (
+                _delete_private_if_unattached,
+            )
+
+            transaction.on_commit(
+                partial(
+                    _delete_private_if_unattached,
+                    cover_client,
+                    cover_bucket,
+                    SimpleNamespace(private_key=old_cover_key),
+                    None,
+                    "r2_cover_key",
+                ),
+                robust=True,
+            )
+
+        return JsonResponse(ser_track(t, request.user))
 
 
 def track_delete_api(request, track_id):
+
+    from django.db import transaction
+    from app.r2_account_guard import lock_r2_upload_owner
+
     if request.method != "POST":
-        return _err("Método no permitido.", 405)
+        return _err("Metodo no permitido.", 405)
+
     if not request.user.is_authenticated:
-        return _err("Autenticación requerida.", 401)
-    t, err = _owned_track_or_404(track_id, request.user)
-    if err:
-        return err
-    # Retirada logica: no borrar compras, ventas ni archivos.
-    t.is_retired = True
-    t.save(update_fields=["is_retired"])
-    return JsonResponse({"ok": True, "retired": True})
+        return _err("Autenticacion requerida.", 401)
+
+    with transaction.atomic():
+
+        if not lock_r2_upload_owner(request.user.pk):
+            return _err("Cuenta no habilitada.", 403)
+
+        track = (
+            Track.objects.select_for_update()
+            .filter(pk=track_id)
+            .first()
+        )
+
+        if track is None:
+            return _err("Track no encontrado.", 404)
+
+        if track.usuario.user_id != request.user.pk:
+            return _err("No tienes permisos sobre este track.", 403)
+
+        if not track.is_retired:
+            track.is_retired = True
+            track.save(update_fields=["is_retired"])
+
+        return JsonResponse({"ok": True, "retired": True})
 
 
 def claim_free_track_api(request, track_id):
     if request.method != "POST":
         return _method_not_allowed(["POST"])
+
     if not request.user.is_authenticated:
-        return _err("Autenticación requerida.", 401)
-    track = Track.objects.filter(id_track=track_id, media_status="ready").first()
-    if track is None:
-        return _err("Track no encontrado.", 404)
-    if track.is_retired:
-        return _err("Este track fue retirado del catalogo.", 409)
-    if track.precio != 0:
-        return _err("Este track no es gratuito.", 409)
-    profile = Usuario.objects.filter(user=request.user).first()
-    if profile is None:
-        return _err("No se encontró el perfil de esta cuenta.", 404)
-    HistorialCompra.objects.get_or_create(usuario=profile, track=track)
+        return _err("Autenticaci\u00f3n requerida.", 401)
+
+    from django.db import transaction
+
+    from app.r2_account_guard import lock_r2_upload_owner
+
+    with transaction.atomic():
+
+        if not lock_r2_upload_owner(request.user.pk):
+            return _err("Cuenta no habilitada.", 403)
+
+        profile = Usuario.objects.select_for_update().filter(
+            user=request.user
+        ).first()
+
+        if profile is None:
+            return _err(
+                "No se encontr\u00f3 el perfil de esta cuenta.",
+                404,
+            )
+
+        track = Track.objects.select_for_update().filter(
+            id_track=track_id,
+            media_status="ready",
+        ).first()
+
+        if track is None:
+            return _err("Track no encontrado.", 404)
+
+        if track.is_retired:
+            return _err(
+                "Este track fue retirado del catalogo.",
+                409,
+            )
+
+        if track.precio != 0:
+            return _err(
+                "Este track no es gratuito.",
+                409,
+            )
+
+        existentes = HistorialCompra.objects.filter(
+            usuario=profile,
+            track=track,
+        )
+
+        # Nunca reclasificar una adquisicion anterior.
+        if existentes.exists():
+            return JsonResponse({"ok": True})
+
+        # No convertir una venta historica en gratuita.
+        if HistorialVenta.objects.filter(
+            comprador=request.user,
+            track=track,
+        ).exists():
+            return _err(
+                "Existe una compra historica de este track.",
+                409,
+            )
+
+        HistorialCompra.objects.create(
+            usuario=profile,
+            track=track,
+            origen_adquisicion=HistorialCompra.ORIGEN_GRATUITO,
+        )
+
     return JsonResponse({"ok": True})
 
 
 def license_api(request, track_id):
+    """Consulta la licencia persistente del comprador autenticado."""
     if request.method != "GET":
         return _method_not_allowed(["GET"])
+
     if not request.user.is_authenticated:
-        return _err("Autenticación requerida.", 401)
+        return _err("Autenticacion requerida.", 401)
+
     profile = Usuario.objects.filter(user=request.user).first()
+
+    if profile is None:
+        return _err("Perfil no encontrado.", 404)
+
     purchase = HistorialCompra.objects.filter(
-        usuario=profile, track_id=track_id
-    ).select_related("track__usuario__user", "track__genero").first()
+        usuario=profile,
+        track_id=track_id,
+    ).select_related(
+        "track__usuario__user",
+        "track__genero",
+    ).first()
+
     if purchase is None:
-        return _err("No existe una compra registrada para esta licencia.", 404)
+        return _err("No existe una compra registrada.", 404)
+
     track = purchase.track
-    payload = "|".join(
-        (
+
+    from .models import Licencia
+    from .license_service import verify_license
+
+    licencia = Licencia.objects.select_related(
+        "compra",
+        "transaccion",
+    ).filter(compra=purchase).first()
+
+    buyer = {
+        "id": request.user.pk,
+        "username": request.user.username,
+        "nombre_artistico": profile.nombre_artistico,
+    }
+
+    if licencia is not None:
+        if not verify_license(licencia):
+            return _err(
+                "La licencia no supera la verificacion.",
+                409,
+            )
+
+        orden = licencia.transaccion
+        linea = next(
+            (
+                item for item in orden.cart_snapshot
+                if isinstance(item, dict)
+                and item.get("track_id") == track.pk
+            ),
+            None,
+        )
+
+        if linea is None:
+            return _err("Licencia inconsistente.", 409)
+
+        return JsonResponse({
+            "license_code": licencia.license_code,
+            "verification_hash": licencia.verification_hash,
+            "issue_date": licencia.issued_at.isoformat(),
+            "purchase_reference": licencia.buy_order,
+            "amount_clp": linea["precio"] + linea["iva"],
+            "track": ser_track(track, request.user),
+            "buyer": buyer,
+            "verified": True,
+            "record_type": "paid_license",
+        })
+
+    # El origen historico prevalece sobre el precio actual.
+    # No confundir este comprobante con una licencia D10.
+    if purchase.origen_adquisicion == HistorialCompra.ORIGEN_GRATUITO:
+        payload = "|".join((
             str(purchase.pk),
             str(request.user.pk),
             str(track.pk),
-            str(track.precio),
+            "0",
             purchase.fecha_compra.isoformat(),
-        )
-    )
-    signature = hmac.new(
-        settings.SECRET_KEY.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    return JsonResponse(
-        {
+        ))
+
+        signature = hmac.new(
+            settings.SECRET_KEY.encode("utf-8"),
+            payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        return JsonResponse({
             "license_code": f"BC-{purchase.pk:08d}",
             "verification_hash": signature,
             "issue_date": purchase.fecha_compra.isoformat(),
             "purchase_reference": f"HIST-{purchase.pk}",
-            "amount_clp": track.precio,
+            "amount_clp": 0,
             "track": ser_track(track, request.user),
-            "buyer": {
-                "id": request.user.pk,
-                "username": request.user.username,
-                "nombre_artistico": profile.nombre_artistico,
-            },
-        }
+            "buyer": buyer,
+            "verified": False,
+            "record_type": "legacy_free_receipt",
+        })
+
+    # No crear licencias automaticamente durante un GET.
+    return _err(
+        "La licencia de esta compra aun no ha sido emitida.",
+        404,
     )
 
 
@@ -1586,7 +1817,10 @@ def usuarios_api(request):
     if request.method != "GET":
         return _method_not_allowed(["GET"])
     usuarios = (
-        User.objects.filter(usuario__isnull=False)
+        User.objects.filter(
+            usuario__isnull=False,
+            usuario__cuenta_cerrada_en__isnull=True,
+        )
         .exclude(username=ANON_USER_USERNAME)
         .select_related("usuario")
         .order_by("username")
@@ -1699,7 +1933,11 @@ def confirmar_eliminacion_cuenta_api(request):
     profile = Usuario.objects.filter(user=request.user).first()
     if profile is None:
         return _err("No se encontró el perfil de esta cuenta.", 404)
-    from .views import _hay_webpay_sin_resolver, EliminacionCuentaBloqueada
+    from .views import (
+        _hay_webpay_sin_resolver,
+        EliminacionCuentaBloqueada,
+        EliminacionCuentaConLicencias,
+    )
     if _hay_webpay_sin_resolver(request.user):
         return _err('Hay pagos pendientes de conciliación o entrega.', 409)
 
@@ -1714,6 +1952,9 @@ def confirmar_eliminacion_cuenta_api(request):
 
     try:
         _ejecutar_eliminacion_cuenta(request, profile)
+    except EliminacionCuentaConLicencias as exc:
+        return _err(str(exc), 409)
+
     except EliminacionCuentaBloqueada:
         return _err('Hay pagos pendientes de conciliación o entrega.', 409)
     return JsonResponse({"ok": True})
@@ -1724,7 +1965,10 @@ def perfil_publico_api(request, username):
 
     if request.method != "GET":
         return _method_not_allowed(["GET"])
-    u = User.objects.filter(username=username).first()
+    u = User.objects.filter(
+        username=username,
+        usuario__cuenta_cerrada_en__isnull=True,
+    ).first()
     if u is None or u.username == ANON_USER_USERNAME:
         return _err("Perfil no encontrado.", 404)
     data = ser_user_public(u)
