@@ -1160,8 +1160,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const claimFreeTrack = async (trackId: string): Promise<boolean> => {
     if (!currentUser) return false;
-    const track = tracks.find((t) => t.id === trackId);
-    if (!track) return false;
     if (currentUser.purchasedTrackIds.includes(trackId)) return true;
 
     if (modeRef.current === 'hybrid' && trackId.startsWith('dj-')) {
@@ -1169,6 +1167,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await withSync(loadFromBackend);
       return true;
     }
+
+    const track = tracks.find((t) => t.id === trackId);
+    if (!track) return false;
 
     const buyOrder = 'FREE-' + Math.floor(100000 + Math.random() * 900000);
     const today = new Date().toISOString().split('T')[0];

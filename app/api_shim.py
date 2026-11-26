@@ -609,42 +609,24 @@ def catalogo_api(request):
     )
     tracks = only_ready_tracks(tracks).filter(is_retired=False)
 
-    q = request.GET.get("q", "").strip()
-    if q:
-        from django.db.models import Q
+    from django.core.exceptions import ValidationError
+    from .catalog_filters import (
+        apply_catalog_filters,
+        catalog_page_size,
+    )
 
-        tracks = tracks.filter(
-            Q(nombre_track__icontains=q)
-            | Q(usuario__user__username__icontains=q)
-            | Q(genero__descripcion__icontains=q)
-        )
+    try:
+        page_size = catalog_page_size(request.GET)
+        tracks = apply_catalog_filters(tracks, request.GET)
 
-    genero = request.GET.get("genero", "").strip()
-    if genero:
-        tracks = tracks.filter(genero__descripcion=genero)
+    except ValidationError as exc:
+        return _err("; ".join(exc.messages), 400)
 
-    precio = request.GET.get("precio", "").strip()
-    if precio == "0-5000":
-        tracks = tracks.filter(precio__lte=5000)
-    elif precio == "5001-10000":
-        tracks = tracks.filter(precio__gte=5001, precio__lte=10000)
-    elif precio == "10001-20000":
-        tracks = tracks.filter(precio__gte=10001, precio__lte=20000)
-    elif precio == "20001-mas":
-        tracks = tracks.filter(precio__gte=20001)
+    paginator = Paginator(tracks, page_size)
 
-    orden = request.GET.get("orden", "recientes")
-    order_map = {
-        "recientes": "-id_track",
-        "antiguos": "id_track",
-        "precio_menor": "precio",
-        "precio_mayor": "-precio",
-        "nombre": "nombre_track",
-    }
-    tracks = tracks.order_by(order_map.get(orden, "-id_track"))
-
-    paginator = Paginator(tracks, 6)  # mismo tamaño de página que el monolito
-    page_obj = paginator.get_page(request.GET.get("page", 1) or 1)
+    page_obj = paginator.get_page(
+        request.GET.get("page", 1) or 1
+    )
 
     comprados = []
     if request.user.is_authenticated:
@@ -666,6 +648,7 @@ def catalogo_api(request):
             "total_resultados": paginator.count,
             "pagina_actual": page_obj.number,
             "total_paginas": paginator.num_pages,
+            "page_size": page_size,
             "tracks_comprados": sorted(set(comprados)),
             "generos": [ser_genero(g) for g in Genero_Musical.objects.all()],
         }

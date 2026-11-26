@@ -152,9 +152,28 @@ const qsp = (params: Record<string, string | number | undefined>) => {
 export interface CatalogoParams {
   q?: string;
   genero?: string;
-  precio?: string; // '0-5000' | '5001-10000' | '10001-20000' | '20001-mas'
-  orden?: 'recientes' | 'antiguos' | 'precio_menor' | 'precio_mayor' | 'nombre';
+  tipo?: string;
+  mood?: string;
+  tonalidad?: string;
+  bpm_min?: number;
+  bpm_max?: number;
+  has_stems?: string;
+  precio?: string;
+  orden?:
+    | 'recientes'
+    | 'antiguos'
+    | 'precio_menor'
+    | 'precio_mayor'
+    | 'nombre'
+    | 'nombre_asc'
+    | 'nombre_desc'
+    | 'genero_asc'
+    | 'genero_desc'
+    | 'bpm_asc'
+    | 'bpm_desc'
+    | 'likes';
   page?: number;
+  page_size?: number;
 }
 
 export interface DAuthorizedAccount {
@@ -259,7 +278,11 @@ export const DjangoApi = {
     ensureCsrf().then(() => request<{ detail: string }>('/api/auth/registro/', { method: 'POST', body: form })),
 
   // Catálogo / tracks
-  catalogo: (p: CatalogoParams = {}) => request<DCatalogoPage>(`/api/catalogo/${qsp(p as Record<string, string | number>)}`),
+  catalogo: (p: CatalogoParams = {}, signal?: AbortSignal) =>
+    request<DCatalogoPage>(
+      `/api/catalogo/${qsp(p as Record<string, string | number>)}`,
+      { signal },
+    ),
   track: (id: number) => request<DTrack>(`/api/track/${id}/`),
   updateTrack: (id: number, data: FormData | Partial<DTrack>) =>
     request<DTrack>(`/api/track/${id}/`, {

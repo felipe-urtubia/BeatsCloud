@@ -1,3 +1,4 @@
+import { TrackCover } from './TrackCover';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, Track, ProducerSubscription } from '../types';
@@ -457,7 +458,7 @@ export const ProducerProfilePage: React.FC<ProducerProfilePageProps> = ({
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 group">
-                        <img
+                        <TrackCover
                           src={track.coverUrl}
                           alt={track.title}
                           className="w-full h-full object-cover"

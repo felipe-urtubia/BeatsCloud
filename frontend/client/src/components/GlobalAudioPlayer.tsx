@@ -1,3 +1,4 @@
+import { TrackCover } from './TrackCover';
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { getResourceBadgeInfo } from '../utils/resourceHelpers';
@@ -49,7 +50,7 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({ onOpenTrac
             onClick={() => onOpenTrackDetail(activeTrack.id)}
             className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer group shadow-md"
           >
-            <img
+            <TrackCover
               src={activeTrack.coverUrl}
               alt={activeTrack.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
