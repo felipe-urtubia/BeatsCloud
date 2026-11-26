@@ -4706,3 +4706,41 @@ D9 / DDPB-70 implementada, integrada, desplegada y validada funcionalmente segú
 - Optimización futura: eliminar la hidratación global de páginas de catálogo sin afectar perfiles, favoritos, carrito y otras vistas.
 - Recuperar las portadas originales ausentes en R2 cuando sea posible; el respaldo visual no recupera objetos ni impide necesariamente el primer 404 de red.
 - Se conservan los pendientes de seguridad y validación comercial documentados en D10; esta entrega no los da por resueltos.
+
+---
+
+# 26-11-2026 — Limpieza de datos locales y de producción
+
+## 1. Alcance autorizado
+
+El usuario solicitó eliminar todas las cuentas (incluidos administradores), datos asociados y archivos de prueba de ambos entornos, sin crear respaldos nuevos. Confirmó que todas las transacciones Webpay correspondían a pruebas, que el bucket R2 era exclusivo de BeatsCloud y que local y Render utilizaban la misma cuenta y bucket. Se excluyeron Windows, archivos personales ajenos al proyecto, código fuente, pruebas automatizadas, migraciones, configuración e infraestructura.
+
+## 2. Inventario y verificación posterior
+
+| Elemento | Local antes | Render antes | Local después | Render después |
+|---|---:|---:|---:|---:|
+| Usuarios | 7 | 5 | 0 | 0 |
+| Superusuarios | 1 | 0 | 0 | 0 |
+| Perfiles | 6 | 5 | 0 | 0 |
+| Tracks | 15 | 5 | 0 | 0 |
+| Historial de compras | 10 | 3 | 0 | 0 |
+| Historial de ventas | 4 | 1 | 0 | 0 |
+| Transacciones Webpay | 14 | 11 | 0 | 0 |
+| Suscripciones | 1 | 2 | 0 | 0 |
+| Sesiones | 19 | 11 | 0 | 0 |
+| Reclamos de subida R2 | 11 | 6 | 0 | 0 |
+| Licencias | 0 | 0 | 0 | 0 |
+
+- PostgreSQL: bases `beatsbd` y `beatscloud_demo`. Se vaciaron 23 tablas de datos por base, mediante lista explícita de tablas, TRUNCATE RESTRICT y CONTINUE IDENTITY. No se eliminaron bases ni se reiniciaron secuencias.
+- Multimedia local: 1.132 archivos (457.034.756 bytes) eliminados. Windows devolvió WinError 5 al intentar quitar un directorio vacío; la verificación posterior confirmó 0 archivos y 18 carpetas conservadas. No se modificaron permisos del sistema ni se intentó forzar la eliminación de carpetas.
+- Cloudflare R2: 33 objetos (166.376.131 bytes) eliminados; prefijos inventariados pending (16), previews (5) y private (12). Verificación posterior: 0 objetos; bucket conservado.
+- Por base se conservaron 88 permisos, 22 tipos de contenido y 54 registros de migración; géneros musicales: 10 local y 9 Render. No se modificó el código fuente.
+- Django System Check: sin errores (0 silenced). No se ejecutó nuevamente la regresión automatizada completa durante la limpieza.
+
+## 3. Validación y cierre
+
+Render permaneció activo durante el procedimiento, según indicó el usuario. Las verificaciones posteriores de ambas bases de datos y R2 resultaron correctas. El usuario confirmó que el sitio público https://beats-cloud.vercel.app/ funciona y el catálogo está vacío. La comprobación local corresponde a inventario posterior y Django System Check, no a un nuevo smoke test de navegador local.
+
+Repositorio sincronizado mediante fast-forward a `56891ff` (tres documentos QA incorporados, árbol limpio antes de este registro). DDPB-70 fue cerrada en Jira según confirmación del usuario.
+
+No se creó respaldo nuevo por solicitud expresa. La limpieza se considera verificada para los datos inventariados; no se comprobó de forma independiente el almacenamiento efímero o un eventual disco persistente de Render, ni la caducidad de todas las URLs de subida previamente emitidas. La recuperación de portadas de los tracks eliminados no procede dentro de este reinicio autorizado. Se mantienen los pendientes técnicos y de seguridad que no dependen de los datos eliminados.
