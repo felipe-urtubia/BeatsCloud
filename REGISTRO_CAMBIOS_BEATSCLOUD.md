@@ -1,11 +1,11 @@
 # REGISTRO DE CAMBIOS — BEATSCLOUD
 
 **Proyecto:** BeatsCloud
-**Periodo cubierto:** 28-08-2026 al 26-11-2026
-**Última actualización:** 26-11-2026
+**Periodo cubierto:** 28-08-2026 al 27-11-2026
+**Última actualización:** 27-11-2026
 
 > Este documento consolida los cambios funcionales, visuales, de seguridad, configuración, documentación y pruebas realizados durante la etapa final de mejora del proyecto BeatsCloud.
-> Se conserva el historial anterior y se incorporan los cambios, pruebas y despliegues documentados hasta los cierres de implementación D10 y D9 / DDPB-70 del 26-11-2026.
+> Se conserva el historial anterior y se incorporan los cambios, pruebas y despliegues documentados hasta la validación funcional de D7 / DDPB-67 del 27-11-2026, conservando los cierres anteriores y la limpieza de datos.
 
 ---
 
@@ -4744,3 +4744,57 @@ Render permaneció activo durante el procedimiento, según indicó el usuario. L
 Repositorio sincronizado mediante fast-forward a `56891ff` (tres documentos QA incorporados, árbol limpio antes de este registro). DDPB-70 fue cerrada en Jira según confirmación del usuario.
 
 No se creó respaldo nuevo por solicitud expresa. La limpieza se considera verificada para los datos inventariados; no se comprobó de forma independiente el almacenamiento efímero o un eventual disco persistente de Render, ni la caducidad de todas las URLs de subida previamente emitidas. La recuperación de portadas de los tracks eliminados no procede dentro de este reinicio autorizado. Se mantienen los pendientes técnicos y de seguridad que no dependen de los datos eliminados.
+
+
+---
+
+# 27-11-2026 — D7 / DDPB-67: Flujo post-pago Webpay en la SPA
+
+## 1. Alcance e implementación
+
+- Se conserva la conciliación existente de Webpay y la entrega transaccional e idempotente del snapshot original del carrito. Los retornos conciliados distinguen aprobación, rechazo, cancelación, abandono y revisión; los estados inciertos no se presentan como definitivos.
+- Django redirige a React con el resultado; en aprobación incorpora la referencia buy_order. El endpoint GET /api/webpay/receipt/ exige autenticación, titularidad, autorización y entrega registrada, y excluye órdenes archivadas para revisión y suscripciones. No entrega tokens de Webpay ni identificadores de sesión.
+- React sincroniza la cuenta y consulta el comprobante privado antes de mostrar la aprobación, valida owner_id y buy_order, elimina los parámetros transitorios mediante history.replaceState y permite navegar a compras y descargas sin recarga adicional. Se descarta el comprobante al cambiar de identidad o cerrar la sesión.
+- El carrito conserva los elementos no pagados. Las operaciones no aprobadas no generan compras nuevas. Los retornos antiguos de suscripciones mantienen un aviso neutral; no se les atribuye un comprobante de carrito.
+- No se incorporaron migraciones ni dependencias permanentes nuevas.
+
+## 2. Pruebas automatizadas
+
+| Comprobación | Resultado |
+|---|---|
+| Django, regresión completa | 722/722, 453,455 s; nueve pruebas nuevas D7 |
+| React / Node | 78/78; catorce pruebas nuevas D7 |
+| Playwright / Microsoft Edge | 8/8 escenarios con API simulada y red externa bloqueada |
+| Total sin duplicar ejecuciones | **808/808 comprobaciones aprobadas** |
+| TypeScript y Vite | Compilación correcta, 1.939 módulos; compilación normal restaurada antes del commit |
+| Django check, migraciones y git diff check | Sin errores ni cambios de modelos |
+
+Los escenarios de navegador comprueban aprobación con carrito vacío, aprobación con vaciado selectivo, rechazo, cancelación, abandono, revisión, URL manipulada y comprobante de otra cuenta. Incluyen navegación SPA y descarga binaria simulada; no sustituyen la validación del proveedor. Playwright se instaló temporalmente fuera del proyecto.
+
+## 3. Integración y despliegue
+
+- Rama: `feat/d7-retorno-webpay-spa`.
+- Commit de implementación: [9492c95](https://github.com/felipe-urtubia/BeatsCloud/commit/9492c958b7c41ed91bf11a0293534065ddbc2fbd); 14 archivos, 1.515 inserciones y 59 eliminaciones.
+- [PR #14](https://github.com/felipe-urtubia/BeatsCloud/pull/14) integrado por merge autorizado, con comprobación del SHA esperado.
+- Commit desplegado: [0a1c5c2](https://github.com/felipe-urtubia/BeatsCloud/commit/0a1c5c20c9f5b8bd2b151ac71de203b931aa16af). Repositorio local sincronizado por fast-forward y árbol limpio antes de este registro.
+- Render: despliegue manual, Live, 1 min 19 s, 27-11-2026 18:33:25 GMT-3 (hora indicada en panel).
+- Vercel: Ready, 13 s, promovido a Production / Current; https://beats-cloud.vercel.app/.
+- Smoke test HTTP aprobado dos veces: frontend 200, catálogo conectado a Django (una pista en ese momento), endpoint de comprobante rechaza consulta anónima con 401.
+
+## 4. Validación funcional del entorno desplegado con Webpay TEST
+
+El usuario confirmó TRANSBANK_INTEGRATION_TYPE=TEST. Las capturas y confirmaciones del 27-11-2026 acreditan los siguientes resultados:
+
+| Escenario | Evidencia y resultado |
+|---|---|
+| Cancelado | Aviso específico; una pista de $18.000 permanece en el carrito |
+| Rechazado | Aviso específico; carrito y contador de compras sin cambios respecto a captura anterior |
+| Abandonado | Aviso de plazo expirado; carrito y contador de compras conservados |
+| Aprobado | Comprobante con buy_order, estado Autorizado, total $21.420 CLP (precio $18.000 más IVA $3.420), fecha 27-11-2026 19:14; carrito vacío y contador de compras de 1 a 2 |
+| Descarga y navegación | Usuario confirma descarga y reproducción local del archivo comprado y acceso a compras sin recargar manualmente |
+
+Las pruebas se efectuaron con Webpay en integración, no con dinero real. La navegación externa hacia y desde Webpay es inherente al proveedor; la SPA no requiere una recarga adicional al presentar el resultado. La ausencia de recarga documental durante la navegación interna también se verifica en Playwright. El escenario de revisión y el vaciado selectivo se acreditan mediante pruebas automatizadas, no mediante una nueva transacción manual de esos tipos. No se publican claves, tokens ni la referencia concreta de la compra de prueba.
+
+## 5. Cierre
+
+D7 / DDPB-67 implementada, integrada, desplegada y validada funcionalmente con Webpay TEST. Pendientes administrativos: sincronizar este registro localmente, eliminar la rama integrada y cerrar la historia en Jira. No se ha realizado una transacción LIVE ni se han eliminado los registros generados por las pruebas de integración. Los pendientes previos no relacionados con D7 permanecen vigentes.
