@@ -112,3 +112,14 @@ urlpatterns += [
         name="api_download_stems",
     ),
 ]
+
+# D7: comprobante privado del retorno Webpay.
+from .webpay_spa_return import webpay_receipt_api
+
+urlpatterns += [
+    path(
+        "api/webpay/receipt/",
+        webpay_receipt_api,
+        name="api_webpay_receipt",
+    ),
+]

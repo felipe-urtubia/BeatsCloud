@@ -34,6 +34,12 @@ import {
 } from '../api/mappers';
 import { startWebpayCheckout, submitWebpayForm } from '../api/webpayCheckout.mjs';
 import type { WebpayCheckoutResult } from '../api/webpayCheckout.mjs';
+import {
+  readPaymentReturn,
+  cleanPaymentReturnUrl,
+  resolvePaymentReturn,
+} from '../api/webpayReturn.mjs';
+import type { WebpayReceipt } from '../api/webpayReturn.mjs';
 import { dismissNotification, enqueueNotification } from '../utils/notificationQueue.mjs';
 
 export type AppNotification = { id: number; kind: 'success' | 'error'; message: string };
@@ -160,6 +166,7 @@ interface AppContextType {
   dismissNotification: (id: number) => void;
   paymentNotice: string | null;
   paymentReturnReady: boolean;
+  paymentReceipt: WebpayReceipt | null;
   authNotice: string | null;
   clearAuthNotice: () => void;
   clearPaymentNotice: () => void;
@@ -272,6 +279,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isSyncing, setIsSyncing] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [paymentReturnReady, setPaymentReturnReady] = useState(false);
+  const [paymentReceipt, setPaymentReceipt] = useState<{
+    receipt: WebpayReceipt;
+    ownerId: string;
+  } | null>(null);
+  const [initialPaymentReturn] = useState(
+    () => readPaymentReturn(window.location.href),
+  );
+  const paymentRun = useRef(0);
+
+  const clearPaymentNotice = () => {
+    paymentRun.current += 1;
+    setPaymentNotice(null);
+    setPaymentReturnReady(false);
+    setPaymentReceipt(null);
+  };
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   const [authorizedAccounts, setAuthorizedAccounts] =
@@ -330,8 +352,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSales([]);
     setActiveTrack(null);
     audioEngine.pause();
-    setPaymentReturnReady(false);
-    setPaymentNotice(null);
+    clearPaymentNotice();
     localStorage.removeItem('bc_session_user_id');
     localStorage.removeItem('bc_current_user_id');
     if (expired) setAuthNotice('Tu sesion termino. Inicia sesion nuevamente para continuar.');
@@ -341,6 +362,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPurchasesLoading(true);
     setPurchasesError(null);
     let purchaseRequestStarted = false;
+    let purchasesSynced = false;
     let phase: 'session' | 'catalog' | 'cart' = 'session';
     try {
       const session = await DjangoApi.getSession();
@@ -376,6 +398,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       purchaseRequestStarted = !!session;
       const purchaseRowsPromise = session
         ? DjangoApi.misComprasConfirmadas().then((rows) => {
+            purchasesSynced = true;
             if (sequence === refreshSequence.current) {
               setPurchases(rows.map((purchase) => mapCompraConfirmada(purchase, String(session.id))));
               setPurchasesLoading(false);
@@ -454,6 +477,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setBackendError(null);
       setBackendStatus('online');
       audioEngine.setPlaybackMode('file');
+      return {
+        userId: session ? String(session.id) : null,
+        purchasesSynced,
+        orders: mappedPurchases.map((purchase) => purchase.buyOrder),
+      };
     } catch (e) {
       if (sequence !== refreshSequence.current) return;
       if (!purchaseRequestStarted) {
@@ -513,65 +541,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Las referencias y setState de React se mantienen estables.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Bootstrap: intentamos conectar una vez al montar (solo si el modo configurado es hybrid)
+  // D7: bootstrap y retorno comparten una sola sincronizacion.
+  // El resultado inicial se conserva durante la repeticion de efectos
+  // de React StrictMode, incluso despues de limpiar la URL.
   useEffect(() => {
-    if (CONFIGURED_MODE === 'hybrid') {
-      withSync(loadFromBackend).catch(() => {});
-    } else {
+    if (CONFIGURED_MODE !== 'hybrid') {
       audioEngine.setPlaybackMode('synth');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // El backend procesa el retorno de Webpay antes de redirigir al SPA.
-  // React solo presenta el acceso a compras cuando termina su sincronizacion.
-  useEffect(() => {
-    if (modeRef.current !== 'hybrid') return;
-    const url = new URL(window.location.href);
-    const pago = url.searchParams.get('pago');
-    if (!pago) return;
-
-    // Quitar solo el dato transitorio de pago; preservar enlaces del SPA.
-    url.searchParams.delete('pago');
-    window.history.replaceState(
-      window.history.state,
-      '',
-      `${url.pathname}${url.search}${url.hash}`
-    );
-    setPaymentReturnReady(false);
-
-    if (pago === 'exito') {
-      setPaymentNotice('Webpay informó una operación exitosa. Estamos actualizando tu cuenta...');
-      void withSync(loadFromBackend)
-        .then(() => {
-          setPaymentNotice(
-            'Webpay informó una operación exitosa. Tu cuenta está actualizada. Consulta tus compras y descargas.'
-          );
-          setPaymentReturnReady(true);
-        })
-        .catch(() => {
-          setPaymentNotice(
-            'No pudimos actualizar tus compras. Verifica el estado de tu operación antes de intentar pagar nuevamente.'
-          );
-          setPaymentReturnReady(false);
-        });
       return;
     }
 
-    setPaymentNotice(
-      pago === 'cancelado'
-        ? 'El pago fue cancelado; no se registró ningún cobro.'
-        : pago === 'revision'
-        ? 'Pago en revisión: no vuelvas a pagar; contacta a soporte.'
-        : 'El pago no fue aprobado. Revisa el estado de tu cuenta antes de volver a intentarlo.'
+    const input = initialPaymentReturn;
+
+    if (!input) {
+      void withSync(loadFromBackend).catch(() => {});
+      return;
+    }
+
+    const run = ++paymentRun.current;
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      cleanPaymentReturnUrl(window.location.href),
     );
-    void withSync(loadFromBackend).catch(() => {});
+
+    setPaymentReturnReady(false);
+    setPaymentReceipt(null);
+    setPaymentNotice(
+      'Verificando el estado de tu operación Webpay...',
+    );
+
+    void resolvePaymentReturn(
+      input,
+      () => withSync(loadFromBackend),
+      (order) => withSync(() => DjangoApi.webpayReceipt(order)),
+    ).then((result) => {
+      if (paymentRun.current !== run) return;
+
+      if (
+        result.ownerId &&
+        authenticatedId.current !== result.ownerId
+      ) {
+        return;
+      }
+
+      setPaymentNotice(result.notice);
+      setPaymentReturnReady(result.ready);
+      setPaymentReceipt(
+        result.receipt && result.ownerId
+          ? { receipt: result.receipt, ownerId: result.ownerId }
+          : null,
+      );
+    });
+
+    return () => {
+      paymentRun.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const refreshFromBackend = () => {
+
+  const refreshFromBackend = async () => {
     setBackendStatus('checking');
     setBackendError(null);
-    return withSync(loadFromBackend);
+    await withSync(loadFromBackend);
   };
 
   const refreshTrackComments = async (trackId: string) => {
@@ -1529,6 +1561,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!password) return { success: false, error: 'Ingresa tu contraseña.' };
       try {
         const dUser = await withSync(() => DjangoApi.login(username, password));
+        clearPaymentNotice();
         const uiUser = mapUser(dUser);
         // La confirmación de Django cambia la identidad activa. Invalida cualquier
         // snapshot anterior antes de iniciar la rehidratación del nuevo usuario.
@@ -1568,6 +1601,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (CONFIGURED_MODE === 'hybrid') {
       try {
         await withSync(() => DjangoApi.logout());
+        clearPaymentNotice();
         authenticatedId.current = null;
         setAuthNotice(null);
       } catch (e) {
@@ -1937,10 +1971,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifications,
         dismissNotification: dismissAppNotification,
         paymentNotice,
-        paymentReturnReady,
+        paymentReturnReady:
+          paymentReturnReady &&
+          !!paymentReceipt &&
+          paymentReceipt.ownerId === currentUser?.id,
+        paymentReceipt:
+          paymentReceipt && paymentReceipt.ownerId === currentUser?.id
+            ? paymentReceipt.receipt
+            : null,
         authNotice,
         clearAuthNotice: () => setAuthNotice(null),
-        clearPaymentNotice: () => setPaymentNotice(null),
+        clearPaymentNotice,
         refreshFromBackend,
         refreshTrackComments,
       }}

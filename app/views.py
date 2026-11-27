@@ -1870,6 +1870,11 @@ def exito_carrito(request):
     atómica del snapshot original.
     """
 
+    from .webpay_spa_return import (
+        cancellation_result,
+        cart_spa_return,
+    )
+
     def retorno_revision_inconsistente():
         from django.http import HttpResponse
 
@@ -1896,13 +1901,13 @@ def exito_carrito(request):
     )
 
     if conciliacion.outcome == OUTCOME_ALREADY_FULFILLED:
-        return _respuesta_retorno_webpay(
-            request, 'exito'
+        return cart_spa_return(
+            request, 'exito', conciliacion.order
         ) or render(request, 'app/exito.html')
 
     if conciliacion.outcome == OUTCOME_CANCELLED:
-        return _respuesta_retorno_webpay(
-            request, 'fracaso'
+        return cart_spa_return(
+            request, cancellation_result(conciliacion)
         ) or redirect('cancelado')
 
     if conciliacion.outcome != OUTCOME_APPROVED:
@@ -1952,7 +1957,7 @@ def exito_carrito(request):
 
         if not response_code_ok or str(status).upper() != 'AUTHORIZED':
             print("PAGO CARRITO RECHAZADO POR TRANSBANK")
-            return _respuesta_retorno_webpay(request, 'fracaso') or redirect('cancelado')
+            return retorno_revision_inconsistente()
 
         # Verificar que la respuesta corresponde a una transacción creada
         # previamente por BeatCloud.
@@ -2034,7 +2039,7 @@ def exito_carrito(request):
 
             # Una entrega completada no puede registrarse nuevamente.
             if orden.fulfilled_at is not None:
-                return _respuesta_retorno_webpay(request, 'exito') or render(
+                return cart_spa_return(request, 'exito', orden) or render(
                     request, 'app/exito.html'
                 )
 
@@ -2190,7 +2195,7 @@ def exito_carrito(request):
                 )
                 issue_license_for_purchase(compra, orden)
 
-        return _respuesta_retorno_webpay(request, 'exito') or render(
+        return cart_spa_return(request, 'exito', orden) or render(
             request,
             'app/exito.html',
             {

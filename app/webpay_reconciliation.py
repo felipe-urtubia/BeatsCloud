@@ -39,6 +39,7 @@ class WebpayReconciliationResult:
     token: str = ""
     outcome: str = OUTCOME_REVIEW
     reason: str = ""
+    mode: str = ""
 
 
 def _field(response, name, default=None):
@@ -227,7 +228,7 @@ def _persist_provider_result(
         )
 
 
-def _result(order, token, response=None, outcome=OUTCOME_REVIEW, reason=""):
+def _result(order, token, response=None, outcome=OUTCOME_REVIEW, reason="", mode=""):
     if order is not None:
         order.refresh_from_db()
     return WebpayReconciliationResult(
@@ -236,6 +237,7 @@ def _result(order, token, response=None, outcome=OUTCOME_REVIEW, reason=""):
         token=token or "",
         outcome=outcome,
         reason=reason,
+        mode=mode,
     )
 
 
@@ -388,7 +390,7 @@ def reconcile_webpay_return(
         mode=mode,
         persist_authorized=False,
     )
-    return _result(order, token, response, outcome, reason)
+    return _result(order, token, response, outcome, reason, mode=mode)
 
 
 def reconcile_pending_order(order_id, *, user_id=None):

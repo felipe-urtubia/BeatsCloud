@@ -1,3 +1,4 @@
+import type { WebpayReceipt } from './webpayReturn.mjs';
 import type { DSubscriptionPlanInput, DSubscriptionPlanDetails } from './types';
 /**
  * django.service.ts — Cliente tipado de la API JSON del backend Django (api_shim.py).
@@ -508,6 +509,11 @@ export const DjangoApi = {
   misVentas: () => request<DHistorialVenta[]>('/api/mis-ventas/'),
   misCompras: () => request<DHistorialCompra[]>('/api/mis-compras/'),
   misComprasConfirmadas: () => request<DCompraConfirmada[]>('/api/mis-compras/confirmadas/'),
+  webpayReceipt: (order: string) =>
+    request<WebpayReceipt>(
+      `/api/webpay/receipt/?buy_order=${encodeURIComponent(order)}`,
+      { cache: 'no-store' },
+    ),
   perfil: (username: string) =>
     request<DUser & { tracks: DTrack[] }>(`/api/perfil/${encodeURIComponent(username)}/`),
   suscripciones: (userId?: string | number) =>
