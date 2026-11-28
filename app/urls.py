@@ -123,3 +123,15 @@ urlpatterns += [
         name="api_webpay_receipt",
     ),
 ]
+
+
+# Reportes privados de incumplimiento de suscripciones.
+from .subscription_reports_api import subscription_reports_api
+
+urlpatterns += [
+    path(
+        "api/subscription-reports/",
+        subscription_reports_api,
+        name="api_subscription_reports",
+    ),
+]

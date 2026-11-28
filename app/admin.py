@@ -24,3 +24,13 @@ admin.site.register(Venta, BeatsCloudCommercialReadOnlyAdmin)
 admin.site.register(Genero_Musical, BeatsCloudCatalogAdmin)
 admin.site.register(Track, BeatsCloudTrackAdmin)
 admin.site.register(Metodo_Pago, BeatsCloudCommercialReadOnlyAdmin)
+
+
+# Administracion privada de reportes de suscripciones.
+from .models import SubscriptionReport
+from .admin_subscription_reports import SubscriptionReportAdmin
+
+admin.site.register(
+    SubscriptionReport,
+    SubscriptionReportAdmin,
+)

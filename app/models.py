@@ -370,3 +370,142 @@ class AuthAttemptThrottle(models.Model):
 
     class Meta:
         db_table = "app_auth_attempt_throttle"
+
+
+class SubscriptionReport(models.Model):
+    """Reporte privado de incumplimiento de una suscripcion."""
+
+    class Reason(models.TextChoices):
+        MISSING_BENEFITS = (
+            "MISSING_BENEFITS",
+            "Beneficios no entregados",
+        )
+        NO_RESPONSE = (
+            "NO_RESPONSE",
+            "Falta de comunicacion",
+        )
+        TERMS_NOT_MET = (
+            "TERMS_NOT_MET",
+            "Incumplimiento de condiciones",
+        )
+        OTHER = "OTHER", "Otro motivo"
+
+    class Status(models.TextChoices):
+        OPEN = "OPEN", "Pendiente"
+        IN_REVIEW = "IN_REVIEW", "En revision"
+        RESOLVED = "RESOLVED", "Resuelto"
+        DISMISSED = "DISMISSED", "Desestimado"
+
+    artist = models.ForeignKey(
+        Usuario,
+        on_delete=models.PROTECT,
+        related_name="subscription_reports_created",
+    )
+
+    producer = models.ForeignKey(
+        Usuario,
+        on_delete=models.PROTECT,
+        related_name="subscription_reports_received",
+    )
+
+    subscription = models.ForeignKey(
+        Suscripcion,
+        on_delete=models.PROTECT,
+        related_name="reports",
+    )
+
+    payment = models.ForeignKey(
+        WebpayTransaction,
+        on_delete=models.PROTECT,
+        related_name="subscription_reports",
+    )
+
+    reason = models.CharField(
+        max_length=30,
+        choices=Reason.choices,
+    )
+
+    description = models.TextField(
+        max_length=2000,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+
+    resolution = models.TextField(
+        max_length=2000,
+        blank=True,
+        default="",
+    )
+
+    reviewed_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_subscription_reports",
+    )
+
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        verbose_name = "Reporte de suscripcion"
+        verbose_name_plural = "Reportes de suscripciones"
+
+        ordering = ["-created_at", "-pk"]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artist", "subscription"],
+                condition=models.Q(
+                    status__in=["OPEN", "IN_REVIEW"]
+                ),
+                name="unique_open_subscription_report",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    status__in=[
+                        "OPEN",
+                        "IN_REVIEW",
+                        "RESOLVED",
+                        "DISMISSED",
+                    ]
+                ),
+                name="valid_subscription_report_status",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    reason__in=[
+                        "MISSING_BENEFITS",
+                        "NO_RESPONSE",
+                        "TERMS_NOT_MET",
+                        "OTHER",
+                    ]
+                ),
+                name="valid_subscription_report_reason",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(
+                    artist=models.F("producer")
+                ),
+                name="subscription_report_distinct_parties",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Reporte #{self.pk} - {self.status}"

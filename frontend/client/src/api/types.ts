@@ -199,3 +199,52 @@ export interface DLicense {
     nombre_artistico: string;
   };
 }
+
+
+/** Reportes privados de incumplimiento de suscripciones. */
+
+export type DSubscriptionReportReason =
+  | 'MISSING_BENEFITS'
+  | 'NO_RESPONSE'
+  | 'TERMS_NOT_MET'
+  | 'OTHER';
+
+export type DSubscriptionReportStatus =
+  | 'OPEN'
+  | 'IN_REVIEW'
+  | 'RESOLVED'
+  | 'DISMISSED';
+
+export interface DSubscriptionReport {
+  id: number;
+  subscription_id: number;
+  subscription_title: string;
+  producer_name: string;
+  reason: DSubscriptionReportReason;
+  reason_label: string;
+  description: string;
+  status: DSubscriptionReportStatus;
+  status_label: string;
+  resolution: string;
+  created_at: string;
+  updated_at: string;
+  contract_started_at: string | null;
+  reviewed_at: string | null;
+}
+
+export interface DSubscriptionReportInput {
+  subscription_id: number;
+  reason: DSubscriptionReportReason;
+  description: string;
+}
+
+export interface DSubscriptionReportsResponse {
+  owner_id: string;
+  reports: DSubscriptionReport[];
+}
+
+export interface DSubscriptionReportCreated {
+  detail: string;
+  owner_id: string;
+  report: DSubscriptionReport;
+}

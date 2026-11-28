@@ -4798,3 +4798,222 @@ Las pruebas se efectuaron con Webpay en integración, no con dinero real. La nav
 ## 5. Cierre
 
 D7 / DDPB-67 implementada, integrada, desplegada y validada funcionalmente con Webpay TEST. Pendientes administrativos: sincronizar este registro localmente, eliminar la rama integrada y cerrar la historia en Jira. No se ha realizado una transacción LIVE ni se han eliminado los registros generados por las pruebas de integración. Los pendientes previos no relacionados con D7 permanecen vigentes.
+
+
+---
+
+# 27-11-2026 - Reportes de incumplimiento de suscripciones
+
+## 1. Historia de usuario
+
+Como artista, necesito un apartado para reportar a un productor
+cuando no cumple con los beneficios o servicios de una suscripcion
+contratada, con el objetivo de solicitar una revision administrativa
+y conocer la resolucion del caso.
+
+## 2. Alcance funcional
+
+- Apartado privado de reportes dentro de Membresias VIP.
+- Formulario asociado a una contratacion registrada y autorizada.
+- Cuatro motivos de incumplimiento.
+- Descripcion obligatoria de 20 a 2000 caracteres.
+- Confirmacion de envio y numero de reporte.
+- Historial privado, contadores y filtros por estado.
+- Visualizacion de la resolucion administrativa.
+- Posibilidad de reportar contrataciones vencidas que cumplan
+  las condiciones de elegibilidad del servidor.
+- Conservacion del historial comercial y de los reportes.
+
+## 3. Modelo de datos
+
+Se incorpora el modelo SubscriptionReport, asociado al artista,
+productor, suscripcion y transaccion Webpay correspondiente.
+
+Incluye motivo, descripcion, estado, resolucion, administrador
+responsable y fechas de creacion, actualizacion y revision.
+
+Migraciones:
+
+- 0037_subscription_report.py
+- 0038_protect_subscription_reports.py
+
+Se protegen las referencias comerciales mediante PROTECT.
+Se incorpora una restriccion de unicidad condicional para evitar
+reportes abiertos duplicados por artista y suscripcion.
+
+## 4. API y seguridad
+
+Endpoint: /api/subscription-reports/
+
+- GET: consulta exclusivamente los reportes del artista autenticado.
+- POST: crea un reporte asociado a una contratacion elegible.
+- Autenticacion mediante la sesion Django.
+- Proteccion CSRF.
+- Validacion de rol, titularidad y estado del pago.
+- Identidad del productor determinada por el servidor.
+- Validacion estricta de los campos recibidos.
+- Seleccion de la ultima contratacion elegible de la suscripcion.
+- Exclusiones para pagos pendientes, cancelados, archivados o
+  sin entrega registrada.
+- Bloqueos transaccionales PostgreSQL y control de concurrencia.
+- Respuestas privadas sin tokens ni identificadores sensibles.
+- Comprobacion de identidad esperada mediante X-Report-Owner.
+- Sin cancelaciones, devoluciones ni cambios comerciales automaticos.
+- Conservacion de reportes tras el cierre de cuentas comerciales.
+
+## 5. Panel administrativo
+
+Administracion exclusiva para superusuarios activos y autorizados,
+sin permitir la gestion de reportes en los que sean parte involucrada.
+
+Flujo permitido:
+
+- OPEN: Pendiente.
+- IN_REVIEW: En revision.
+- RESOLVED: Resuelto.
+- DISMISSED: Desestimado.
+
+Transiciones:
+
+OPEN -> IN_REVIEW -> RESOLVED o DISMISSED.
+
+La resolucion es obligatoria para los estados finales.
+Los reportes finalizados quedan en modo de solo lectura.
+No se permite la creacion ni eliminacion directa desde Django Admin.
+
+Se presentan el contrato original, pago asociado, datos del caso,
+administrador responsable y fechas de revision.
+
+## 6. Frontend React
+
+- Componente SubscriptionReports.tsx.
+- Integracion en ArtistProfilePage.tsx.
+- Tipos TypeScript y metodos privados en DjangoApi.
+- Formulario con validaciones y bloqueo de envios simultaneos.
+- Historial con filtros, contadores y orden cronologico.
+- Actualizacion manual de los estados.
+- Confirmacion basada en la respuesta del servidor.
+- Cancelacion de solicitudes al desmontar el componente.
+- Descarte de datos y borradores al comenzar un cambio de cuenta.
+- Sin almacenamiento local de los reportes.
+- Correccion de textos y selectores Unicode.
+
+## 7. Pruebas automatizadas
+
+| Comprobacion | Resultado |
+|---|---|
+| Backend Django completo | 775/775 |
+| Pruebas especificas nuevas de reportes | 53/53, incluidas en las 775 |
+| Frontend Node.js | 78/78 |
+| Playwright Webpay D7 | 8/8 |
+| Playwright reportes | 8/8 |
+| Total sin duplicar ejecuciones | 869/869 |
+| Django System Check | Sin errores |
+| TypeScript | Sin errores |
+| Vite | Compilacion correcta, 1940 modulos |
+| Migraciones | Sin cambios pendientes de generar |
+| Git diff check | Correcto |
+
+Regresion completa Django: 439,218 segundos.
+
+Las pruebas Playwright utilizaron Microsoft Edge, respuestas HTTP
+simuladas y bloqueo de conexiones externas.
+
+Se comprobaron concurrencia, CSRF, titularidad, duplicados,
+moderacion, cierre de cuentas, errores de comunicacion,
+respuestas de otra identidad y solicitudes pendientes.
+
+Playwright fue instalado fuera de las dependencias permanentes
+del proyecto.
+
+## 8. Validacion manual integrada local
+
+Fecha: 27-11-2026, hora local de Chile.
+
+Entorno: React, Django 6.0.6 y PostgreSQL local beatsbd.
+Navegador: Microsoft Edge.
+
+Se aplicaron correctamente las migraciones 0037 y 0038.
+Se crearon exclusivamente en local un administrador, dos artistas,
+un productor, una suscripcion de 15000 CLP y dos contrataciones
+simuladas. No se realizaron pagos reales.
+
+| Escenario | Resultado |
+|---|---|
+| Inicio de sesion y acceso a Membresias VIP | Aprobado |
+| Creacion de reporte desde React | Aprobado |
+| Persistencia en PostgreSQL | Aprobado |
+| Visualizacion desde Django Admin | Aprobado |
+| Consulta del contrato original | Aprobado |
+| Cambio a En revision | Aprobado |
+| Actualizacion del estado en React | Aprobado |
+| Resolucion administrativa | Aprobado |
+| Visualizacion de la resolucion por el artista | Aprobado |
+| Bloqueo de edicion posterior | Aprobado |
+| Privacidad entre ambos artistas | Aprobado |
+| Conservacion de pagos y membresias | Aprobado |
+
+El reporte local numero 1 fue resuelto correctamente.
+Los dos pagos simulados permanecen autorizados, con su entrega
+registrada y sus membresias vigentes.
+
+La comprobacion final directa de PostgreSQL confirmo que el
+segundo artista no posee reportes y que se conserva la
+informacion comercial verificada.
+
+La validacion integrada manual sustituye la prueba E2E
+automatizada propuesta, que no fue ejecutada.
+
+## 9. Archivos principales
+
+- app/models.py
+- app/admin.py
+- app/urls.py
+- app/subscription_reports_api.py
+- app/admin_subscription_reports.py
+- app/migrations/0037_subscription_report.py
+- app/migrations/0038_protect_subscription_reports.py
+- app/test_subscription_reports.py
+- app/test_subscription_reports_admin.py
+- app/test_subscription_reports_concurrency.py
+- app/test_subscription_reports_account_closure.py
+- frontend/client/src/api/types.ts
+- frontend/client/src/api/django.service.ts
+- frontend/client/src/components/ArtistProfilePage.tsx
+- frontend/client/src/components/SubscriptionReports.tsx
+- frontend/client/tests/subscriptionReports.browser.mjs
+
+## 10. Limitaciones y pendientes
+
+- Sin devoluciones ni cancelaciones automaticas.
+- Sin notificaciones automaticas de cambios de estado.
+- Sin paginacion del historial de reportes.
+- Sin carga de evidencias adjuntas.
+- Sin plazo automatico de resolucion.
+- Sin limite adicional de frecuencia de reportes tras su cierre.
+- Pendiente uniformar la presentacion de fechas UTC y hora chilena.
+- Pendiente definir politicas operativas de retencion y moderacion.
+
+Los datos ficticios de validacion permanecen exclusivamente
+en PostgreSQL local. No se incorporan credenciales ni registros
+de prueba al repositorio.
+
+## 11. Estado de integracion
+
+Rama: feat/reportes-incumplimiento-suscripciones.
+
+Implementacion y validacion local completadas.
+
+Pendientes:
+
+- Identificador de historia en Jira por confirmar.
+- Commit y push.
+- Pull Request y revision.
+- Integracion en main.
+- Despliegue Render y Vercel.
+- Aplicacion de migraciones en produccion.
+- Validacion posterior al despliegue.
+- Cierre de historia en Jira.
+
+Los pendientes anteriores de BeatsCloud no relacionados con esta
+historia permanecen vigentes.

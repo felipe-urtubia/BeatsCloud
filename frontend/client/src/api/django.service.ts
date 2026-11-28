@@ -1,3 +1,8 @@
+import type {
+  DSubscriptionReportInput,
+  DSubscriptionReportsResponse,
+  DSubscriptionReportCreated,
+} from './types';
 import type { WebpayReceipt } from './webpayReturn.mjs';
 import type { DSubscriptionPlanInput, DSubscriptionPlanDetails } from './types';
 /**
@@ -128,7 +133,13 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   if (!(opts.body instanceof FormData) && opts.body != null) headers.set('Content-Type', 'application/json');
   if (csrfToken && opts.method && opts.method !== 'GET') headers.set('X-CSRFToken', csrfToken);
   const res = await fetch(`${BASE}${path}`, { ...opts, headers, credentials: 'same-origin' });
-  if (res.status === 401 && path !== '/api/auth/login/') invalidateApiSession();
+  if (
+    res.status === 401 &&
+    path !== '/api/auth/login/' &&
+    !opts.signal?.aborted
+  ) {
+    invalidateApiSession();
+  }
   return parse(res) as Promise<T>;
 }
 
@@ -504,6 +515,81 @@ export const DjangoApi = {
     ),
   cancelPago: (transactionId: number) =>
     ensureCsrf().then(() => request<{ ok: boolean }>(`/api/pago/cancelar/${transactionId}/`, { method: 'POST' })),
+
+  // Reportes privados de suscripciones.
+  subscriptionReports: async (
+    ownerId: string,
+    signal?: AbortSignal,
+  ): Promise<DSubscriptionReportsResponse> => {
+    signal?.throwIfAborted();
+
+    const result = await request<DSubscriptionReportsResponse>(
+      '/api/subscription-reports/',
+      {
+        cache: 'no-store',
+        signal,
+        headers: {
+          'X-Report-Owner': ownerId,
+        },
+      },
+    );
+
+    signal?.throwIfAborted();
+
+    if (
+      result.owner_id !== ownerId ||
+      !Array.isArray(result.reports)
+    ) {
+      throw new Error(
+        'No se pudo verificar la identidad de los reportes.',
+      );
+    }
+
+    return result;
+  },
+
+  createSubscriptionReport: async (
+    ownerId: string,
+    data: DSubscriptionReportInput,
+    signal?: AbortSignal,
+  ): Promise<DSubscriptionReportCreated> => {
+    signal?.throwIfAborted();
+
+    await ensureCsrf();
+
+    signal?.throwIfAborted();
+
+    const result = await request<DSubscriptionReportCreated>(
+      '/api/subscription-reports/',
+      {
+        method: 'POST',
+        cache: 'no-store',
+        signal,
+        headers: {
+          'X-Report-Owner': ownerId,
+        },
+        body: JSON.stringify({
+          subscription_id: data.subscription_id,
+          reason: data.reason,
+          description: data.description,
+        }),
+      },
+    );
+
+    signal?.throwIfAborted();
+
+    if (
+      result.owner_id !== ownerId ||
+      !result.report ||
+      result.report.subscription_id !== data.subscription_id
+    ) {
+      throw new Error(
+        'No se pudo verificar la identidad del reporte.',
+      );
+    }
+
+    return result;
+  },
 
   // Productor / artista
   misVentas: () => request<DHistorialVenta[]>('/api/mis-ventas/'),
