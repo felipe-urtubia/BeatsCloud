@@ -643,7 +643,7 @@ export function SubscriptionReportForm({
 
       <p className="text-xs text-zinc-400">
         Enviar un reporte no cancela tu suscripción
-        ni genera una devoluci?n automática.
+        ni genera una devolución automática.
       </p>
 
       <div className="flex flex-wrap justify-end gap-2">
