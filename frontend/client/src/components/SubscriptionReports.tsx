@@ -276,7 +276,7 @@ function PrivateReportScope({
 
       setNotice(
         `Reporte #${response.report.id} enviado correctamente. ` +
-        'La administración revisar? tu caso.',
+        'La administración revisará tu caso.',
       );
 
       return true;
@@ -463,7 +463,7 @@ export function SubscriptionReportForm({
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
 
         <p className="text-sm font-semibold text-amber-400">
-          Reporte #{existing.id} ?
+          Reporte #{existing.id} —
           {' '}
           {existing.status === 'OPEN'
             ? 'Pendiente'
