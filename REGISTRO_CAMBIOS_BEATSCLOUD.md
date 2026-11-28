@@ -5017,3 +5017,234 @@ Pendientes:
 
 Los pendientes anteriores de BeatsCloud no relacionados con esta
 historia permanecen vigentes.
+
+
+---
+
+# 28-11-2026 - Cierre tecnico y despliegue de reportes de suscripciones
+
+## 1. Objetivo
+
+Consolidar la implementacion, integracion, despliegue y
+validacion funcional del sistema privado de reportes de
+incumplimiento de suscripciones de BeatsCloud.
+
+Historia de usuario:
+
+Como artista, necesito reportar a un productor cuando
+no cumple con los beneficios o servicios contratados
+en una suscripcion.
+
+## 2. Integracion en GitHub
+
+| Pull Request | Implementacion | Merge |
+|---|---|---|
+| #15 - Sistema de reportes | 56ee3ef | 11facf8 |
+| #16 - Correccion Unicode | 6f729b9 | 0423503 |
+| #17 - Correcciones Unicode finales | f774a65 | 4988fb7 |
+
+Referencias:
+
+- https://github.com/felipe-urtubia/BeatsCloud/pull/15
+- https://github.com/felipe-urtubia/BeatsCloud/pull/16
+- https://github.com/felipe-urtubia/BeatsCloud/pull/17
+
+Los tres Pull Requests fueron integrados en main.
+El repositorio local fue sincronizado mediante fast-forward.
+
+## 3. Despliegue backend
+
+Plataforma: Render.
+
+URL: https://beatscloud.onrender.com
+
+Commit desplegado:
+
+11facf86534c99d280b4e7fb1edbdc3e91b64652
+
+Fecha de despliegue: 27-11-2026.
+Hora de inicio registrada: 21:47:06 GMT-3.
+Duracion: 1 minuto y 9 segundos.
+
+Resultado: Deploy succeeded / Live.
+
+## 4. Migraciones PostgreSQL
+
+Migraciones aplicadas correctamente en produccion:
+
+- 0037_subscription_report
+- 0038_protect_subscription_reports
+
+Fecha: 27-11-2026.
+Hora: 21:47:29 GMT-3.
+
+Ambas migraciones finalizaron con resultado OK.
+
+No se requirieron migraciones manuales adicionales.
+Se conservaron las referencias comerciales mediante PROTECT.
+
+## 5. Despliegue frontend
+
+Plataforma: Vercel.
+
+URL: https://beats-cloud.vercel.app
+
+| Version | Commit | Compilacion |
+|---|---|---|
+| Implementacion original | 11facf8 | 17 segundos |
+| Primera correccion Unicode | 0423503 | 15 segundos |
+| Correccion definitiva | 4988fb7 | 14 segundos |
+
+Commit final publicado:
+
+4988fb77dd24cf5ee0570e12bbdc74f540b1d1a0
+
+Estado confirmado: Ready / Production / Current.
+
+Publicacion definitiva verificada el 28-11-2026.
+
+La diferencia entre los commits desplegados en Render
+y Vercel es intencional. Los PR #16 y #17 modificaron
+exclusivamente textos del frontend.
+
+## 6. Regresion automatizada original
+
+| Categoria | Resultado |
+|---|---|
+| Django | 775/775 |
+| Node.js | 78/78 |
+| Playwright Webpay D7 | 8/8 |
+| Playwright reportes | 8/8 |
+| Total | 869/869 |
+
+Las 53 pruebas nuevas del backend estan incluidas
+dentro de las 775 pruebas Django.
+
+Las correcciones Unicode posteriores fueron verificadas
+mediante inspeccion del diff, validaciones de texto,
+TypeScript y compilaciones Vite locales y remotas.
+
+No se repitio la regresion integral de 869 pruebas
+despues de las modificaciones exclusivamente textuales.
+
+## 7. Validacion funcional en produccion
+
+Se contrato una membresia de demostracion denominada
+produccion vip, por 20000 CLP y duracion de un mes.
+
+La membresia fue visualizada correctamente con sus
+beneficios, precio y fechas de contratacion.
+
+Se creo el reporte QA numero 1, expresamente identificado
+como una prueba controlada y no como un incumplimiento real.
+
+| Evento | Fecha y hora local de Chile |
+|---|---|
+| Inicio de contratacion | 27-11-2026 22:12 |
+| Creacion del reporte QA | 27-11-2026 23:24 |
+| Cambio a En revision | 27-11-2026 23:44 |
+| Desestimacion | 27-11-2026 23:56 |
+
+Resultados:
+
+- Formulario disponible para una contratacion elegible.
+- Creacion del reporte y actualizacion del historial.
+- Cambio administrativo a En revision.
+- Bloqueo visual de nuevos reportes mientras existe uno abierto.
+- Desestimacion administrativa.
+- Resolucion visible desde la cuenta del artista.
+- Conservacion del historial original.
+- Membresia vigente despues de la desestimacion.
+- Precio, beneficios y fechas conservados en la interfaz.
+- Boton de reporte nuevamente disponible tras el cierre.
+
+El reporte QA se conserva como evidencia de validacion,
+en estado DISMISSED y sin atribuir un incumplimiento real.
+
+La conservacion de la membresia fue comprobada mediante
+la interfaz de produccion. No se realizo una auditoria
+directa final de todos los registros comerciales de
+PostgreSQL de produccion.
+
+## 8. Administracion de produccion
+
+Se creo una cuenta administrativa independiente de
+las cuentas comerciales, debido a la ausencia de
+superusuarios en la base de produccion.
+
+El primer intento fue interrumpido por el cierre de
+la conexion PostgreSQL antes de crear la cuenta.
+
+El segundo intento fue exitoso mediante una nueva
+conexion SSL antes de iniciar la transaccion.
+
+Se verificaron los permisos de superusuario, staff
+y cuenta activa.
+
+No se incorporaron credenciales, contrasenas ni
+cadenas de conexion a la documentacion o al repositorio.
+
+## 9. Correcciones Unicode
+
+Durante la validacion se detectaron tres errores
+de representacion de caracteres:
+
+- Aviso de devolucion automatica.
+- Mensaje de confirmacion de envio.
+- Separador entre identificador y estado del reporte.
+
+Las tres correcciones quedaron integradas en main.
+
+Las dos ultimas fueron verificadas en el codigo
+y las compilaciones, sin generar otro reporte QA
+en produccion para comprobarlas visualmente.
+
+## 10. Smoke tests de produccion
+
+Se ejecutaron dos rondas de comprobaciones HTTP.
+
+| Comprobacion | HTTP esperado | Inicial | Final |
+|---|---|---|---|
+| Frontend Vercel | 200 | OK | OK |
+| API privada Render | 401 | OK | OK |
+| API privada via Vercel | 401 | OK | OK |
+
+Resultado final: 3/3 comprobaciones aprobadas.
+
+El endpoint rechaza solicitudes anonimas y no devuelve
+el historial privado de reportes.
+
+## 11. Limitaciones y pendientes independientes
+
+- Sin devoluciones ni cancelaciones automaticas.
+- Sin notificaciones automaticas de moderacion.
+- Sin carga de evidencias adjuntas.
+- Sin paginacion del historial.
+- Sin plazo automatico de resolucion.
+- Sin limite adicional de frecuencia tras cerrar reportes.
+- Pendiente uniformar fechas administrativas UTC y hora local.
+- Pendiente definir politicas operativas de retencion.
+- Se observo una imagen de portada de perfil que no carga.
+  Su diagnostico corresponde a una tarea independiente.
+
+## 12. Estado final
+
+Implementacion: COMPLETADA.
+Regresion automatizada original: APROBADA.
+Validacion manual local: APROBADA.
+Validacion funcional en produccion: APROBADA.
+Integracion en GitHub: COMPLETADA.
+Migraciones PostgreSQL: COMPLETADAS.
+Despliegue Render: COMPLETADO.
+Despliegue Vercel: COMPLETADO.
+Smoke test definitivo: APROBADO.
+
+Pendientes administrativos:
+
+- Publicar esta documentacion de cierre.
+- Eliminar las ramas de trabajo ya integradas.
+- Confirmar el identificador de la historia en Jira.
+- Actualizar y cerrar la historia correspondiente.
+
+No se requieren cambios funcionales adicionales
+para el alcance implementado y validado.
