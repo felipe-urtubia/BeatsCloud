@@ -1,3 +1,7 @@
+import {
+  SubscriptionReportScope,
+  SubscriptionReportForm,
+} from './SubscriptionReports';
 import { TrackCover } from './TrackCover';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -47,6 +51,7 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     updateProfile,
     getContractForPurchase,
     configuredMode,
+    isSwitchingAccount,
     purchasesLoading,
     purchasesError,
     toggleLike,
@@ -65,6 +70,17 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
     : (currentUser as User);
 
   const isOwner = currentUser?.id === targetUser.id;
+
+  const reportOwnerId =
+    configuredMode === 'hybrid' &&
+    !isSwitchingAccount &&
+    isOwner &&
+    currentUser?.role === 'artista' &&
+    currentUser.hasProfile === true &&
+    (!artistId || artistId === currentUser.id)
+      ? currentUser.id
+      : null;
+
 
   const purchaseHistory = isOwner
     ? purchases.filter((purchase) => purchase.userId === targetUser.id)
@@ -490,6 +506,7 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
         {/* Tab 3: Subscriptions */}
         {activeTab === 'membresias' && isOwner && (
           <div className="mt-6 space-y-4">
+            <SubscriptionReportScope ownerId={reportOwnerId}>
             <h3 className="text-lg font-bold text-white">
               Mis membresías
             </h3>
@@ -589,10 +606,22 @@ export const ArtistProfilePage: React.FC<ArtistProfilePageProps> = ({
                     <p className="text-xs text-zinc-500">
                       No se realizan cobros automáticos.
                     </p>
+                    {reportOwnerId && period && (
+                      <SubscriptionReportForm
+                        key={`${reportOwnerId}:${id}`}
+                        membershipId={id}
+                        subscriptionTitle={
+                          contract?.detalle ??
+                          sub?.title ??
+                          'Servicio contratado'
+                        }
+                      />
+                    )}
                   </div>
                 );
               })
             )}
+            </SubscriptionReportScope>
           </div>
         )}
       </div>
